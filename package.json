@@ -1,0 +1,13 @@
+{
+  "name": "fifabet-arena",
+  "version": "1.0.0",
+  "private": true,
+  "description": "Protótipo front-end da FifaBet Arena",
+  "type": "module",
+  "scripts": {
+    "test": "node --test *.test.mjs"
+  },
+  "engines": {
+    "node": ">=18"
+  }
+}

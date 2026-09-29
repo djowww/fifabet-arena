@@ -1,0 +1,36 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="theme-color" content="#10141c">
+  <meta name="description" content="Sua arena de futebol virtual. Acompanhe partidas, experimente palpites e jogue junto com a comunidade em uma demonstração interativa.">
+  <title>FifaBet — sua arena de futebol virtual</title>
+  <link rel="icon" type="image/svg+xml" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Crect width='32' height='32' rx='9' fill='%23c4f66c'/%3E%3Cpath d='M10 7h15l-2 5h-8l-1 4h7l-2 5h-6l-2 5H5z' fill='%2310141c'/%3E%3C/svg%3E">
+  <link rel="stylesheet" href="styles.css">
+</head>
+<body>
+  <a class="skip-link" href="#screen">Ir para o conteúdo</a>
+  <aside class="sidebar">
+    <a class="brand" href="#arena" aria-label="FifaBet Arena"><span class="brand-symbol" aria-hidden="true">f</span><span>fifa<b>bet</b><small>FUTEBOL VIRTUAL</small></span></a>
+    <span class="nav-caption">SUA ARENA</span>
+    <nav id="navigation" aria-label="Navegação principal"></nav>
+    <div class="sidebar-bottom"><button class="help-button" data-action="help">Como funciona <span>?</span></button><div class="demo-side"><span class="pill lime">DEMO</span><p>Explore com pontos fictícios.<br>Sem valor financeiro.</p></div></div>
+  </aside>
+  <div class="shell">
+    <header class="topbar">
+      <a class="mobile-brand" href="#arena">fifa<b>bet</b><small>DEMO</small></a>
+      <div class="breadcrumb"><span id="breadcrumb">Arena</span><span class="pill subtle">DEMO</span></div>
+      <div id="headerActions" class="header-actions"></div>
+    </header>
+    <div id="storageWarning" class="storage-warning" role="status" hidden>As alterações ficarão disponíveis apenas nesta sessão.</div>
+    <main id="screen" tabindex="-1"><div class="initial-load">Preparando sua arena…</div></main>
+    <footer class="page-footer"><span>FifaBet Arena</span><span>Protótipo independente · partidas, perfis e pagamentos ilustrativos.</span></footer>
+  </div>
+  <div id="mobileSlip" class="mobile-slip" hidden></div>
+  <dialog id="modal" aria-labelledby="dialogTitle"><div id="modalContent"></div></dialog>
+  <div id="toast" class="toast" role="status" aria-live="polite"></div>
+  <noscript><p class="noscript">Ative o JavaScript para explorar a demonstração da FifaBet.</p></noscript>
+  <script type="module" src="app.js"></script>
+</body>
+</html>

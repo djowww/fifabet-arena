@@ -1,22 +1,26 @@
 # FifaBet Arena
 
-Protótipo de uma arena de EA SPORTS FC com partidas de exemplo, palpites com pontos fictícios e recursos sociais demonstrativos.
+Protótipo front-end de uma arena para desafiar amigos no EA SPORTS FC, combinar o formato da partida e acompanhar vitórias, ranking, avatares e medalhas.
 
 **GitHub Pages:** https://djowww.github.io/fifabet-arena/
-**Site original:** https://fifabet.ricardozordan1994.chatgpt.site
 
-## Recursos da demonstração
+## O que dá para explorar
 
-- Perfis locais, favoritos e lembretes de partidas.
-- Palpites, resultados simulados, carteira e extrato com pontos fictícios.
-- Fluxos de Pix e cartão de demonstração, sem transferência ou cobrança.
-- Troféus, níveis, lista de amigos, convites e desafios amistosos.
+- Criar um perfil local com apelido e avatar.
+- Descobrir jogadores de exemplo, aceitar convites e montar uma lista de amigos.
+- Enviar um desafio de demonstração escolhendo modo de jogo e pontos simbólicos.
+- Simular o aceite do desafio, registrar o vencedor e atualizar o ranking local.
+- Ver um ranking ilustrativo, histórico local e coleção de medalhas.
 
-As partidas, os placares, os jogadores e os pagamentos são ilustrativos. O estado fica no navegador do visitante; não há servidor de contas, autenticação ou pagamentos reais.
+Os jogadores, convites e números do ranking são demonstrativos. Os dados ficam no navegador; ainda não há contas compartilhadas, sincronização entre dispositivos, servidor de partidas ou apostas e pagamentos reais. Os pontos simbólicos não são descontados, transferidos nem convertidos em dinheiro.
+
+## Por onde continuar
+
+O próximo passo de produto é validar o ciclo **adicionar amigo → enviar desafio → confirmar resultado → atualizar ranking**. Para que duas pessoas participem de verdade em dispositivos diferentes, a etapa seguinte de engenharia é adicionar autenticação e um backend compartilhado para convites, resultados e estatísticas. Pagamentos reais não fazem parte deste MVP.
 
 ## Executar localmente
 
-Com Node.js 18 ou superior, sem instalar dependências:
+Com Node.js 18 ou superior, sem dependências externas:
 
 ```bash
 npm test
@@ -27,6 +31,6 @@ Depois, acesse http://localhost:4173.
 
 ## Arquivos
 
-- `index.html`, `styles.css`, `app.js` e `model.mjs` — arquivos servidos pelo GitHub Pages.
+- `index.html`, `styles.css`, `app.js` e `model.mjs` — aplicação estática servida pelo GitHub Pages.
 - `model.test.mjs` e `ui-flows.test.mjs` — testes das regras e dos fluxos da demonstração.
-- `package.json` — comando local de testes, sem dependências externas.
+- `package.json` — comandos do projeto, sem dependências externas.

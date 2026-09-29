@@ -1,5 +1,5 @@
 export const STORAGE_KEY = 'fifabet:arena:v2';
-export const VIEWS = ['arena', 'bets', 'wallet', 'trophies', 'friends'];
+export const VIEWS = ['arena', 'friends', 'ranking', 'bets', 'trophies', 'wallet'];
 export const MATCHES = [
   {id:'m1',type:'professional',phase:'live',league:'Copa Brasil',stage:'Semifinal · Jogo 2',home:'NandoFC',away:'LucasD10',score:[2,1],minute:62,odds:[1.72,2.20],color:'violet'},
   {id:'m2',type:'community',phase:'live',league:'Copa da Comunidade',stage:'Chave superior · MD3',home:'gui_x',away:'Renatinho',score:[0,0],minute:28,odds:[1.96,1.88],color:'mint'},
@@ -23,7 +23,7 @@ export const TROPHIES = [
   {id:'firstbet',name:'Visão de jogo',description:'Registre seu primeiro palpite.',icon:'ticket',color:'blue'},
   {id:'winner',name:'Bola na rede',description:'Conclua um palpite vencedor na simulação.',icon:'target',color:'mint'},
   {id:'friend',name:'Joga junto',description:'Adicione seu primeiro amigo demo.',icon:'users',color:'pink'},
-  {id:'explorer',name:'Explorador',description:'Visite as cinco áreas da FifaBet.',icon:'compass',color:'violet'}
+  {id:'explorer',name:'Explorador',description:'Conheça as áreas principais da FifaBet.',icon:'compass',color:'violet'}
 ];
 const stamp=()=>new Date().toISOString();
 const uid=()=>globalThis.crypto?.randomUUID?.() || `demo-${Date.now()}-${Math.random().toString(36).slice(2,9)}`;
@@ -122,8 +122,17 @@ export function change(input,action,data={}){
       p.friends=p.friends.filter(id=>id!==data.id);p.challenges=p.challenges.filter(c=>c.personId!==data.id);
     }else if(action==='challenge'){
       const who=person(data.id);if(!p.friends.includes(who.id))throw Error('Adicione esse jogador aos amigos primeiro.');
-      if(p.challenges.some(c=>c.personId===who.id))throw Error('Já existe um desafio demo pendente para esse amigo.');
-      p.challenges.push({id:uid(),personId:who.id,date:stamp()});activity(p,`Desafio amistoso enviado para ${who.name}. Sem pontos envolvidos.`,'gamepad');
+      if(p.challenges.some(c=>c.personId===who.id&&['sent','accepted'].includes(c.status)))throw Error('Já existe um desafio demo pendente para esse amigo.');
+      const stake=Number(data.stake??100),mode=String(data.mode||'1v1');
+      if(![50,100,250,500].includes(stake))throw Error('Escolha um valor simbólico válido.');
+      if(!['1v1','Ultimate Team','Clubes'].includes(mode))throw Error('Escolha um formato de partida válido.');
+      p.challenges.push({id:uid(),personId:who.id,date:stamp(),stake,mode,status:'sent'});activity(p,`Desafio demo enviado para ${who.name}: ${points(stake)} pontos simbólicos · ${mode}.`,'gamepad');
+    }else if(action==='acceptChallenge'){
+      const c=p.challenges.find(item=>item.id===data.id&&item.status==='sent');if(!c)throw Error('Este convite não está mais pendente.');
+      c.status='accepted';activity(p,`Aceite demo confirmado para o desafio de ${person(c.personId).name}.`,'gamepad');
+    }else if(action==='resolveChallenge'){
+      const c=p.challenges.find(item=>item.id===data.id&&item.status==='accepted');if(!c||!['you','friend'].includes(data.winner))throw Error('Escolha um desafio confirmado e um vencedor.');
+      c.status='completed';c.winner=data.winner;c.completedAt=stamp();activity(p,`${data.winner==='you'?'Você venceu':'Seu amigo venceu'} o desafio demo contra ${person(c.personId).name}.`,'trophy');
     }else if(action==='cancelChallenge'){p.challenges=p.challenges.filter(c=>c.id!==data.id);}
     else if(action==='readActivity'){p.unread=0;}
     else throw Error('Ação desconhecida.');
@@ -148,7 +157,7 @@ export function restore(raw,oldProfile=null,oldBets=null){
       p.transactions=array(value.transactions).filter(t=>t&&Number.isSafeInteger(t.amount)&&typeof t.ref==='string').map(t=>({id:text(String(t.id),80),ref:text(t.ref,150),kind:text(t.kind,30),label:text(t.label),amount:t.amount,date:text(t.date,40)||stamp()})).slice(0,3000);
       p.friends=[...new Set(array(value.friends).filter(id=>PEOPLE.some(w=>w.id===id)))];
       p.requests=array(value.requests).filter(r=>r&&PEOPLE.some(w=>w.id===r.personId)&&['in','out'].includes(r.direction)&&!p.friends.includes(r.personId)).map(r=>({personId:r.personId,direction:r.direction}));
-      p.challenges=array(value.challenges).filter(c=>c&&p.friends.includes(c.personId)).map(c=>({id:text(c.id,80),personId:c.personId,date:text(c.date,40)}));
+      p.challenges=array(value.challenges).filter(c=>c&&p.friends.includes(c.personId)).map(c=>({id:text(c.id,80),personId:c.personId,date:text(c.date,40),stake:[50,100,250,500].includes(Number(c.stake))?Number(c.stake):0,mode:['1v1','Ultimate Team','Clubes'].includes(c.mode)?c.mode:'1v1',status:['sent','accepted','completed'].includes(c.status)?c.status:'sent',winner:['you','friend'].includes(c.winner)?c.winner:'',completedAt:text(c.completedAt,40)}));
       p.favorites=[...new Set(array(value.favorites).filter(id=>MATCHES.some(m=>m.id===id)))];
       p.reminders=[...new Set(array(value.reminders).filter(id=>MATCHES.some(m=>m.id===id)))];
       p.visited=[...new Set(array(value.visited).filter(v=>VIEWS.includes(v)))];p.achievements={};

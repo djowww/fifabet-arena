@@ -1,0 +1,66 @@
+/* The arena's competitive modes: face-off, tournament bracket and match ticket. */
+.competitive-modes{margin:36px 0}
+.competitive-modes .section-heading{margin-bottom:19px}
+.competitive-modes .mode-grid{gap:16px}
+.competitive-modes .competitive-mode-card{padding:23px;min-height:415px;border:1px solid #424747;border-radius:10px;background:#1b1e1e;transition:border-color .2s,transform .2s}
+.competitive-modes .competitive-mode-card::before{background:linear-gradient(130deg,transparent 50%,#ffffff03 50% 65%,transparent 65%)}
+.competitive-modes .competitive-mode-card:nth-child(2){border-top:1px solid #424747}
+.competitive-modes .competitive-mode-card:nth-child(2)::after{display:none}
+.competitive-modes .competitive-mode-card:hover{border-color:#07f46880;transform:translateY(-3px)}
+.competitive-modes .mode-index{position:relative;z-index:1;margin-bottom:11px;font-size:9px;font-weight:750;letter-spacing:1.6px}
+.competitive-modes .competitive-art{position:relative;display:flex;align-items:center;justify-content:center;height:137px;flex-shrink:0;margin:0 -2px 22px;overflow:hidden;border-bottom:1px solid #ffffff12;color:#07f468}
+.competitive-modes .competitive-mode-card h3{font-size:31px;letter-spacing:-1px;margin:0 0 10px;line-height:1.06}
+.competitive-modes .competitive-mode-card p{font-size:13px;line-height:1.65;max-width:none;margin-bottom:22px;color:#c1c8c4}
+.competitive-modes .competitive-mode-card .btn{min-height:44px;padding:12px 19px;gap:13px}
+.competitive-modes .competitive-mode-card .btn .icon{width:16px;height:16px}
+.competitive-modes .duel-mode-art{flex-direction:column;gap:7px;padding-bottom:16px}
+.competitive-modes .duel-mode-art::before,.competitive-modes .duel-mode-art::after{content:'';position:absolute;width:95px;height:95px;border:1px solid #ffffff13;transform:rotate(45deg);top:10px;z-index:0}
+.competitive-modes .duel-mode-art::before{left:7%;background:linear-gradient(135deg,#ffffff05,transparent)}
+.competitive-modes .duel-mode-art::after{right:7%;border-color:#07f46830;background:linear-gradient(135deg,transparent,#07f46808)}
+.competitive-modes .duel-mark{position:relative;display:flex;align-items:center;gap:14px;font-family:'Arial Black','Segoe UI',sans-serif;font-size:78px;line-height:.95;font-weight:950;font-style:italic;letter-spacing:-5px;color:#fafafa;text-shadow:0 5px 25px #0003}
+.competitive-modes .duel-mark>span{font-size:39px;letter-spacing:-2px;color:#07f468;transform:translateY(4px)}
+.competitive-modes .duel-label{position:relative;display:flex;align-items:center;gap:14px;font-size:8px;font-weight:700;letter-spacing:1.8px;color:#c6cccc}
+.competitive-modes .duel-label>span{color:#07f468;font-size:7px;letter-spacing:1px}
+.competitive-modes .tournament-mode-art{gap:12px;padding-bottom:23px}
+.competitive-modes .bracket-cup{display:grid;place-items:center;position:relative;width:82px;height:86px;color:#07f468;background:radial-gradient(ellipse,#07f46815,transparent 73%);filter:drop-shadow(0 4px 14px #07f46820)}
+.competitive-modes .bracket-cup>.icon{width:62px;height:62px;stroke-width:1.4}
+.competitive-modes .bracket-side{display:flex;flex-direction:column;gap:27px;position:relative;width:46px;height:63px}
+.competitive-modes .bracket-side>i{position:relative;display:block;height:15px;border:1px solid #69716d;border-radius:2px;background:#ffffff04}
+.competitive-modes .bracket-side>i::after{content:'';position:absolute;top:6px;width:12px;border-top:1px solid #07f46885}
+.competitive-modes .bracket-left>i::after{left:100%}
+.competitive-modes .bracket-right>i::after{right:100%}
+.competitive-modes .bracket-side::after{content:'';position:absolute;top:14px;height:42px;width:9px;border-top:1px solid #07f46885;border-bottom:1px solid #07f46885}
+.competitive-modes .bracket-left::after{left:calc(100% + 11px);border-right:1px solid #07f46885}
+.competitive-modes .bracket-right::after{right:calc(100% + 11px);border-left:1px solid #07f46885}
+.competitive-modes .tournament-mode-art>small{position:absolute;bottom:13px;font-size:7px;font-weight:700;letter-spacing:2px;color:#b7c5bc}
+.competitive-modes .wager-mode-art{gap:15px;padding-bottom:19px}
+.competitive-modes .wager-ticket{position:relative;display:grid;place-items:center;width:81px;height:92px;border:1px solid #07f4688c;border-radius:8px;background:linear-gradient(130deg,#07f46810,#07f46803);transform:rotate(-12deg);box-shadow:0 9px 24px #0002;color:#07f468}
+.competitive-modes .wager-ticket::before{content:'';position:absolute;inset:7px;border:1px dashed #07f46845;border-radius:4px}
+.competitive-modes .wager-ticket>.icon{position:absolute;top:14px;width:26px;height:26px;stroke-width:1.4}
+.competitive-modes .wager-ticket>b{font-family:'Arial Black','Segoe UI',sans-serif;font-size:28px;line-height:1;margin-top:22px;letter-spacing:-2px;font-style:italic;color:#fafafa}
+.competitive-modes .wager-ring{display:grid;place-items:center;width:63px;height:63px;border:1px solid #5b6560;border-radius:50%;background:#242a27;transform:translate(-1px,12px);box-shadow:0 5px 18px #0002}
+.competitive-modes .wager-ring>.icon{width:33px;height:33px;stroke-width:1.4}
+.competitive-modes .wager-mode-art>small{position:absolute;right:5px;bottom:15px;font-size:6px;line-height:1.8;letter-spacing:1.4px;color:#b7c5bc;text-align:right}
+.competitive-modes-note{font-size:10px;line-height:1.6;color:#9ba7a0;margin-top:12px}
+.competitive-modes .mode-wager{border-color:#07f46870;background:linear-gradient(135deg,#193626,#1b1e1e 72%)}
+.tournament-preview-top{display:flex;align-items:center;justify-content:space-between;gap:12px;margin:20px 0 14px}
+.tournament-preview-top>span:last-child{font-size:9px;letter-spacing:1.5px;color:#a7b9ae}
+.tournament-bracket{display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1fr);gap:18px;margin:24px 0}
+.tournament-bracket section{min-width:0}
+.tournament-bracket section>h3{font-size:10px;letter-spacing:1.5px;text-transform:uppercase;color:#07f468;margin-bottom:12px}
+.tournament-match{border:1px solid #44594c;border-radius:7px;background:#141c18;margin-bottom:12px;padding:12px}
+.tournament-match-label{display:block;font-size:8px;letter-spacing:1.3px;color:#91a99a;margin-bottom:9px}
+.tournament-match>div{display:flex;align-items:center;gap:7px;padding:7px 0;font-size:11px;color:#e0ebe4}
+.tournament-match>div+div{border-top:1px solid #ffffff12}
+.tournament-match .icon{width:13px;height:13px;flex:none;color:#7eb48e}
+.tournament-match>div>span{flex:1;min-width:0;overflow-wrap:anywhere}
+.tournament-match b{color:#91a99a;font-size:12px}
+.tournament-final{display:flex;flex-direction:column}
+.tournament-final .tournament-match{margin-top:30px}
+.tournament-champion{display:flex;align-items:center;justify-content:center;gap:10px;padding:16px 8px;color:#e9cc79;font-size:11px;line-height:1.5;text-align:center}
+.tournament-champion .icon{width:31px;height:31px;flex:none}
+.tournament-preview-actions{display:grid;gap:9px;margin-top:20px}
+@media(max-width:520px){.tournament-bracket{grid-template-columns:1fr;gap:8px}.tournament-final .tournament-match{margin-top:0}.tournament-preview-top{flex-wrap:wrap}}
+@media(max-width:1050px) and (min-width:601px){.competitive-modes .competitive-mode-card{padding:20px;min-height:427px}.competitive-modes .competitive-art{height:126px}.competitive-modes .duel-mark{font-size:65px;gap:10px}.competitive-modes .duel-mark>span{font-size:33px}.competitive-modes .duel-label{gap:8px;font-size:7px;letter-spacing:1.1px}.competitive-modes .tournament-mode-art{gap:9px}.competitive-modes .bracket-side{width:30px}.competitive-modes .bracket-cup{width:62px}.competitive-modes .bracket-cup>.icon{width:54px;height:54px}.competitive-modes .competitive-mode-card h3{font-size:28px}.competitive-modes .competitive-mode-card p{font-size:12px}.competitive-modes .wager-mode-art{gap:9px}.competitive-modes .wager-ticket{width:69px;height:86px}.competitive-modes .wager-ring{width:52px;height:52px}.competitive-modes .wager-ring>.icon{width:28px;height:28px}.competitive-modes .wager-mode-art>small{font-size:5px;letter-spacing:1px;bottom:10px}}
+@media(max-width:600px){.competitive-modes{margin:29px 0}.competitive-modes .mode-grid{grid-template-columns:1fr;gap:14px}.competitive-modes .competitive-mode-card{min-height:0;padding:24px}.competitive-modes .mode-index{font-size:9px}.competitive-modes .competitive-art{height:134px;margin-bottom:21px}.competitive-modes .competitive-mode-card h3{font-size:33px}.competitive-modes .competitive-mode-card p{font-size:13px;margin-bottom:20px}.competitive-modes .competitive-mode-card .btn{min-height:45px}.competitive-modes .wager-mode-art>small{font-size:7px;right:10px;bottom:18px}.competitive-modes-note{font-size:10px}}
+@media(prefers-reduced-motion:reduce){.competitive-modes .competitive-mode-card{transition:none}.competitive-modes .competitive-mode-card:hover{transform:none}}

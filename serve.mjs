@@ -16,6 +16,7 @@ const files = new Map([
   ["/football-trophies.mjs", ["football-trophies.mjs", "text/javascript; charset=utf-8"]],
   ["/rivalry-section.mjs", ["rivalry-section.mjs", "text/javascript; charset=utf-8"]],
   ["/rivalry.css", ["rivalry.css", "text/css; charset=utf-8"]],
+  ["/competitive-modes.css", ["competitive-modes.css", "text/css; charset=utf-8"]],
   ["/assets/brand/ea-sports-fc.svg", ["assets/brand/ea-sports-fc.svg", "image/svg+xml"]],
 ]);
 

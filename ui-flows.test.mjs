@@ -14,20 +14,20 @@ function harness(){
  const window={addEventListener:(n,f)=>windowListeners[n]=f,scrollTo(){}};
  const ctx={...model,document,window,location,localStorage,sessionStorage,crypto,console,requestAnimationFrame:f=>f(),setTimeout:(f,ms)=>{const id=++timerId;timers.set(id,{f,ms});return id;},clearTimeout:id=>timers.delete(id),FormData:class{constructor(f){this.values=f.values;}get(k){return this.values[k];}}};
  vm.createContext(ctx);
- vm.runInContext(source.replace(/^import .*?;\n/,'')+`\nglobalThis.api={getState:()=>state,getUI:()=>ui,commit,render,go,showAuth,readSlip,renderWallet,renderFriends,renderTrophies,renderBets,slipHTML,showMatch};`,ctx);
+ vm.runInContext(source.replace(/^import .*?;\r?\n/,'')+`\nglobalThis.api={getState:()=>state,getUI:()=>ui,commit,render,go,showAuth,readSlip,renderWallet,renderFriends,renderTrophies,renderBets,slipHTML,showMatch};`,ctx);
  const click=(action,data={})=>listeners.click({target:{closest(selector){if(selector==='.skip-link')return null;return {dataset:{action,...data},disabled:false};}}});
- const submit=(kind,nickname)=>listeners.submit({preventDefault(){},target:{closest(){return {dataset:{form:kind},values:{nickname},reportValidity:()=>true};}}});
+ const submit=(kind,nickname,fields={})=>listeners.submit({preventDefault(){},target:{closest(){return {dataset:{form:kind,id:fields.id},values:{nickname,...fields},reportValidity:()=>true};}}});
  const tick=ms=>{for(const [id,t] of [...timers])if(t.ms===ms){timers.delete(id);t.f();}};
  return {api:ctx.api,nodes,click,submit,tick,document,location,localStorage,sessionStorage,listeners,windowListeners};
 }
-test('create/profile buttons render all five routes without runtime errors',()=>{
- const h=harness();assert.match(h.nodes.screen.innerHTML,/NandoFC/);h.click('auth',{mode:'create'});assert.ok(h.nodes.modal.open);h.submit('create','Ricardo');assert.equal(model.current(h.api.getState()).nickname,'Ricardo');assert.match(h.nodes.headerActions.innerHTML,/1.000/);
+test('create/profile buttons render every route without runtime errors',()=>{
+ const h=harness();assert.match(h.nodes.screen.innerHTML,/Desafie um amigo no EA SPORTS FC/);h.click('auth',{mode:'create'});assert.ok(h.nodes.modal.open);h.submit('create','Ricardo');assert.equal(model.current(h.api.getState()).nickname,'Ricardo');assert.match(h.nodes.headerActions.innerHTML,/1.000/);
  for(const view of model.VIEWS){h.api.getUI().view=view;h.api.render();assert.ok(h.nodes.screen.innerHTML.length>1000);}
  h.click('profile');h.submit('profile','RicoFC');assert.equal(model.current(h.api.getState()).nickname,'RicoFC');assert.equal(h.nodes.modal.open,false);
 });
-test('bet selection, confirmation and settlement update visible account and card',()=>{
+test('legacy bet history still records results in the account',()=>{
  const h=harness();h.submit('create','Ricardo');h.click('pick',{id:'m1',side:'away'});h.click('reviewBet');assert.match(h.nodes.modalContent.innerHTML,/220 pts/);h.click('confirmBet');assert.equal(model.current(h.api.getState()).balance,900);assert.equal(model.current(h.api.getState()).bets.length,1);assert.equal(h.api.getUI().pick,null);
- h.click('settle',{id:'m1'});h.click('settleResult',{id:'m1',side:'away'});assert.equal(model.current(h.api.getState()).balance,1120);assert.match(h.nodes.screen.innerHTML,/LucasD10 venceu na simulação/);assert.doesNotMatch(h.nodes.screen.innerHTML,/team-score'>2</);
+ h.click('settle',{id:'m1'});h.click('settleResult',{id:'m1',side:'away'});assert.equal(model.current(h.api.getState()).balance,1120);assert.equal(model.current(h.api.getState()).bets[0].status,'won');h.api.getUI().view='bets';h.api.render();assert.match(h.nodes.screen.innerHTML,/LucasD10/);assert.match(h.nodes.screen.innerHTML,/Vencedor/);
 });
 test('payment rejection, retry, approval and close/cancel affect balance correctly',()=>{
  const h=harness();h.submit('create','Ricardo');h.click('deposit',{method:'card'});h.click('package',{value:'2500'});h.click('paymentReview');assert.match(h.nodes.modalContent.innerHTML,/4242/);h.click('paymentDecline');assert.equal(model.current(h.api.getState()).balance,1000);assert.match(h.nodes.modalContent.innerHTML,/recusado/);h.click('paymentRetry');h.click('paymentApprove');h.tick(650);assert.equal(model.current(h.api.getState()).balance,3500);assert.match(h.nodes.modalContent.innerHTML,/Pontos na carteira/);h.click('paymentApprove');h.tick(650);assert.equal(model.current(h.api.getState()).balance,3500);
@@ -45,5 +45,7 @@ test('invalid fractional input cannot masquerade as insufficient funds; skip lin
 });
 test('friend buttons complete incoming/outgoing requests and cancel challenges',()=>{
  const h=harness();h.submit('create','Ricardo');h.click('accept',{id:'bia'});assert.ok(model.current(h.api.getState()).friends.includes('bia'));h.click('invite',{id:'leo'});h.click('simulateAccept',{id:'leo'});assert.ok(model.current(h.api.getState()).friends.includes('leo'));
- h.click('challenge',{id:'leo'});h.click('challengeConfirm',{id:'leo'});const p=model.current(h.api.getState());assert.equal(p.challenges.length,1);assert.equal(p.balance,1000);h.click('cancelChallenge',{id:p.challenges[0].id});assert.equal(model.current(h.api.getState()).challenges.length,0);h.click('removeFriend',{id:'leo'});h.click('removeFriendConfirm',{id:'leo'});assert.equal(model.current(h.api.getState()).friends.includes('leo'),false);
+ h.click('challenge',{id:'leo'});h.submit('challenge','',{id:'leo',mode:'Ultimate Team',stake:'250'});let p=model.current(h.api.getState()),challenge=p.challenges[0];assert.equal(p.challenges.length,1);assert.equal(challenge.mode,'Ultimate Team');assert.equal(challenge.stake,250);assert.equal(challenge.status,'sent');assert.equal(p.balance,1000);
+ h.click('acceptChallenge',{id:challenge.id});assert.equal(model.current(h.api.getState()).challenges[0].status,'accepted');h.click('challengeResult',{id:challenge.id});h.click('challengeWinner',{id:challenge.id,side:'you'});p=model.current(h.api.getState());assert.equal(p.challenges[0].status,'completed');assert.equal(p.challenges[0].winner,'you');h.api.getUI().view='ranking';h.api.render();assert.match(h.nodes.screen.innerHTML,/Ricardo/);
+ h.click('challenge',{id:'leo'});h.submit('challenge','',{id:'leo',mode:'1v1',stake:'100'});p=model.current(h.api.getState());challenge=p.challenges.find(c=>c.status==='sent');h.click('cancelChallenge',{id:challenge.id});assert.equal(model.current(h.api.getState()).challenges.some(c=>c.id===challenge.id),false);h.click('removeFriend',{id:'leo'});h.click('removeFriendConfirm',{id:'leo'});assert.equal(model.current(h.api.getState()).friends.includes('leo'),false);
 });

@@ -7,12 +7,16 @@ Protótipo front-end de uma arena para desafiar amigos no EA SPORTS FC, combinar
 ## O que dá para explorar
 
 - Criar um perfil local com apelido e avatar.
+- Personalizar o perfil com o nome do time e uma bandeira de fundo estilizada.
+- Comprar figurinhas demonstrativas com pontos fictícios, montar uma coleção e usar uma delas como avatar.
 - Descobrir jogadores de exemplo, aceitar convites e montar uma lista de amigos.
 - Enviar um desafio de demonstração escolhendo modo de jogo e pontos simbólicos.
 - Simular o aceite do desafio, registrar o vencedor e atualizar o ranking local.
 - Ver um ranking ilustrativo, histórico local e coleção de medalhas.
 
 Os jogadores, convites e números do ranking são demonstrativos. Os dados ficam no navegador; ainda não há contas compartilhadas, sincronização entre dispositivos, servidor de partidas ou apostas e pagamentos reais. Os pontos simbólicos não são descontados, transferidos nem convertidos em dinheiro.
+
+As figurinhas atuais têm personagens e rubricas fictícias, feitas para a demonstração. Fotos de atletas e assinaturas oficiais precisam de ativos licenciados antes de serem incluídas.
 
 ## Por onde continuar
 

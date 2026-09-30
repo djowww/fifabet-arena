@@ -10,7 +10,7 @@ Revisão defensiva do código e da publicação, em 30/09/2026. Isto reduz risco
 - O revisor é definido por configuração privada do servidor. Participantes não revisam seus próprios resultados ou comprovantes; fotos de placar e comprovantes têm autorização por partida/conta.
 - Uploads aceitam apenas PNG, JPEG e WebP, limitam tamanho e dimensões e não aceitam SVG. O diretório total de evidências também tem limite configurável.
 - O servidor HTTP usa timeouts e limite de corpo. O rate limiter agora tem teto de 10 mil chaves para evitar crescimento ilimitado de memória.
-- A página envia CSP: scripts só da própria origem, sem scripts inline; objetos e enquadramento são bloqueados. HSTS é enviado quando o backend está configurado para HTTPS. A CSP também está no HTML para a publicação estática.
+- O código versionado envia CSP: scripts só da própria origem, sem scripts inline; objetos e enquadramento são bloqueados. HSTS é enviado quando o backend está configurado para HTTPS. A CSP também está no HTML estático. **Esses dois cabeçalhos ainda não apareceram na resposta da página servida pelo VPS nesta verificação; não considerar a política nova ativa em produção até implantar o commit `f7056ab`.**
 - A página usa `Referrer-Policy: no-referrer` e remove o token de convite da barra de endereço após lê-lo. O modelo Nginx não grava em access log a query da página inicial, o caminho dos convites nem o callback OAuth. Isso evita guardar tokens temporários no histórico, em referers ou nos logs da aplicação.
 - A unidade systemd observada roda como `fifago`, com código em modo somente leitura, gravação limitada aos dados da aplicação, sem privilégios adicionais e com limites de CPU/memória. A API escuta apenas em loopback; o Nginx recebe o IP do visitante por uma configuração de IP real da Cloudflare.
 - As rotas de consulta de jogador e ranking agora retornam só ID público, apelido e clube; não incluem UUID interno nem referência de conta de jogo.
@@ -18,8 +18,9 @@ Revisão defensiva do código e da publicação, em 30/09/2026. Isto reduz risco
 ## Estado da publicação observado
 
 - O serviço Fifa GO no VPS estava ativo e respondeu localmente com SQLite, OAuth Google habilitado e pagamentos em `unconfigured`.
-- A resposta pública de `https://betfifa.com.br/` veio do GitHub Pages. `https://betfifa.com.br/api/v1/status` retornou 404. Portanto, a página atualmente publicada não está conectada à API do VPS; login, sessões e banco não podem ser considerados disponíveis pelo domínio neste momento.
-- A versão estática do GitHub Pages não permite configurar cabeçalhos HTTP como HSTS pelo repositório. A CSP em `<meta>` protege scripts da página; HSTS precisa estar no proxy HTTPS/CDN ou no backend quando o domínio voltar a passar por ele.
+- A primeira consulta deste computador mostrou o GitHub Pages e 404 na API, mas usava o resolvedor IPv6 da Unifique, que ainda devolvia os antigos IPs do GitHub Pages. A limpeza do cache local não resolveu porque o resolvedor do provedor continuou servindo a resposta antiga.
+- Na verificação seguinte, os DNS autoritativos da Cloudflare e os resolvedores públicos 1.1.1.1/8.8.8.8 apontaram para o proxy Cloudflare. Ao consultar a origem pública por essa rota, a página respondeu 200 e `GET /api/v1/status` respondeu 200 com SQLite compartilhado e Google habilitado. A indisponibilidade mostrada na captura é, portanto, efeito do DNS antigo mantido pelo provedor nesta conexão, não de uma falha do servidor.
+- O domínio raiz já chega ao VPS pela Cloudflare, mas o deploy do repositório no VPS é manual. Na resposta HTTPS examinada, ainda não apareciam CSP e HSTS e `/bootstrap.js` respondia 404, sinal de que o commit `f7056ab` ainda não foi instalado lá. O site e a API estão acessíveis por DNS atualizado; as novas proteções do commit não devem ser consideradas ativas em produção até esse deploy.
 
 ## Limitações e próximos controles
 

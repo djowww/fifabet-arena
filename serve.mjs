@@ -49,9 +49,11 @@ const server = createServer(async (request, response) => {
   const trophyAsset = /^\/assets\/trophies\/[a-z0-9-]+\.svg$/.test(pathname);
   const flagAsset = /^\/assets\/flags\/[a-z0-9-]+\.svg$/.test(pathname);
   const kitAsset = /^\/assets\/kits\/[a-z0-9-]+\.(png|jpg|webp)$/.exec(pathname);
+  const brandAsset = /^\/assets\/brand\/[a-z0-9-]+\.(png|webp|svg)$/.exec(pathname);
   const clubMime = clubAsset ? ({svg:"image/svg+xml",png:"image/png",webp:"image/webp"}[clubAsset[1]]) : null;
   const mime = playerAsset ? "image/jpeg" : avatarAsset ? (avatarAsset[1]==='jpg' ? 'image/jpeg' : 'image/png') : kitAsset ? ({png:'image/png',jpg:'image/jpeg',webp:'image/webp'}[kitAsset[1]]) : signatureAsset||trophyAsset||flagAsset ? "image/svg+xml" : clubMime;
-  const file = files.get(pathname) || (mime ? [pathname.slice(1), mime] : null);
+  const brandMime = brandAsset ? ({png:'image/png',webp:'image/webp',svg:'image/svg+xml'}[brandAsset[1]]) : null;
+  const file = files.get(pathname) || ((mime || brandMime) ? [pathname.slice(1), mime || brandMime] : null);
   if (!file) {
     response.writeHead(404, { "Cache-Control": "no-store" });
     response.end("Not Found");

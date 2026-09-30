@@ -1,0 +1,14 @@
+{
+  "asset": "assets/brand/football-duel.webp",
+  "createdAt": "2026-09-30",
+  "mode": "built-in image generation",
+  "useCase": "stylized-concept",
+  "prompt": "Use case: stylized-concept\nAsset type: original football gaming illustration for a compact dark website card, Fifa GO\nPrimary request: modern polished digital drawing of a football and two opposing generic game controllers, expressing a friendly 1v1 football match.\nSubject: one crisp white-and-charcoal football floating above two sleek unbranded game controllers facing each other, with a subtle curved electric green motion ribbon. Keep the silhouette very readable at small size.\nStyle/medium: premium stylized 3D editorial illustration, smooth matte surfaces with fine highlights; clean contemporary sports gaming aesthetic.\nComposition/framing: square compact centered composition, entire subjects in frame, generous clean transparent space around edges, no scene or floor.\nColor palette: white, charcoal black, vivid green accents matching a dark green sports interface.\nConstraints: genuine transparent background; original design; no people or human faces, no real athlete likeness, no signatures, no team badges, no EA/FIFA logos, no manufacturer branding, no text, no watermark.",
+  "dimensions": {
+    "width": 640,
+    "height": 640
+  },
+  "hasAlpha": true,
+  "webOptimization": "Resize and WebP encoding; no creative changes.",
+  "photoReferences": []
+}

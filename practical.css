@@ -49,7 +49,8 @@ body.practical-app :is(button, input, select, textarea, a) { scroll-margin-block
 .practical-app .eyebrow { font-size: 10px; letter-spacing: 1.2px; margin-bottom: 6px; }
 .practical-app .topbar { min-height: 68px; background: #151616; border-color: var(--line); backdrop-filter: none; }
 .practical-app #screen { max-width: 1420px; padding: 25px 28px 32px; }
-.practical-app .page-footer { font-size: 11px; border-color: var(--line); }
+.practical-app .page-footer { font-size: 12px; border-color: var(--line); }
+.practical-app .brand small { letter-spacing: 1px; font-size: 8px; }
 .practical-app .nav-item.active { background: #163321; border-color: #326345; box-shadow: none; }
 .practical-app .nav-item:hover { background: #252d28; }
 .practical-app .nav-caption { letter-spacing: 1.2px; }

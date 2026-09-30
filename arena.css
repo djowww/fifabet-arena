@@ -23,6 +23,7 @@ body{background:var(--bg)}
 .arena-cover{position:relative;isolation:isolate;min-height:440px;overflow:hidden;background:#151616;border:1px solid #454848;border-radius:9px}
 .cover-photo{position:absolute;z-index:-3;inset:0 53% 0 0;overflow:hidden;background:#242626}
 .cover-photo img{width:100%;height:100%;object-fit:cover;object-position:center 28%;filter:contrast(1.02)}
+.football-cover .cover-photo img{object-fit:contain;object-position:center;padding:24px}
 .arena-cover::before{content:'';position:absolute;z-index:-2;inset:0;background:linear-gradient(90deg,transparent 33%,#15161670 43%,#151616 49%),linear-gradient(0deg,#090a0ae6,transparent 43%)}
 .cover-lines{position:absolute;inset:0;z-index:-1;background:linear-gradient(124deg,transparent 61%,#ffffff03 61% 72%,transparent 72% 79%,#ffffff03 79% 86%,transparent 86%);pointer-events:none}
 .cover-content{position:relative;padding:39px 38px 32px;max-width:53%;margin-left:47%}

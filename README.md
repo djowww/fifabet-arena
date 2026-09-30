@@ -1,6 +1,6 @@
-# FifaBet Arena
+# Fifa GO
 
-Partidas entre amigos no EA SPORTS FC, com ID próprio do FifaBet, carteira de créditos de teste, foto do placar e revisão pela equipe.
+Partidas entre amigos no EA SPORTS FC, com ID próprio do Fifa GO, carteira de créditos de teste, foto do placar e revisão pela equipe.
 
 **Domínio público:** https://betfifa.com.br/
 
@@ -19,13 +19,13 @@ Os perfis e créditos da demonstração local são salvos por origem no navegado
 5. Uma conta autorizada da equipe revisa a evidência antes de distribuir pontos. Um participante não pode julgar o próprio desafio.
 6. Consulte rival, placar, situação e decisão no histórico dos dois jogadores.
 
-A página inicial usa a chamada **Joga aí com seus amigos**, mantendo a marca FifaBet, e tem dois cartões práticos: **Entrar em uma partida**, com campo direto para código ou link, e **Criar minha partida**, com uma referência discreta ao futebol. A criação tem três etapas: amigo/modo/plataforma, créditos/regras e resumo. Só a confirmação final cria o convite e reserva os créditos. Voltar para editar preserva o rascunho.
+A página inicial usa a chamada **Joga aí com seus amigos**, com a marca **Fifa GO**, e tem dois cartões práticos: **Entrar em uma partida**, com campo direto para código ou link, e **Criar minha partida**, com uma ilustração original de futebol. As fotos de atletas foram retiradas da entrada; os itens e as atribuições da coleção continuam preservados. A criação tem três etapas: amigo/modo/plataforma, créditos/regras e resumo. Só a confirmação final cria o convite e reserva os créditos. Voltar para editar preserva o rascunho.
 
 Os convites recebidos aparecem primeiro na lista de partidas. Antes de aceitar, o jogador confere as regras e a reserva necessária. Códigos locais usam `JOGO-XXXXXXXX`, independente do ID interno; códigos antigos continuam aceitos. Links da versão conectada usam apenas um token, sem saldo, fotos ou resultados. A consulta exige autenticação e permissão, e informa convites expirados, cancelados ou já aceitos. A criação no servidor é idempotente e confere a conta que confirmou o resumo.
 
-Sem perfil, a página oferece começar com 1.000 créditos de teste; com perfil, mostra disponíveis e reservados separadamente. Todas as ações de recarga usam **Adicionar créditos de teste**. Saldo zero e créditos reservados têm instruções para o próximo passo. A página identifica a demonstração local e a referência ao EA SPORTS FC como compatibilidade, mantendo claro o caráter independente do FifaBet.
+Sem perfil, a página oferece começar com 1.000 créditos de teste; com perfil, mostra disponíveis e reservados separadamente. Todas as ações de recarga usam **Adicionar créditos de teste**. Saldo zero e créditos reservados têm instruções para o próximo passo. A página identifica a demonstração local e a referência ao EA SPORTS FC como compatibilidade, mantendo claro o caráter independente do Fifa GO.
 
-A classificação usa resultados revisados; não há adversários nem resultados inventados no fluxo principal. O ID e o histórico são internos do FifaBet; não há consulta automática ao histórico da EA.
+A classificação usa resultados revisados; não há adversários nem resultados inventados no fluxo principal. O ID e o histórico são internos do Fifa GO; não há consulta automática ao histórico da EA.
 
 ## Carteira em ambiente de teste
 
@@ -36,7 +36,7 @@ A classificação usa resultados revisados; não há adversários nem resultados
 - Transferência com imagem de comprovante fictício. No servidor, outra conta autorizada da equipe confere a imagem e registra aprovação ou recusa. No modo local, o comprovante fica salvo em análise, sem liberação automática.
 - Pedidos e comprovantes ficam separados por jogador. No servidor, as imagens são privadas e decisões sobre versões antigas do comprovante são rejeitadas.
 
-Esta carteira é uma simulação própria do FifaBet, sem integração com processador de pagamentos. Não recebe cartão real, chave Pix nem dados bancários. A organização do caixa usa como referência a escolha de métodos descrita no [suporte oficial do PokerStars](https://www.pokerstars.com/help/articles/dep-options-avail-general/), com identidade própria.
+Esta carteira é uma simulação própria do Fifa GO, sem integração com processador de pagamentos. Não recebe cartão real, chave Pix nem dados bancários. A organização do caixa usa como referência a escolha de métodos descrita no [suporte oficial do PokerStars](https://www.pokerstars.com/help/articles/dep-options-avail-general/), com identidade própria.
 
 ## Duas modalidades
 
@@ -84,7 +84,7 @@ A camiseta oficial do time preferido continua no avatar. O catálogo tem 23 club
 
 O catálogo preservado tem 13 avatares: 12 caricaturas e uma fotografia licenciada de Messi. Bandeiras, medalhas editoriais Ouro/Prata/Bronze e fontes das assinaturas estão documentadas. As três reproduções de assinaturas existentes são arquivos publicados, não autógrafos certificados; as dez restantes seguem em curadoria, sem assinaturas inventadas.
 
-Fontes: [uniformes](docs/UNIFORMES_FONTES.md), [clubes](docs/CLUBES_FONTES.md), [avatares](docs/AVATARES_PROMPTS.md), [assinaturas](docs/ASSINATURAS_FONTES.md) e [avisos de terceiros](THIRD_PARTY_NOTICES.md). Fotografias, brasões, uniformes e marcas têm direitos separados da licença do código. FifaBet é independente da EA e da FIFA.
+Fontes: [uniformes](docs/UNIFORMES_FONTES.md), [clubes](docs/CLUBES_FONTES.md), [avatares](docs/AVATARES_PROMPTS.md), [assinaturas](docs/ASSINATURAS_FONTES.md) e [avisos de terceiros](THIRD_PARTY_NOTICES.md). Fotografias, brasões, uniformes e marcas têm direitos separados da licença do código. Fifa GO é independente da EA e da FIFA.
 
 ## Arquivos principais
 

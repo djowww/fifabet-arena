@@ -135,7 +135,7 @@
   .practical-app .sidebar nav { grid-template-columns: repeat(5, minmax(0, 1fr)); gap: 3px; }
   .practical-app .sidebar nav:has(.nav-item:nth-child(5)) { grid-template-columns: repeat(5, minmax(0, 1fr)); }
   .practical-app .sidebar nav:has(.nav-item:nth-child(6)) { grid-template-columns: repeat(6, minmax(0, 1fr)); }
-  .practical-app .nav-item > span { font-size: 10px; }
+  .practical-app .nav-item > span { font-size: 11px; }
 }
 @media (max-width: 760px) {
   .lobby-intro h1 { font-size: 26px; }
@@ -179,7 +179,7 @@
   .wallet-methods { gap: 7px; }
   .wallet-method { min-height: 103px; padding: 11px 8px; gap: 7px; }
   .wallet-method strong { font-size: 12px; }
-  .wallet-method small { font-size: 10px; }
+  .wallet-method small { font-size: 11px; }
   .wallet-method > svg, .wallet-method > .icon { width: 21px; height: 21px; }
   .deposit-row { padding: 13px; gap: 9px; }
   .deposit-row .wallet-status { margin-left: auto; }
@@ -213,7 +213,12 @@
 .lobby-choice.create .btn { margin-top: 23px; gap: 13px; }
 .lobby-choice.create .btn svg { width: 18px; height: 18px; }
 .choice-footnote { display: block; margin-top: 13px; color: var(--muted); font-size: 12px; }
-.lobby-choice.create .choice-art { width: 112px; height: 190px; opacity: .55; }
+.lobby-choice.create .choice-content { max-width: 100%; }
+.create-choice-heading { display: flex; align-items: flex-start; justify-content: space-between; gap: 16px; margin-bottom: 8px; }
+.create-choice-heading > div { min-width: 0; }
+.create-choice-heading .choice-title { max-width: none; margin-bottom: 0; }
+.football-duel-art { flex: none; width: 80px; height: 80px; object-fit: contain; pointer-events: none; }
+.lobby-choice.create .choice-description { max-width: 100%; }
 .lobby-balance .form-label { margin-top: 0; }
 .lobby-balance .balance-help { flex: 1 1 100%; margin: 0; font-size: 12px; line-height: 1.65; color: var(--muted); }
 .lobby-balance .guest-start { flex: 1; }
@@ -239,8 +244,10 @@
   .join-form { grid-template-columns: minmax(0, 1fr); }
   .lobby-choice { padding: 20px; }
   .lobby-choice.join .choice-content { max-width: 100%; }
-  .lobby-choice.create .choice-content { max-width: calc(100% - 42px); }
-  .lobby-choice.create .choice-art { width: 80px; height: 155px; opacity: .4; }
+  .lobby-choice.create .choice-content { max-width: 100%; }
+  .create-choice-heading { gap: 10px; }
+  .football-duel-art { width: 72px; height: 72px; }
+  .choice-description, .lobby-intro p { font-size: 13px; }
   .lobby-choice .choice-title { font-size: 22px; }
   .invite-summary > div { grid-template-columns: 1fr; gap: 4px; }
   .lobby-meta .text-button { min-height: 44px; }

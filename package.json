@@ -2,7 +2,7 @@
   "name": "fifabet-arena",
   "version": "1.0.0",
   "private": true,
-  "description": "FifaBet Arena: desafios entre amigos com contas, evidências e revisão de resultados",
+  "description": "Fifa GO: desafios entre amigos com contas, evidências e revisão de resultados",
   "type": "module",
   "scripts": {
     "test": "node --test *.test.mjs backend/*.test.mjs",

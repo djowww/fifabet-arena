@@ -82,7 +82,7 @@ export const TROPHIES = [
   {id:'firstbet',name:'Camisa 10',description:'Registre seu primeiro palpite na simulação.',icon:'ticket',color:'blue'},
   {id:'winner',name:'Chuteira de ouro',description:'Conclua um palpite vencedor na simulação.',icon:'target',color:'mint'},
   {id:'friend',name:'Clássico entre amigos',description:'Adicione seu primeiro amigo demo.',icon:'users',color:'pink'},
-  {id:'explorer',name:'Noites europeias',description:'Conheça as áreas principais da FifaBet.',icon:'compass',color:'violet'}
+  {id:'explorer',name:'Noites europeias',description:'Conheça as áreas principais do Fifa GO.',icon:'compass',color:'violet'}
 ];
 const stamp=()=>new Date().toISOString();
 const uid=()=>globalThis.crypto?.randomUUID?.() || `demo-${Date.now()}-${Math.random().toString(36).slice(2,9)}`;

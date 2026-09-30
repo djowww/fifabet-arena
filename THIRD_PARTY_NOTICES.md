@@ -1,5 +1,9 @@
 # Créditos de terceiros
 
+## Ilustração da entrada do Fifa GO
+
+`assets/brand/football-duel.webp` é uma ilustração original gerada com a ferramenta integrada de imagens: uma bola e dois controles genéricos para representar partidas de futebol entre amigos. Foi criada sem fotografia de referência, rostos de atletas, assinaturas ou marcas de terceiros. A versão web tem 640 × 640 pixels, transparência e compressão WebP. Substitui as fotografias na entrada principal e no hero da coleção. [Prompt e registro de geração](assets/brand/football-duel.json).
+
 Fontes anteriores de atletas e assinaturas: 29 de setembro de 2026. Expansão de avatares, pesquisa de assinaturas, bandeiras, fontes dos clubes e fotografias de uniformes: 30 de setembro de 2026.
 
 ## Fotografias de atletas

@@ -1,4 +1,4 @@
-import {STORAGE_KEY,VIEWS,MATCHES,PEOPLE,COLORS,TROPHIES,emptyState,current,points,payout,validStake,change,restore} from './model.mjs?v=2';
+import {STORAGE_KEY,VIEWS,MATCHES,PEOPLE,COLORS,TROPHIES,emptyState,current,points,payout,validStake,change,restore} from './model.mjs?v=3';
 const $=id=>document.getElementById(id);
 const esc=x=>String(x??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
 const paths={
@@ -165,7 +165,7 @@ function render(){
  if(ui.pick&&state.results[ui.pick.matchId]){ui.pick=null;saveSlip();}
  renderHeader();$('screen').innerHTML=({arena:renderArena,bets:renderBets,wallet:renderWallet,trophies:renderTrophies,friends:renderFriends,ranking:renderRanking}[ui.view])();renderMobileSlip();
 }
-function go(view){if(!VIEWS.includes(view))return;closeDialog();const hash=Object.keys(routes).find(k=>routes[k]===view);if(location.hash===`#${hash}`){ui.view=view;visit();render();}else location.hash=hash;}
+function go(view){const target=routes[view]||view;if(!VIEWS.includes(target))return;closeDialog();const hash=Object.keys(routes).find(k=>routes[k]===target);if(location.hash===`#${hash}`){ui.view=target;visit();render();}else location.hash=hash;}
 function visit(){if(current(state))commit('visit',{view:ui.view});}
 function syncStake(){
  const m=MATCHES.find(m=>m.id===ui.pick?.matchId);if(!m)return;

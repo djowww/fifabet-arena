@@ -25,6 +25,9 @@ test('create/profile buttons render every route without runtime errors',()=>{
  for(const view of model.VIEWS){h.api.getUI().view=view;h.api.render();assert.ok(h.nodes.screen.innerHTML.length>1000);}
  h.click('profile');h.submit('profile','RicoFC');assert.equal(model.current(h.api.getState()).nickname,'RicoFC');assert.equal(h.nodes.modal.open,false);
 });
+test('route aliases used by challenge and trophy buttons reach their views',()=>{
+ const h=harness();h.api.go('amigos');assert.equal(h.location.hash,'amigos');h.location.hash='#arena';h.api.go('conquistas');assert.equal(h.location.hash,'trofeus');h.location.hash='#arena';h.api.go('ranking');assert.equal(h.location.hash,'ranking');
+});
 test('legacy bet history still records results in the account',()=>{
  const h=harness();h.submit('create','Ricardo');h.click('pick',{id:'m1',side:'away'});h.click('reviewBet');assert.match(h.nodes.modalContent.innerHTML,/220 pts/);h.click('confirmBet');assert.equal(model.current(h.api.getState()).balance,900);assert.equal(model.current(h.api.getState()).bets.length,1);assert.equal(h.api.getUI().pick,null);
  h.click('settle',{id:'m1'});h.click('settleResult',{id:'m1',side:'away'});assert.equal(model.current(h.api.getState()).balance,1120);assert.equal(model.current(h.api.getState()).bets[0].status,'won');h.api.getUI().view='bets';h.api.render();assert.match(h.nodes.screen.innerHTML,/LucasD10/);assert.match(h.nodes.screen.innerHTML,/Vencedor/);

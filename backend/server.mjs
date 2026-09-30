@@ -18,6 +18,19 @@ const MODES=['1v1','Ultimate Team','Clubes'];
 const PLATFORMS=['playstation','xbox','pc','switch'];
 const DEPOSIT_AMOUNTS=[100,250,500,1000];
 const DEPOSIT_METHODS=['card','pix','transfer'];
+function parsePixPackages(value){
+  if(!value)return null;
+  const entries=value.split(',').map(item=>item.trim()).filter(Boolean).map(item=>{
+    const match=/^(100|250|500|1000):(\d{1,8})$/.exec(item);
+    if(!match)throw Error('FIFABET_PIX_PACKAGES deve usar o formato créditos:centavos, por exemplo 100:1000.');
+    const credits=Number(match[1]),priceCents=Number(match[2]);
+    if(priceCents<100||priceCents>100_000_000)throw Error('O preço Pix de cada pacote deve estar entre R$ 1,00 e R$ 1.000.000,00.');
+    return [credits,{amount:credits,priceCents}];
+  });
+  const packages=Object.fromEntries(entries);
+  if(entries.length!==DEPOSIT_AMOUNTS.length||DEPOSIT_AMOUNTS.some(amount=>!packages[amount])||new Set(entries.map(([amount])=>amount)).size!==entries.length)throw Error('FIFABET_PIX_PACKAGES deve definir os pacotes de 100, 250, 500 e 1.000 créditos.');
+  return packages;
+}
 const COOKIE='fifabet_session';
 const token=()=>randomBytes(32).toString('base64url');
 const sha=value=>createHash('sha256').update(value).digest('hex');
@@ -130,12 +143,14 @@ function requirePendingInvite(duel){
   if(duel.status==='cancelled')fail(410,'Este convite foi cancelado. Peça um novo convite ao seu amigo.','invite_cancelled');
   if(duel.status!=='invited')fail(409,'Este convite já foi aceito. Confira a partida na sua arena.','invite_already_accepted');
 }
-function depositView(state,deposit){
+function depositView(state,deposit,{includePaymentInfo=false,pixKey=''}={}){
   const {idempotencyKey,...visible}=deposit;
-  return {...visible,owner:publicPlayer(state.users[deposit.userId]),paymentMode:'demo',realMoney:false};
+  const result={...visible,owner:publicPlayer(state.users[deposit.userId]),paymentMode:deposit.paymentMode||'demo',realMoney:deposit.paymentMode==='pix_manual'};
+  if(includePaymentInfo&&deposit.paymentMode==='pix_manual'&&['pending','review'].includes(deposit.status))result.paymentInfo={pixKey,amountCents:deposit.priceCents,currency:'BRL'};
+  return result;
 }
 function fields(data,allowed){
-  if(Object.keys(data).some(key=>!allowed.includes(key)))fail(400,'Use apenas os campos da simulação. Não envie número de cartão, CVV, chave Pix ou dados bancários.','unsupported_fields');
+  if(Object.keys(data).some(key=>!allowed.includes(key)))fail(400,'Formulário contém campos não aceitos. Dados de cartão e chaves Pix nunca são enviados ao servidor.','unsupported_fields');
 }
 function depositVersion(deposit,version){
   if(!Number.isSafeInteger(version)||version!==deposit.version)fail(409,'O pedido mudou. Atualize a carteira antes de continuar.','stale_deposit');
@@ -148,9 +163,13 @@ export async function createArenaServer(options={}){
   if(rootRelative===''||(!rootRelative.startsWith(`..${sep}`)&&rootRelative!=='..'&&!isAbsolute(rootRelative)))throw Error('FIFABET_DATA_DIR deve ficar fora da pasta publicada do site.');
   const publicOrigin=options.publicOrigin||process.env.FIFABET_PUBLIC_ORIGIN||'';
   const paymentMode=options.paymentMode||process.env.FIFABET_PAYMENT_MODE||'unconfigured';
-  if(!['demo','unconfigured'].includes(paymentMode))throw Error('Nenhum gateway real está conectado. Use FIFABET_PAYMENT_MODE=unconfigured; demo é somente para desenvolvimento local.');
+  if(!['demo','unconfigured','pix_manual'].includes(paymentMode))throw Error('Modo de pagamento inválido.');
   if(publicOrigin&&(new URL(publicOrigin).origin!==publicOrigin||!/^https?:\/\//.test(publicOrigin)))throw Error('FIFABET_PUBLIC_ORIGIN deve conter somente a origem, sem caminho.');
   const reviewerIds=new Set(options.reviewerIds||String(process.env.FIFABET_REVIEWER_IDS||'').split(',').map(v=>v.trim()).filter(Boolean));
+  const pixKey=String(options.pixKey??process.env.FIFABET_PIX_KEY??'').trim();
+  const pixPackages=options.pixPackages||parsePixPackages(process.env.FIFABET_PIX_PACKAGES||'');
+  if(paymentMode==='pix_manual'&&(!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(pixKey)||!pixPackages||reviewerIds.size===0))throw Error('Pix manual exige chave de e-mail, preços para os quatro pacotes e ao menos um revisor configurado.');
+  if(paymentMode==='pix_manual'&&!publicOrigin.startsWith('https://'))throw Error('Pix manual só pode ser habilitado com uma origem HTTPS pública configurada.');
   const secureCookie=publicOrigin.startsWith('https://')||options.secureCookie===true;
   const trustProxyLoopback=options.trustProxyLoopback===true||process.env.FIFABET_TRUST_PROXY_LOOPBACK==='1';
   if(paymentMode==='demo'&&publicOrigin&&!/^http:\/\/(localhost|127\.0\.0\.1)(:\d+)?$/.test(publicOrigin))throw Error('Recargas simuladas não podem ser habilitadas em uma origem pública.');
@@ -252,10 +271,11 @@ export async function createArenaServer(options={}){
   function evidenceTotal(draft){return [...Object.values(draft.evidence),...Object.values(draft.walletEvidence)].reduce((sum,item)=>sum+item.bytes,0);}
   function approveDeposit(draft,deposit,actorId,kind,text){
     const owner=draft.users[deposit.userId];
-    balanceChange(owner,`deposit:${deposit.id}`,deposit.amount,`[DEMO] Recarga por ${{card:'cartão',pix:'Pix',transfer:'transferência'}[deposit.method]} aprovada em simulação`);
-    Object.assign(owner.transactions.find(tx=>tx.reference===`deposit:${deposit.id}`),{demo:true,source:'deposit',depositId:deposit.id,method:deposit.method});
+    const live=deposit.paymentMode==='pix_manual';
+    balanceChange(owner,`deposit:${deposit.id}`,deposit.amount,live?'Créditos liberados após confirmação manual de Pix':`[DEMO] Recarga por ${{card:'cartão',pix:'Pix',transfer:'transferência'}[deposit.method]} aprovada em simulação`);
+    Object.assign(owner.transactions.find(tx=>tx.reference===`deposit:${deposit.id}`),{...(live?{realMoneyPayment:true,priceCents:deposit.priceCents}:{demo:true}),source:'deposit',depositId:deposit.id,method:deposit.method});
     deposit.status='approved';deposit.updatedAt=now();deposit.version++;
-    deposit.decision={outcome:'approved',kind,actorId,reason:text,date:deposit.updatedAt,provider:'fifabet-demo'};
+    deposit.decision={outcome:'approved',kind,actorId,reason:text,date:deposit.updatedAt,provider:live?'manual-bank-review':'fifabet-demo'};
   }
   function accept(draft,duel,user){
     requirePendingInvite(duel);
@@ -268,7 +288,7 @@ export async function createArenaServer(options={}){
   }
   const mimeTypes={'.html':'text/html; charset=utf-8','.js':'text/javascript; charset=utf-8','.mjs':'text/javascript; charset=utf-8','.css':'text/css; charset=utf-8','.png':'image/png','.jpg':'image/jpeg','.webp':'image/webp','.svg':'image/svg+xml'};
   const publicFiles=new Set(['index.html','legacy.html','colecao.html','app.js','play.js','arena-app.js','backend-client.mjs','model.mjs','clubs.mjs','football-trophies.mjs','rivalry-section.mjs','styles.css','arena.css','shop.css','profile.css','achievements.css','rivalry.css','competitive-modes.css','practical.css','lobby.css','wizard.css','arena-app.css']);
-  const serverStatus=()=>({available:true,mode:'shared',storage:'sqlite',schemaVersion:storage.schemaVersion,paymentMode,realMoney:false,noRealMoney:true,paymentsAvailable:paymentMode==='demo',authProviders:oauth.status(),apiVersion:1,reviewerConfigured:reviewerIds.size>0});
+  const serverStatus=()=>({available:true,mode:'shared',storage:'sqlite',schemaVersion:storage.schemaVersion,paymentMode,realMoney:paymentMode==='pix_manual',noRealMoney:paymentMode!=='pix_manual',paymentsAvailable:paymentMode==='demo'||paymentMode==='pix_manual',authProviders:oauth.status(),apiVersion:1,reviewerConfigured:reviewerIds.size>0});
   async function route(draft,request,response,url){
     const path=url.pathname,method=request.method;
     if(method==='GET'&&path==='/api/v1/status')return serverStatus();
@@ -345,32 +365,35 @@ export async function createArenaServer(options={}){
       return {user:{...publicPlayer(user),balance:user.balance,isReviewer:reviewer(user)}};
     }
     if(method==='GET'&&path==='/api/v1/wallet'){
-      return {balance:user.balance,reserved:reservedBalance(draft,user),transactions:user.transactions,legacyDemoBalance:user.demoBalance||0,legacyDemoReserved:reservedBalance(draft,user,true),legacyDemoTransactions:user.demoTransactions||[],deposits:Object.values(draft.deposits).filter(deposit=>deposit.userId===user.id).sort((a,b)=>b.createdAt.localeCompare(a.createdAt)).map(deposit=>depositView(draft,deposit)),catalog:paymentMode==='demo'?DEPOSIT_AMOUNTS:[],packs:paymentMode==='demo'?DEPOSIT_AMOUNTS:[],methods:paymentMode==='demo'?DEPOSIT_METHODS:[],paymentMode,paymentsAvailable:paymentMode==='demo',realMoney:false,noRealMoney:true};
+      const deposits=Object.values(draft.deposits).filter(deposit=>deposit.userId===user.id).sort((a,b)=>b.createdAt.localeCompare(a.createdAt)).map(deposit=>depositView(draft,deposit,{includePaymentInfo:true,pixKey}));
+      const catalog=paymentMode==='demo'?DEPOSIT_AMOUNTS:paymentMode==='pix_manual'?DEPOSIT_AMOUNTS.map(amount=>pixPackages[amount]):[];
+      return {balance:user.balance,reserved:reservedBalance(draft,user),transactions:user.transactions,legacyDemoBalance:user.demoBalance||0,legacyDemoReserved:reservedBalance(draft,user,true),legacyDemoTransactions:user.demoTransactions||[],deposits,catalog,packs:paymentMode==='demo'?DEPOSIT_AMOUNTS:catalog,methods:paymentMode==='demo'?DEPOSIT_METHODS:paymentMode==='pix_manual'?['pix']:[],paymentMode,paymentsAvailable:paymentMode==='demo'||paymentMode==='pix_manual',realMoney:paymentMode==='pix_manual',noRealMoney:paymentMode!=='pix_manual'};
     }
     if(method==='POST'&&path==='/api/v1/wallet/deposits'){
-      if(paymentMode!=='demo')fail(503,'Compra de créditos pendente: ainda precisamos conectar a conta comercial e o provedor de pagamento.','payments_unavailable');
+      if(!['demo','pix_manual'].includes(paymentMode))fail(503,'Compra de créditos indisponível no momento.','payments_unavailable');
+      rateLimit(request,'wallet-deposit',10,60*60*1000);
       const data=await jsonBody(request);fields(data,['amount','method','installments','idempotencyKey']);
-      if(!DEPOSIT_AMOUNTS.includes(data.amount)||!DEPOSIT_METHODS.includes(data.method))fail(400,'Escolha um pacote de créditos e um método de teste válidos.');
+      if(!DEPOSIT_AMOUNTS.includes(data.amount)||!(paymentMode==='demo'?DEPOSIT_METHODS:['pix']).includes(data.method))fail(400,'Escolha um pacote e um método de pagamento disponíveis.');
       const installments=integer(data.installments??1,1,6,'Número de parcelas');
       if(data.method!=='card'&&installments!==1)fail(400,'Parcelas são disponíveis apenas na simulação de cartão.');
       if(typeof data.idempotencyKey!=='string'||!/^[A-Za-z0-9_-]{16,100}$/.test(data.idempotencyKey))fail(400,'Use um identificador único de operação de 16 a 100 caracteres.');
       const existing=Object.values(draft.deposits).find(deposit=>deposit.userId===user.id&&deposit.idempotencyKey===data.idempotencyKey);
       if(existing){
-        if(existing.amount!==data.amount||existing.method!==data.method||existing.installments!==installments)fail(409,'Esse identificador já pertence a outro pedido.','idempotency_conflict');
-        return {deposit:depositView(draft,existing)};
+        if(existing.amount!==data.amount||existing.method!==data.method||existing.installments!==installments||(existing.paymentMode||'demo')!==paymentMode)fail(409,'Esse identificador já pertence a outro pedido.','idempotency_conflict');
+        return {deposit:depositView(draft,existing,{includePaymentInfo:true,pixKey})};
       }
       if(Object.values(draft.deposits).filter(deposit=>deposit.userId===user.id&&['pending','review'].includes(deposit.status)).length>=10)fail(409,'Conclua ou cancele pedidos pendentes antes de criar mais.');
-      const date=now(),deposit={id:randomUUID(),userId:user.id,idempotencyKey:data.idempotencyKey,amount:data.amount,method:data.method,installments,status:'pending',version:1,createdAt:date,updatedAt:date,evidenceId:null,evidenceIds:[],decision:null};
+      const date=now(),deposit={id:randomUUID(),userId:user.id,idempotencyKey:data.idempotencyKey,amount:data.amount,method:data.method,installments,status:'pending',version:1,createdAt:date,updatedAt:date,evidenceId:null,evidenceIds:[],decision:null,paymentMode,...(paymentMode==='pix_manual'?{priceCents:pixPackages[data.amount].priceCents}: {})};
       draft.deposits[deposit.id]=deposit;
-      return {deposit:depositView(draft,deposit)};
+      return {deposit:depositView(draft,deposit,{includePaymentInfo:true,pixKey})};
     }
     const depositMatch=/^\/api\/v1\/wallet\/deposits\/([a-f0-9-]{36})\/(simulate|cancel|proof)$/.exec(path);
     if(method==='POST'&&depositMatch){
       const deposit=ownDeposit(draft,user,depositMatch[1]),action=depositMatch[2];
-      if(paymentMode!=='demo'&&action!=='cancel')fail(503,'Recargas desativadas até a conexão do provedor de pagamento.','payments_unavailable');
+      if(!['demo','pix_manual'].includes(paymentMode)&&action!=='cancel')fail(503,'Recargas desativadas até configurar os pagamentos.','payments_unavailable');
       if(!['pending','review'].includes(deposit.status))fail(409,'Este pedido já foi encerrado.');
       if(action==='proof'){
-        if(deposit.method!=='transfer')fail(409,'Comprovante é usado apenas na simulação de transferência.');
+      if(!(['demo','pix_manual'].includes(paymentMode)&&(deposit.paymentMode||'demo')===paymentMode&&(paymentMode==='pix_manual'?deposit.method==='pix':deposit.method==='transfer')))fail(409,'Este pedido não aceita comprovante neste método ou modo.');
         depositVersion(deposit,Number(url.searchParams.get('version')));
         rateLimit(request,'evidence',30,60*60*1000);
         if(deposit.evidenceIds.length>=3)fail(409,'Este pedido já possui três comprovantes. A equipe deve revisar as imagens.');
@@ -387,42 +410,43 @@ export async function createArenaServer(options={}){
       if(action==='cancel'){
         fields(data,['version']);depositVersion(deposit,data.version);
         deposit.status='cancelled';deposit.version++;deposit.updatedAt=now();
-        deposit.decision={outcome:'cancelled',kind:'owner',actorId:user.id,reason:'Pedido de teste cancelado pelo jogador.',date:deposit.updatedAt,provider:'fifabet-demo'};
+        deposit.decision={outcome:'cancelled',kind:'owner',actorId:user.id,reason:deposit.paymentMode==='pix_manual'?'Pedido Pix cancelado pelo jogador.':'Pedido de teste cancelado pelo jogador.',date:deposit.updatedAt,provider:deposit.paymentMode==='pix_manual'?'manual-bank-review':'fifabet-demo'};
       }else{
+        if(paymentMode!=='demo'||deposit.paymentMode!=='demo')fail(503,'A confirmação de pagamento real precisa ser revisada pela equipe.','payments_unavailable');
         fields(data,['mode','outcome','version']);depositVersion(deposit,data.version);
         if(data.mode!=='demo'||!['approved','rejected'].includes(data.outcome))fail(400,'Identifique explicitamente a simulação demonstrativa.');
         if(!['card','pix'].includes(deposit.method))fail(403,'Transferências exigem comprovante e revisão por outra conta da equipe.');
         if(data.outcome==='approved')approveDeposit(draft,deposit,user.id,'simulation','Aprovação simulada pelo jogador em ambiente de teste.');
         else{deposit.status='rejected';deposit.updatedAt=now();deposit.version++;deposit.decision={outcome:'rejected',kind:'simulation',actorId:user.id,reason:'Rejeição simulada pelo jogador em ambiente de teste.',date:deposit.updatedAt,provider:'fifabet-demo'};}
       }
-      return {deposit:depositView(draft,deposit),balance:user.balance,paymentMode:'demo',realMoney:false};
+      return {deposit:depositView(draft,deposit),balance:user.balance,paymentMode,realMoney:paymentMode==='pix_manual'};
     }
     const walletEvidenceMatch=/^\/api\/v1\/wallet\/evidence\/([a-f0-9-]{36})$/.exec(path);
     if(method==='GET'&&walletEvidenceMatch){
       const item=draft.walletEvidence[walletEvidenceMatch[1]],deposit=item&&draft.deposits[item.depositId];
       if(!item||!deposit||(deposit.userId!==user.id&&!reviewer(user)))fail(404,'Comprovante não encontrado.','not_found');
       const body=await readFile(join(dataDir,'wallet-evidence',item.id));
-      response.writeHead(200,{'Content-Type':item.mime,'Content-Length':body.length,'Content-Disposition':`inline; filename="comprovante-demo-${item.id}${{'image/png':'.png','image/jpeg':'.jpg','image/webp':'.webp'}[item.mime]}"`});
+      response.writeHead(200,{'Content-Type':item.mime,'Content-Length':body.length,'Content-Disposition':`inline; filename="comprovante-${deposit.paymentMode==='pix_manual'?'pix':'demo'}-${item.id}${{'image/png':'.png','image/jpeg':'.jpg','image/webp':'.webp'}[item.mime]}"`});
       response.end(body);return null;
     }
     if(method==='GET'&&path==='/api/v1/wallet/reviews'){
       if(!reviewer(user))fail(403,'Apenas a equipe autorizada pode revisar comprovantes.');
-      return {deposits:Object.values(draft.deposits).filter(deposit=>deposit.method==='transfer'&&deposit.status==='review'&&deposit.userId!==user.id).sort((a,b)=>a.createdAt.localeCompare(b.createdAt)).map(deposit=>depositView(draft,deposit)),paymentMode:'demo',realMoney:false};
+      return {deposits:Object.values(draft.deposits).filter(deposit=>deposit.status==='review'&&deposit.userId!==user.id&&(paymentMode==='pix_manual'&&deposit.paymentMode==='pix_manual'&&deposit.method==='pix'||paymentMode==='demo'&&(deposit.paymentMode||'demo')==='demo'&&deposit.method==='transfer')).sort((a,b)=>a.createdAt.localeCompare(b.createdAt)).map(deposit=>depositView(draft,deposit)),paymentMode,realMoney:paymentMode==='pix_manual'};
     }
     const walletReviewMatch=/^\/api\/v1\/wallet\/reviews\/([a-f0-9-]{36})$/.exec(path);
     if(method==='POST'&&walletReviewMatch){
-      if(paymentMode!=='demo')fail(503,'Recargas desativadas até a conexão do provedor de pagamento.','payments_unavailable');
+      if(!['demo','pix_manual'].includes(paymentMode))fail(503,'Recargas desativadas até configurar os pagamentos.','payments_unavailable');
       if(!reviewer(user))fail(403,'Apenas a equipe autorizada pode decidir sobre comprovantes.');
       const deposit=draft.deposits[walletReviewMatch[1]];
       if(!deposit)fail(404,'Pedido de recarga não encontrado.','not_found');
       if(deposit.userId===user.id)fail(403,'Uma pessoa não pode julgar o próprio comprovante.');
-      if(deposit.method!=='transfer'||deposit.status!=='review'||!draft.walletEvidence[deposit.evidenceId])fail(409,'Este pedido não possui comprovante pendente de revisão.');
+      if(deposit.status!=='review'||!draft.walletEvidence[deposit.evidenceId]||!(paymentMode==='pix_manual'&&deposit.paymentMode==='pix_manual'&&deposit.method==='pix'||paymentMode==='demo'&&(deposit.paymentMode||'demo')==='demo'&&deposit.method==='transfer'))fail(409,'Este pedido não possui comprovante pendente neste modo de pagamento.');
       const data=await jsonBody(request);fields(data,['decision','reason','version']);depositVersion(deposit,data.version);
       const text=reason(data.reason);
-      if(!['approve','reject'].includes(data.decision))fail(400,'Escolha aprovar ou rejeitar o comprovante de teste.');
+      if(!['approve','reject'].includes(data.decision))fail(400,'Escolha aprovar ou rejeitar o comprovante.');
       if(data.decision==='approve')approveDeposit(draft,deposit,user.id,'team_review',text);
-      else{deposit.status='rejected';deposit.updatedAt=now();deposit.version++;deposit.decision={outcome:'rejected',kind:'team_review',actorId:user.id,reason:text,date:deposit.updatedAt,provider:'fifabet-demo'};}
-      return {deposit:depositView(draft,deposit),paymentMode:'demo',realMoney:false};
+      else{deposit.status='rejected';deposit.updatedAt=now();deposit.version++;deposit.decision={outcome:'rejected',kind:'team_review',actorId:user.id,reason:text,date:deposit.updatedAt,provider:deposit.paymentMode==='pix_manual'?'manual-bank-review':'fifabet-demo'};}
+      return {deposit:depositView(draft,deposit),paymentMode,realMoney:paymentMode==='pix_manual'};
     }
     const playerMatch=/^\/api\/v1\/players\/(FBA-[A-F0-9]{10})$/.exec(path);
     if(method==='GET'&&playerMatch){
@@ -434,8 +458,8 @@ export async function createArenaServer(options={}){
       const data=await jsonBody(request);
       if(data.expectedHostId!==undefined&&data.expectedHostId!==user.id)fail(409,'A conta mudou. Confira quem está conectado e prepare a partida novamente.','account_changed');
       const stake=integer(data.stake,0,5000,'Quantidade de créditos');
-      if(paymentMode!=='demo'&&stake!==0)fail(503,'Enquanto os pagamentos estão em configuração, crie uma partida amistosa sem créditos.','payments_unavailable');
-      if(stake>0&&stake<10)fail(400,'Use zero para amistosa ou pelo menos 10 créditos de teste.');
+      if(paymentMode==='unconfigured'&&stake!==0)fail(503,'Enquanto os pagamentos estão em configuração, crie uma partida amistosa sem créditos.','payments_unavailable');
+      if(stake>0&&stake<10)fail(400,paymentMode==='pix_manual'?'Use zero para amistosa ou pelo menos 10 créditos.':'Use zero para amistosa ou pelo menos 10 créditos de teste.');
       if(!MODES.includes(data.mode)||!PLATFORMS.includes(data.platform))fail(400,'Escolha um modo e uma plataforma válidos.');
       let operationId=null;
       if(data.operationId!==undefined){
@@ -456,7 +480,7 @@ export async function createArenaServer(options={}){
       }
       if(Object.values(draft.duels).filter(d=>d.hostId===user.id&&d.status==='invited').length>=20)fail(409,'Conclua ou cancele convites pendentes antes de criar mais.');
       if(Object.values(draft.duels).filter(d=>member(d,user)&&['invited','in_progress','pending_review','disputed'].includes(d.status)).length>=50)fail(409,'Conclua desafios em andamento antes de criar mais.');
-      const duel={id:randomUUID(),publicMatchId:uniquePublicId(draft.duels,'FG','publicMatchId'),creditMode:paymentMode==='demo'?'demo':'friendly',hostId:user.id,guestId:null,recipientId:recipient?.id||null,stake,mode:data.mode,platform:data.platform,rules,status:'invited',inviteToken:token(),createdAt:now(),expiresAt:new Date(Date.now()+7*DAY).toISOString(),reports:[],disputes:[],result:null,cancellationRequestedBy:[]};
+      const duel={id:randomUUID(),publicMatchId:uniquePublicId(draft.duels,'FG','publicMatchId'),creditMode:paymentMode==='demo'?'demo':paymentMode==='pix_manual'?'pix_manual':'friendly',hostId:user.id,guestId:null,recipientId:recipient?.id||null,stake,mode:data.mode,platform:data.platform,rules,status:'invited',inviteToken:token(),createdAt:now(),expiresAt:new Date(Date.now()+7*DAY).toISOString(),reports:[],disputes:[],result:null,cancellationRequestedBy:[]};
       if(operationId){duel.creationOperationId=operationId;duel.creationOperationSignature=operationSignature;}
       balanceChange(user,`reserve:${duel.id}`,-stake,'Pontos reservados para desafio');
       draft.duels[duel.id]=duel;

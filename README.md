@@ -12,7 +12,7 @@ Alguns resolvedores podem manter o destino anterior do GitHub Pages em cache dur
 
 Contas, convites, histórico e carteira da versão conectada ficam em SQLite privado no servidor e podem ser acessados de outro dispositivo. Perfis da demonstração local continuam separados: dados salvos no navegador não são migrados automaticamente para contas do servidor. O GitHub mantém o código e uma publicação estática; voltar a entregar essa versão pelo domínio exige alterar os registros DNS. Sem API, o domínio de produção permanece indisponível; a demonstração local é permitida somente em hosts de demonstração, como localhost ou github.io sem redirecionamento ao domínio de produção. **Um push no GitHub não instala uma atualização no VPS**.
 
-**Configurações externas pendentes:** habilitar a conta da equipe para revisar resultados; cadastrar as credenciais Google/Apple para ativar esses provedores; conectar o provedor e a conta comercial de pagamentos. Login por apelido/ID e senha funciona com o banco. Compras e recargas permanecem indisponíveis em `FIFABET_PAYMENT_MODE=unconfigured`; nenhum pagamento real está integrado.
+**Configurações externas pendentes:** habilitar a conta da equipe para revisar resultados; criar e instalar o cliente Google OAuth (app em modo de teste) e deixar Apple desativado. O Pix manual possui implementação opcional, mas a produção permanece em `FIFABET_PAYMENT_MODE=unconfigured` até configurar, no servidor privado, a chave, os pacotes e o UUID de um revisor independente. Não há gateway nem confirmação automática de pagamento. Login por apelido/ID e senha funciona com o banco.
 
 ## Fluxo principal
 

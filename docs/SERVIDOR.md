@@ -1,6 +1,6 @@
 # Contas, desafios, banco e carteira
 
-O servidor `backend/server.mjs` mantém contas e partidas compartilhadas em SQLite privado: cada pessoa entra com apelido ou ID e senha, os dois lados usam o mesmo desafio e a foto fica privada. O login Google/Apple possui fluxo próprio no servidor e depende das credenciais externas de cada provedor. A integração de pagamentos reais está pendente; o padrão `unconfigured` desativa compras e permite amistosas sem créditos. O servidor também entrega a interface pela mesma origem. Saques e consulta a partidas da EA não estão integrados.
+O servidor `backend/server.mjs` mantém contas e partidas compartilhadas em SQLite privado: cada pessoa entra com apelido ou ID e senha, os dois lados usam o mesmo desafio e a foto fica privada. O login Google/Apple possui fluxo próprio no servidor e depende das credenciais externas de cada provedor. O Google está sendo preparado em um projeto isolado, ainda sem credencial instalada no servidor; Apple fica desativado. O padrão da carteira continua `unconfigured`, que desativa compras e permite amistosas sem créditos. Há um modo opcional de Pix manual, descrito abaixo, que só funciona após configuração explícita e aprovação humana pelo extrato bancário. Saques e consulta a partidas da EA não estão integrados.
 
 A arquitetura de publicação usa HTTPS em `betfifa.com.br`, pelo VPS e pelo proxy da zona exclusiva do domínio na Cloudflare, com registro na Hostinger. O serviço Fifa GO tem usuário, runtime, código e dados próprios; serviços, arquivos, bancos, domínios e regras de firewall do Tibia devem permanecer preservados. A versão SQLite/login social exige implantação e conferência da API e da interface após instalar o código: esta documentação não confirma que a nova versão já está entregue pelo domínio. O GitHub Pages mantém uma publicação estática que não executa a API; retornar essa versão ao domínio exige reapontar os registros DNS.
 
@@ -38,20 +38,37 @@ Por padrão, os dados privados ficam em `%USERPROFILE%\.fifabet-arena` no Window
 
 ## Login Google e Apple
 
-O fluxo está implementado no servidor, com identidade persistida por `(provider, subject)` no SQLite e sessão própria em cookie `HttpOnly`. Para ativá-lo, configure `FIFABET_PUBLIC_ORIGIN` com a origem HTTPS exata e as credenciais privadas do provedor:
+O fluxo está implementado no servidor, com identidade persistida por `(provider, subject)` no SQLite e sessão própria em cookie `HttpOnly`. O projeto **Fifa GO** e um cliente OAuth Web Google foram criados em modo externo de teste, com o callback exato abaixo. O acesso permanece indisponível no site enquanto as credenciais privadas não forem instaladas no servidor e os testadores não forem cadastrados. Apple fica desativado. Para ativar Google, configure `FIFABET_PUBLIC_ORIGIN` com a origem HTTPS exata e as duas credenciais privadas:
 
-- Google: `FIFABET_GOOGLE_CLIENT_ID` e `FIFABET_GOOGLE_CLIENT_SECRET`; cadastrar a URL de retorno `https://betfifa.com.br/api/v1/auth/oauth/google/callback` no aplicativo OAuth.
+- Google: `FIFABET_GOOGLE_CLIENT_ID` e `FIFABET_GOOGLE_CLIENT_SECRET`; a URL de retorno autorizada é `https://betfifa.com.br/api/v1/auth/oauth/google/callback`. Até o app sair do modo de teste, somente contas adicionadas como testadoras podem entrar.
 - Apple: `FIFABET_APPLE_CLIENT_ID` (Services ID), `FIFABET_APPLE_TEAM_ID`, `FIFABET_APPLE_KEY_ID` e `FIFABET_APPLE_PRIVATE_KEY_FILE`; cadastrar o domínio e a URL de retorno `https://betfifa.com.br/api/v1/auth/oauth/apple/callback` no provedor. O arquivo da chave `.p8` deve usar caminho absoluto, privado e fora do repositório.
 
 Essas credenciais e os cadastros externos permanecem pendentes de configuração. `GET /status` indica quais provedores estão disponíveis; sem configuração válida, o login social fica indisponível e nenhuma conta falsa é criada. O início redireciona ao provedor; a resposta é verificada no servidor antes de gravar uma conta/sessão, incluindo assinatura, emissor, destinatário, prazo, nonce e vínculo com o navegador. Tokens do provedor não são enviados à interface nem persistidos.
 
 Contas externas novas recebem apelido genérico e ID próprio, sem publicar automaticamente nome completo ou e-mail. O e-mail verificado fica privado e não vincula uma conta existente automaticamente; o identificador estável é o subject do provedor. Uma conta Google/Apple sem senha deve entrar pelo mesmo provedor. Fluxos de login ainda não concluídos duram até 10 minutos e ficam em memória; após reiniciar, iniciar novamente o login.
 
-## Carteira e integração de pagamentos pendente
+## Carteira e pagamentos
 
-O padrão é `FIFABET_PAYMENT_MODE=unconfigured`. `GET /status` e `GET /wallet` informam `paymentMode:'unconfigured'`, `paymentsAvailable:false`, `realMoney:false` e `noRealMoney:true`; catálogo e métodos de recarga retornam vazios. Criar ou aprovar recargas retorna `503 payments_unavailable`. Nenhum gateway real foi integrado, e a aplicação não recebe cartão, Pix ou transferência reais. A conexão da conta comercial e do provedor permanece pendente.
+O padrão é `FIFABET_PAYMENT_MODE=unconfigured`. `GET /status` e `GET /wallet` informam `paymentMode:'unconfigured'`, `paymentsAvailable:false`, `realMoney:false` e `noRealMoney:true`; catálogo e métodos de recarga retornam vazios. Criar ou aprovar recargas retorna `503 payments_unavailable`. Nenhum gateway ou cobrança automática foi integrado. Para usar Pix manual, o operador precisa ativar explicitamente `pix_manual`, informar uma chave e preços privados e configurar uma conta de equipe independente para revisão; até lá, a produção continua sem cobranças.
 
 Na migração inicial do servidor, `balance`/`transactions` anteriores ficam preservados em `demoBalance`/`demoTransactions`; a carteira principal começa zerada. `walletLedgerVersion:1` impede repetir a migração. Partidas anteriores recebem `creditMode:'legacy_demo'` e movimentam exclusivamente essa carteira fictícia. As reservas antigas são expostas separadamente, sem conversão para dinheiro real. Novas partidas usam `creditMode:'friendly'`, com `stake:0`.
+
+### Pix manual e análise humana
+
+O modo `FIFABET_PAYMENT_MODE=pix_manual` habilita exclusivamente Pix manual. O aplicativo cria um pedido autenticado, mostra a chave Pix apenas ao comprador e exibe o valor exato definido no servidor. Preços em centavos são configurados no formato `créditos:centavos`, por exemplo `100:1000,250:2500,500:5000,1000:10000` para os pacotes definidos. A chave não deve aparecer no repositório, em mensagens, em endpoints públicos ou na tela de outros jogadores.
+
+Variáveis privadas do serviço:
+
+```text
+FIFABET_PAYMENT_MODE=pix_manual
+FIFABET_PIX_KEY=<chave Pix de e-mail>
+FIFABET_PIX_PACKAGES=100:1000,250:2500,500:5000,1000:10000
+FIFABET_REVIEWER_IDS=<UUID interno de uma conta independente da equipe>
+```
+
+A ativação exige HTTPS, uma chave de e-mail válida, os quatro pacotes e pelo menos um revisor. Pix manual não é gateway: não confirma transferências automaticamente, não cobra cartão e não possui chargeback integrado. O comprador pode anexar uma imagem privada como apoio; a equipe precisa localizar a transferência no próprio extrato bancário e só então aprovar. O comprador não pode aprovar o próprio pedido. A chave aparece somente nos detalhes do pedido pendente do próprio comprador. Créditos comprados não podem ser sacados; configure limites e regras do produto antes de permitir que partidas usem saldo comprado. Manter `unconfigured` até concluir essa revisão operacional.
+
+Os preços iniciais escolhidos são 100 créditos por R$ 10, 250 por R$ 25, 500 por R$ 50 e 1.000 por R$ 100. Os créditos são saldo interno não sacável. Esta configuração não substitui verificação jurídica, fiscal ou bancária do modelo de negócio.
 
 ### Simulação restrita ao desenvolvimento local
 
@@ -66,7 +83,7 @@ Os pacotes disponíveis são 100, 250, 500 e 1.000 créditos. Cartão permite si
 
 Cada pedido possui `version`. Enviar uma nova foto incrementa a versão e invalida decisões preparadas sobre a foto anterior. Aprovar, rejeitar ou cancelar exige a versão atual. Até três imagens são preservadas por pedido; o arquivo original não tem seu nome salvo. Os comprovantes seguem os mesmos limites de tipo, tamanho e acesso privado das fotos de partidas, mas não podem ser usados como evidência de uma partida.
 
-Não envie números de cartão, CVV, chave Pix real, dados bancários ou comprovantes financeiros reais. Os formulários da API aceitam somente campos previstos para a simulação e rejeitam campos adicionais. Os testes usam imagens sintéticas. A carteira de outra conta e seus comprovantes não ficam disponíveis para jogadores; a equipe autorizada tem acesso aos comprovantes para avaliação.
+Na simulação, não envie números de cartão, CVV, chave Pix real, dados bancários ou comprovantes financeiros reais. Os formulários da API aceitam somente campos previstos para a simulação e rejeitam campos adicionais. A carteira de outra conta e seus comprovantes não ficam disponíveis para jogadores; a equipe autorizada tem acesso aos comprovantes para avaliação.
 
 Estados de pedido: `pending`, `review`, `approved`, `rejected`, `cancelled`. Decisões demonstrativas registram autor, motivo, data, `kind:'simulation'` ou `kind:'team_review'` e `provider:'fifabet-demo'`. Pedidos ainda não aprovados não aumentam saldo disponível ou reservado. Pedidos e comprovantes anteriores persistem no banco; o ambiente `unconfigured` permite cancelar pedidos pendentes, mas bloqueia simulação, envio e aprovação de recarga. Registros de carteiras e partidas continuam separados.
 

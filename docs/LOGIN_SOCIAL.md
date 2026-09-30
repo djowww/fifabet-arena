@@ -1,6 +1,6 @@
 # Login com Google e Apple
 
-O módulo `backend/oauth.mjs` implementa a troca de código e a validação de identidade no servidor. Não contém credenciais nem cria projetos ou contas nos provedores. Sem configuração privada completa e origem HTTPS, o provedor fica indisponível; a interface deve manter sua opção desabilitada. Não existe aprovação ou identidade simulada.
+O módulo `backend/oauth.mjs` implementa a troca de código e a validação de identidade no servidor. Não contém credenciais. O projeto Google Cloud **Fifa GO** e o cliente OAuth Web foram criados em modo de teste, com o callback de produção exato; o client ID/segredo ainda não foram instalados privadamente no VPS e os usuários de teste ainda precisam ser cadastrados. Apple está fora do escopo atual. Sem configuração privada completa e origem HTTPS, o provedor fica indisponível; a interface mantém sua opção desabilitada. Não existe aprovação ou identidade simulada.
 
 ## Configuração privada
 

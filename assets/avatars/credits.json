@@ -1,0 +1,71 @@
+{
+  "documentedAt": "2026-09-29",
+  "description": "Caricaturas de atletas geradas por IA para uma coleção demonstrativa. As reproduções de assinaturas são SVGs separados, com procedência própria em assets/signatures/credits.json. Não são fotografias, produtos oficiais, autógrafos personalizados ou certificados de autenticidade.",
+  "catalog": {
+    "currency": "Pontos fictícios locais, sem pagamento ou conversão em dinheiro",
+    "tiers": "Ouro, Prata e Bronze são categorias editoriais subjetivas de reconhecimento público, não notas da EA, OVR, medição de popularidade ou qualidade técnica.",
+    "legacyCollection": "As quatro figurinhas fictícias anteriores permanecem para quem já as possui, mas foram retiradas do catálogo de compras."
+  },
+  "assets": [
+    {
+      "id": "cristiano-ronaldo",
+      "athlete": "Cristiano Ronaldo",
+      "file": "assets/avatars/cristiano-ronaldo.png",
+      "tier": "gold",
+      "generatedWithAI": true,
+      "generationMethod": "Geração por descrição com a ferramenta de imagens integrada, sem fotografia de atleta fornecida como referência.",
+      "sourcePhotograph": null,
+      "projectContributor": "Ricardo Zordan (Djow) / FifaBet Arena",
+      "license": "Licença proprietária do projeto para as contribuições originais, na extensão dos direitos detidos pelo titular",
+      "licenseUrl": "https://github.com/djowww/fifabet-arena/blob/main/LICENSE",
+      "signatureAsset": "assets/signatures/ronaldo.svg",
+      "signatureCredits": "assets/signatures/credits.json",
+      "endorsement": false,
+      "rightsNote": "A geração da ilustração não concede direitos sobre imagem pessoal, marcas ou merchandising do atleta. A assinatura possui origem e condições separadas."
+    },
+    {
+      "id": "bruno-fernandes",
+      "athlete": "Bruno Fernandes",
+      "file": "assets/avatars/bruno-fernandes.png",
+      "tier": "silver",
+      "generatedWithAI": true,
+      "generationMethod": "Geração por descrição com a ferramenta de imagens integrada, seguida de edição de estilo sobre a própria imagem gerada. Nenhuma fotografia de atleta foi fornecida como referência.",
+      "sourcePhotograph": null,
+      "projectContributor": "Ricardo Zordan (Djow) / FifaBet Arena",
+      "license": "Licença proprietária do projeto para as contribuições originais, na extensão dos direitos detidos pelo titular",
+      "licenseUrl": "https://github.com/djowww/fifabet-arena/blob/main/LICENSE",
+      "signatureAsset": "assets/signatures/bruno-fernandes.svg",
+      "signatureCredits": "assets/signatures/credits.json",
+      "endorsement": false,
+      "rightsNote": "A geração da ilustração não concede direitos sobre imagem pessoal, marcas ou merchandising do atleta. A assinatura possui origem e condições separadas."
+    },
+    {
+      "id": "senne-lammens",
+      "athlete": "Senne Lammens",
+      "file": "assets/avatars/senne-lammens.png",
+      "tier": "bronze",
+      "generatedWithAI": true,
+      "generationMethod": "Caricatura gerada com a ferramenta de imagens integrada usando a fotografia local creditada como referência de rosto.",
+      "sourcePhotograph": {
+        "file": "assets/reference/senne-lammens.jpg",
+        "title": "Senne Lammens USMNT v Belgium Mar 28 2026-98 (cropped)",
+        "author": "Bryan Berlin / WikiPortraits",
+        "authorUrl": "https://commons.wikimedia.org/wiki/User:Berlination",
+        "sourceUrl": "https://commons.wikimedia.org/wiki/File:Senne_Lammens_USMNT_v_Belgium_Mar_28_2026-98_(cropped).jpg",
+        "license": "CC BY-SA 4.0",
+        "licenseUrl": "https://creativecommons.org/licenses/by-sa/4.0/",
+        "credits": "assets/reference/credits.json"
+      },
+      "adaptationContributor": "Ricardo Zordan (Djow) / FifaBet Arena, com geração assistida por IA",
+      "attribution": "Caricatura por FifaBet Arena, com geração assistida por IA, adaptada de Senne Lammens USMNT v Belgium Mar 28 2026-98 (cropped), fotografia de Bryan Berlin / WikiPortraits, Wikimedia Commons, CC BY-SA 4.0. Transformação do estilo, proporções, cores, enquadramento e vestuário.",
+      "changes": "Transformação de fotografia em caricatura: estilo ilustrado, proporções, cores, enquadramento e vestuário alterados. A assinatura é um SVG separado e não integra esta licença de adaptação fotográfica.",
+      "license": "CC BY-SA 4.0",
+      "licenseUrl": "https://creativecommons.org/licenses/by-sa/4.0/",
+      "independentOfCodeLicense": true,
+      "signatureAsset": "assets/signatures/lammens.svg",
+      "signatureCredits": "assets/signatures/credits.json",
+      "endorsement": false,
+      "rightsNote": "A licença da fotografia e desta adaptação não concede endosso do fotógrafo ou do atleta, direitos de imagem pessoal, marcas ou autorização de merchandising."
+    }
+  ]
+}

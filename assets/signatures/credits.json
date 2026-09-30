@@ -1,0 +1,63 @@
+{
+  "verifiedAt": "2026-09-29",
+  "description": "Reproduções digitais de assinaturas publicadas, preservando os traços dos arquivos de origem. Não são assinaturas geradas, autógrafos personalizados ou certificados de autenticidade.",
+  "assets": [
+    {
+      "id": "ronaldo",
+      "athlete": "Cristiano Ronaldo",
+      "file": "assets/signatures/ronaldo.svg",
+      "sourceTitle": "Cristiano Ronaldo Signature.svg",
+      "sourceUrl": "https://commons.wikimedia.org/wiki/File:Cristiano_Ronaldo_Signature.svg",
+      "downloadUrl": "https://upload.wikimedia.org/wikipedia/commons/7/76/Cristiano_Ronaldo_Signature.svg",
+      "originalSourceUrl": "https://www.theplayerstribune.com/cristiano-ronaldo-madrid-english/",
+      "originalSourceTitle": "Madrid: My Story — By Cristiano Ronaldo",
+      "signerAttributedBySource": "Cristiano Ronaldo",
+      "vectorAuthor": "Angerey",
+      "license": "Domínio público segundo Wikimedia Commons (PD-signature, Portugal)",
+      "licenseUrl": "https://commons.wikimedia.org/wiki/Template:PD-signature",
+      "attribution": "Assinatura atribuída a Cristiano Ronaldo; vetorização: Angerey / Wikimedia Commons; origem citada: The Players’ Tribune.",
+      "verificationLevel": "primary-source-cited-and-page-reachable",
+      "verificationDetails": "Arquivo, autoria e origem conferidos na página Commons. O endereço de origem respondeu HTTP 200 e identifica o ensaio como Madrid: My Story, de Cristiano Ronaldo. A cadeia de origem é documentada; não houve perícia gráfica nem certificação do atleta.",
+      "authenticatedByAthlete": false,
+      "changes": "SVG sanitizado por lista de elementos e atributos permitidos. Metadados do editor, namespaces não gráficos e outros elementos removidos. Um path original preservado; assinatura não redesenhada."
+    },
+    {
+      "id": "bruno-fernandes",
+      "athlete": "Bruno Fernandes",
+      "file": "assets/signatures/bruno-fernandes.svg",
+      "sourceTitle": "Bruno Fernandes Signature.svg",
+      "sourceUrl": "https://commons.wikimedia.org/wiki/File:Bruno_Fernandes_Signature.svg",
+      "downloadUrl": "https://upload.wikimedia.org/wikipedia/commons/e/e8/Bruno_Fernandes_Signature.svg",
+      "originalSourceUrl": "https://www.manutd.com/en/news/detail/win-special-bruno-fernandes-print-and-shirt-to-celebrate-his-100th-man-utd-goal",
+      "originalSourceTitle": "Win a signed Bruno Fernandes bundle! — Manchester United",
+      "signerAttributedBySource": "Bruno Fernandes",
+      "vectorAuthor": "Bastruk",
+      "license": "Domínio público segundo Wikimedia Commons (PD-signature, Portugal)",
+      "licenseUrl": "https://commons.wikimedia.org/wiki/Template:PD-signature",
+      "attribution": "Assinatura atribuída a Bruno Fernandes; vetorização: Bastruk / Wikimedia Commons; origem citada: Manchester United.",
+      "verificationLevel": "primary-source-cited-and-page-reachable",
+      "verificationDetails": "Arquivo, autoria e origem conferidos na página Commons. A notícia oficial do Manchester United respondeu HTTP 200 e descreve uma estampa e uma camisa assinadas pelo atleta. Não houve perícia gráfica, certificação individual nem autorização do clube para este aplicativo.",
+      "authenticatedByAthlete": false,
+      "changes": "SVG sanitizado por lista de elementos e atributos permitidos. Metadados do editor, namespaces não gráficos e outros elementos removidos. Um path original preservado; assinatura não redesenhada."
+    },
+    {
+      "id": "lammens",
+      "athlete": "Senne Lammens",
+      "file": "assets/signatures/lammens.svg",
+      "sourceTitle": "Senne Lammens Signature.svg",
+      "sourceUrl": "https://commons.wikimedia.org/wiki/File:Senne_Lammens_Signature.svg",
+      "downloadUrl": "https://upload.wikimedia.org/wikipedia/commons/b/be/Senne_Lammens_Signature.svg",
+      "originalSourceUrl": "https://x.com/manutd/status/2041557866130112966",
+      "originalSourceTitle": "Publicação de @ManUtd de 7 de abril de 2026 sobre camisa de goleiro assinada por Lammens",
+      "signerAttributedBySource": "Senne Lammens",
+      "vectorAuthor": "Bastruk",
+      "license": "Domínio público segundo Wikimedia Commons (PD-signature, Bélgica)",
+      "licenseUrl": "https://commons.wikimedia.org/wiki/Template:PD-signature",
+      "attribution": "Assinatura atribuída a Senne Lammens; vetorização: Bastruk / Wikimedia Commons; origem citada: @ManUtd.",
+      "verificationLevel": "primary-source-cited-by-commons",
+      "verificationDetails": "Arquivo, autoria e link de origem conferidos na página Commons. A publicação oficial é citada pelo responsável pela vetorização. O acesso automatizado ao post retornou HTTP 403; seu conteúdo não foi confirmado diretamente nesta verificação. Não houve perícia gráfica nem certificação do atleta.",
+      "authenticatedByAthlete": false,
+      "changes": "SVG sanitizado por lista de elementos e atributos permitidos. Metadados do editor, namespaces não gráficos e outros elementos removidos. Um path original preservado; assinatura não redesenhada."
+    }
+  ]
+}

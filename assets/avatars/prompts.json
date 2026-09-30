@@ -1,0 +1,31 @@
+{
+  "mode": "built-in image_gen",
+  "createdAt": "2026-09-29",
+  "assets": [
+    {
+      "file": "assets/avatars/cristiano-ronaldo.png",
+      "useCase": "stylized-concept",
+      "prompt": "Use case: stylized-concept. Asset type: original collectible caricature avatar for a premium football game fan app. Subject: Cristiano Ronaldo, Portuguese footballer, immediately recognizable short dark sculpted hair, sharp brows, strong jaw, tan skin, confident charming smile. Style: unmistakably cartoon 3D caricature, a premium collectible figurine character, ENLARGED HEAD 1.8 times realistic proportion and small upper torso, smoothly sculpted face, expressive large eyes and cheekbones, art-directed simplified painted textures, crisp clean edges. This is an illustration, NOT a photograph: no skin pores, no hyperrealism. Generic charcoal black football jersey with subtle emerald #07F468 piping, no team insignia. Centered head and chest square composition, enough room around entire hairstyle and shoulders, no hands. Sophisticated neutral studio lighting plus faint emerald rimlight. Genuine transparent background. No typography, no autograph or imitation signature, no badges, no medals, no logo, no sponsor, no frame, no watermark. Actual autograph reproduction and tier emblems are independent assets the app adds later."
+    },
+    {
+      "file": "assets/avatars/bruno-fernandes.png",
+      "useCase": "style-transfer",
+      "initialPrompt": "Use case: stylized-concept. Asset type: premium football collectible avatar for a dark EA SPORTS FC inspired web app. Primary request: a polished, recognizable caricature of Portuguese footballer Bruno Fernandes, one athlete only. Friendly confident expressive face, exaggerated head about 1.4x realistic scale, short dark hair, neat dark beard, lean athletic shoulders, head and upper torso, looking at viewer, arms out of frame. Clean stylized 3D editorial illustration with crafted soft forms, refined painted skin, crisp silhouette, natural facial proportions still recognizable, subtle emerald rim light. Generic plain dark charcoal football jersey with tiny emerald accents. Composition: centered square portrait, entire head and shoulders visible with generous transparent space around, lower chest cut at bottom. Genuine transparent background. No lettering, no autograph, no signature, no medals, no club logo, no sponsor, no badges, no frame, no watermark. The actual signature and bronze/silver/gold badge will be added separately by the app.",
+      "prompt": "Use case: style-transfer. Asset type: collectible caricature avatar with transparent background. Input image 1 is the edit target: a Bruno Fernandes portrait. Input image 2 is a style reference of Cristiano Ronaldo. Keep Bruno Fernandes recognizable, his dark short hair, beard, eyebrow expression, head-and-chest framing, charcoal jersey and emerald #07F468 accents, and actual transparency. Change ONLY rendering and proportions to match the strongly stylized collectible caricature reference: enlarge the head to 1.8 times natural proportion, slightly enlarge eyes, small shoulders/torso, sculpted smooth cartoon cheeks, simplify skin to matte painted 3D figurine surfaces with no pores and no photographic skin details. A premium football cartoon character rather than a photo. Entire hairstyle and shoulders visible. No writing, no autograph, no signature, no badges, no medal, no logos, no sponsors, no watermark. Actual signature and silver badge will be separate application assets.",
+      "references": [
+        "Generated Bruno portrait (identity)",
+        "Generated Cristiano portrait (style)"
+      ]
+    },
+    {
+      "file": "assets/avatars/senne-lammens.png",
+      "useCase": "style-transfer",
+      "prompt": "Use case: style-transfer. Asset type: transparent collectible caricature avatar for a premium football fan app. Input image 1 is a photographic identity reference for Belgian goalkeeper Senne Lammens, not a composition target. Transform the face into an unmistakably cartoon 3D caricature collectible figurine: enlarged head 1.8 times realistic proportion, small upper torso, smoothly sculpted face, expressive larger eyes, simplified painted textures, no pores or photographic realism. Preserve recognizable facial identity from reference: pale complexion, medium brown wavy side-swept hairstyle, broad squared jaw, subtle stubble, confident relaxed smile. Centered square head and chest portrait with entire hair and shoulders visible, no hands. Replace yellow Belgium kit with a generic charcoal black football jersey and subtle emerald #07F468 piping; remove all logos and insignia. Soft refined studio lighting plus faint emerald rimlight. Genuine transparent background. No typography, no autograph or imitation signature, no badge, no medals, no logos, no sponsor, no frame, no watermark. Actual autograph reproduction and bronze emblem are separate app assets.",
+      "references": [
+        "assets/reference/senne-lammens.jpg"
+      ],
+      "license": "CC BY-SA 4.0"
+    }
+  ],
+  "constraints": "Transparent PNG portraits. No generated signature, logos or badges. Signatures and editorial tier emblems are separate app assets."
+}

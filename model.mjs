@@ -31,10 +31,31 @@ export const TEAM_FLAGS = [
   {id:'violet',name:'Violeta em faixas'}
 ];
 export const STICKERS = [
-  {id:'nilo-raio',player:'Nilo Raio',club:'Aurora City FC',position:'PONTA',rating:91,price:350,theme:'aurora',signature:'N. Raio',kind:'fictional-demo'},
-  {id:'maya-luz',player:'Maya Luz',club:'Luar United',position:'MEIA',rating:89,price:450,theme:'lunar',signature:'Maya L.',kind:'fictional-demo'},
-  {id:'tito-rocha',player:'Tito Rocha',club:'Horizonte AC',position:'ZAGUEIRO',rating:87,price:300,theme:'horizon',signature:'T. Rocha',kind:'fictional-demo'},
-  {id:'breno-vale',player:'Breno Vale',club:'Sol do Norte FC',position:'GOLEIRO',rating:90,price:500,theme:'solar',signature:'B. Vale',kind:'fictional-demo'}
+  {
+    id:'cristiano-ronaldo',player:'Cristiano Ronaldo',club:'Portugal',nationality:'Portugal',position:'ATACANTE',
+    price:700,tier:'gold',theme:'gold',recognition:'Ícone global',kind:'player-caricature',
+    art:'assets/avatars/cristiano-ronaldo.png',signatureAsset:'assets/signatures/ronaldo.svg',
+    signatureSource:'https://www.theplayerstribune.com/cristiano-ronaldo-madrid-english/',
+    signatureReference:'https://commons.wikimedia.org/wiki/File:Cristiano_Ronaldo_Signature.svg'
+  },
+  {
+    id:'bruno-fernandes',player:'Bruno Fernandes',club:'Portugal',nationality:'Portugal',position:'MEIA',
+    price:450,tier:'silver',theme:'silver',recognition:'Reconhecimento internacional',kind:'player-caricature',
+    art:'assets/avatars/bruno-fernandes.png',signatureAsset:'assets/signatures/bruno-fernandes.svg',
+    signatureSource:'https://www.manutd.com/en/news/detail/win-special-bruno-fernandes-print-and-shirt-to-celebrate-his-100th-man-utd-goal',
+    signatureReference:'https://commons.wikimedia.org/wiki/File:Bruno_Fernandes_Signature.svg'
+  },
+  {
+    id:'senne-lammens',player:'Senne Lammens',club:'Bélgica',nationality:'Bélgica',position:'GOLEIRO',
+    price:250,tier:'bronze',theme:'bronze',recognition:'Em ascensão',kind:'player-caricature',
+    art:'assets/avatars/senne-lammens.png',signatureAsset:'assets/signatures/lammens.svg',
+    signatureSource:'https://x.com/manutd/status/2041557866130112966',
+    signatureReference:'https://commons.wikimedia.org/wiki/File:Senne_Lammens_Signature.svg'
+  },
+  {id:'nilo-raio',player:'Nilo Raio',club:'Aurora City FC',position:'PONTA',rating:91,price:350,theme:'aurora',signature:'N. Raio',kind:'fictional-demo',retired:true},
+  {id:'maya-luz',player:'Maya Luz',club:'Luar United',position:'MEIA',rating:89,price:450,theme:'lunar',signature:'Maya L.',kind:'fictional-demo',retired:true},
+  {id:'tito-rocha',player:'Tito Rocha',club:'Horizonte AC',position:'ZAGUEIRO',rating:87,price:300,theme:'horizon',signature:'T. Rocha',kind:'fictional-demo',retired:true},
+  {id:'breno-vale',player:'Breno Vale',club:'Sol do Norte FC',position:'GOLEIRO',rating:90,price:500,theme:'solar',signature:'B. Vale',kind:'fictional-demo',retired:true}
 ];
 export const TROPHIES = [
   {id:'welcome',name:'Primeiro passo',description:'Crie seu perfil na arena.',icon:'flag',color:'mint'},

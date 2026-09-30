@@ -4,7 +4,7 @@ Verificação das fontes: 29 de setembro de 2026.
 
 ## Fotografias de atletas
 
-As fotografias abaixo são referências editoriais de futebol. Atletas, clubes, federações, EA e FIFA não patrocinam nem endossam este aplicativo. Fotografias licenciadas não são avatares oficiais, produtos oficiais ou autógrafos e não integram a venda de figurinhas fictícias da demonstração.
+As fotografias abaixo são referências editoriais de futebol e não são os avatares da loja. Atletas, clubes, federações, EA e FIFA não patrocinam nem endossam este aplicativo. Fotografias, caricaturas e reproduções de assinaturas não são produtos oficiais ou certificados de autenticidade.
 
 | Arquivo | Fotografia e autoria | Fonte | Licença |
 | --- | --- | --- | --- |
@@ -15,6 +15,38 @@ As fotografias abaixo são referências editoriais de futebol. Atletas, clubes, 
 Haaland e Putellas usam miniaturas de 960 pixels de largura geradas pelo Wikimedia Commons. Mbappé preserva o arquivo de recorte disponibilizado na fonte. A interface pode reenquadrar as imagens e sobrepor gradientes para legibilidade. As contribuições a essas adaptações fotográficas são disponibilizadas sob **CC BY-SA 4.0**, com os mesmos créditos. Essa licença das fotografias é independente da licença do código do aplicativo.
 
 O registro estruturado de origem, dimensões, links e alterações está em [`assets/players/credits.json`](assets/players/credits.json).
+
+## Caricaturas da loja
+
+As três ilustrações são geradas por IA e identificadas como caricaturas. As compras usam somente pontos fictícios. Ouro, Prata e Bronze são categorias editoriais subjetivas da coleção e não representam notas oficiais, ranking medido de fama ou qualidade técnica.
+
+| Arquivo | Origem da ilustração | Condições |
+| --- | --- | --- |
+| `assets/avatars/cristiano-ronaldo.png` | Caricatura de Cristiano Ronaldo gerada com a ferramenta de imagens por descrição, sem fotografia de atleta como referência. | Contribuições originais do projeto sujeitas à [LICENSE](LICENSE), na extensão dos direitos detidos pelo titular. Sem autorização ou endosso do atleta. |
+| `assets/avatars/bruno-fernandes.png` | Caricatura de Bruno Fernandes gerada por descrição, seguida de edição de estilo sobre a imagem gerada. Sem fotografia de atleta como referência. | Contribuições originais do projeto sujeitas à [LICENSE](LICENSE), na extensão dos direitos detidos pelo titular. Sem autorização ou endosso do atleta. |
+| `assets/avatars/senne-lammens.png` | Caricatura gerada por IA usando como referência a fotografia de Bryan Berlin / WikiPortraits descrita abaixo. A transformação altera estilo, proporções, cores, enquadramento e vestuário para a ilustração da coleção. | Adaptação disponibilizada sob [CC BY-SA 4.0](https://creativecommons.org/licenses/by-sa/4.0/), independentemente da licença proprietária do código. |
+
+**Referência de Lammens:** [Senne Lammens USMNT v Belgium Mar 28 2026-98 (cropped)](https://commons.wikimedia.org/wiki/File:Senne_Lammens_USMNT_v_Belgium_Mar_28_2026-98_(cropped).jpg), fotografia de **Bryan Berlin / WikiPortraits**, sob [CC BY-SA 4.0](https://creativecommons.org/licenses/by-sa/4.0/). A referência local está em `assets/reference/senne-lammens.jpg`: miniatura de 960 × 1279 pixels do recorte publicado na fonte. As contribuições à adaptação em `assets/avatars/senne-lammens.png` são atribuídas a Ricardo Zordan (Djow) / FifaBet Arena, com geração assistida por IA, e mantêm a mesma licença. Não há endosso do fotógrafo ou do atleta.
+
+Registros estruturados: [caricaturas](assets/avatars/credits.json) e [fotografia de referência](assets/reference/credits.json). A licença da fotografia e de sua adaptação não concede direitos de merchandising, marca ou imagem pessoal do atleta.
+
+## Reproduções de assinaturas
+
+As assinaturas são SVGs publicados no Wikimedia Commons e sanitizados, preservando a geometria de origem. Não foram inventadas pela ferramenta de geração de imagens. São renderizadas separadamente das caricaturas.
+
+| Arquivo | Assinatura atribuída pela fonte | Vetorização | Origem |
+| --- | --- | --- | --- |
+| `assets/signatures/ronaldo.svg` | Cristiano Ronaldo | Angerey | [Wikimedia Commons](https://commons.wikimedia.org/wiki/File:Cristiano_Ronaldo_Signature.svg), com origem citada em The Players’ Tribune. |
+| `assets/signatures/bruno-fernandes.svg` | Bruno Fernandes | Bastruk | [Wikimedia Commons](https://commons.wikimedia.org/wiki/File:Bruno_Fernandes_Signature.svg), com origem citada em notícia do Manchester United. |
+| `assets/signatures/lammens.svg` | Senne Lammens | Bastruk | [Wikimedia Commons](https://commons.wikimedia.org/wiki/File:Senne_Lammens_Signature.svg), com origem citada em publicação de @ManUtd. |
+
+As fontes classificam esses traços como domínio público por [PD-signature](https://commons.wikimedia.org/wiki/Template:PD-signature). Essa classificação é informada pelo Commons; não é certificação do atleta ou autorização comercial de imagem. Os SVGs tiveram metadados e elementos não gráficos removidos. Não houve perícia gráfica ou autenticação independente. Para Lammens, a publicação de origem não pôde ser conferida diretamente; o vínculo foi documentado pela página do Commons.
+
+Consulte a [cadeia de fontes e verificação](docs/ASSINATURAS_FONTES.md) e os [créditos de cada SVG](assets/signatures/credits.json). A reprodução exibida não constitui autógrafo personalizado para uma compra, item físico assinado ou certificado de autenticidade.
+
+## Coleção anterior
+
+Nilo Raio, Maya Luz, Tito Rocha e Breno Vale são personagens fictícios do protótipo anterior, com rubricas ilustrativas. Estão retirados do catálogo; os itens já adquiridos permanecem na coleção local para preservar os perfis existentes.
 
 ## Limites das licenças
 

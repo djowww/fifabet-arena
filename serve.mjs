@@ -9,6 +9,7 @@ const files = new Map([
   ["/model.mjs", ["model.mjs", "text/javascript; charset=utf-8"]],
   ["/styles.css", ["styles.css", "text/css; charset=utf-8"]],
   ["/arena.css", ["arena.css", "text/css; charset=utf-8"]],
+  ["/shop.css", ["shop.css", "text/css; charset=utf-8"]],
 ]);
 
 const server = createServer(async (request, response) => {
@@ -28,7 +29,10 @@ const server = createServer(async (request, response) => {
   }
 
   const playerAsset = /^\/assets\/players\/[a-z0-9-]+\.jpg$/.test(pathname);
-  const file = files.get(pathname) || (playerAsset ? [pathname.slice(1), "image/jpeg"] : null);
+  const avatarAsset = /^\/assets\/avatars\/[a-z0-9-]+\.png$/.test(pathname);
+  const signatureAsset = /^\/assets\/signatures\/[a-z0-9-]+\.svg$/.test(pathname);
+  const mime = playerAsset ? "image/jpeg" : avatarAsset ? "image/png" : signatureAsset ? "image/svg+xml" : null;
+  const file = files.get(pathname) || (mime ? [pathname.slice(1), mime] : null);
   if (!file) {
     response.writeHead(404, { "Cache-Control": "no-store" });
     response.end("Not Found");

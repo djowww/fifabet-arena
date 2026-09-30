@@ -108,6 +108,54 @@ test('profile themes and sticker purchases persist safely and spend demo points 
  assert.throws(()=>change(s,'avatarSticker',{id:'tito-rocha'}),/Compre/);
  const saved=restore(JSON.stringify(s));assert.equal(current(saved).balance,150);assert.deepEqual(current(saved).ownedStickers,[first.id,second.id]);assert.equal(current(saved).avatarSticker,null);assert.equal(current(saved).teamName,'Meu Clube');assert.equal(current(saved).teamFlag,'blue');
 });
+test('caricature catalog has display tiers and signature references without invented ratings',()=>{
+ const catalog=STICKERS.filter(item=>!item.retired);
+ assert.deepEqual(catalog.map(({id,tier,price})=>({id,tier,price})),[
+  {id:'cristiano-ronaldo',tier:'gold',price:700},
+  {id:'bruno-fernandes',tier:'silver',price:450},
+  {id:'senne-lammens',tier:'bronze',price:250}
+ ]);
+ for(const sticker of catalog){
+  assert.equal(sticker.kind,'player-caricature');assert.equal(sticker.rating,undefined);
+  assert.equal(sticker.art,`assets/avatars/${sticker.id}.png`);
+  assert.match(sticker.signatureAsset,/^assets\/signatures\/[a-z-]+\.svg$/);
+  assert.match(sticker.signatureSource,/^https:\/\//);assert.match(sticker.signatureReference,/^https:\/\/commons\.wikimedia\.org\/wiki\/File:/);
+  assert.equal(sticker.club,sticker.nationality);assert.ok(sticker.recognition);
+ }
+ assert.equal(STICKERS.filter(item=>item.kind==='fictional-demo'&&item.retired).length,4);
+});
+test('new avatar purchase charges its demo price once and rejected purchases are atomic',()=>{
+ let s=create();s=change(s,'purchaseSticker',{id:'cristiano-ronaldo'});
+ assert.equal(current(s).balance,300);assert.equal(current(s).avatarSticker,'cristiano-ronaldo');
+ assert.deepEqual(current(s).ownedStickers,['cristiano-ronaldo']);
+ const before=JSON.stringify(s);
+ assert.throws(()=>change(s,'purchaseSticker',{id:'cristiano-ronaldo'}),/já tem/);
+ assert.throws(()=>change(s,'purchaseSticker',{id:'bruno-fernandes'}),/insuficiente/);
+ assert.equal(JSON.stringify(s),before);
+ const purchases=current(s).transactions.filter(t=>t.kind==='shop');
+ assert.equal(purchases.length,1);assert.equal(purchases[0].ref,'sticker:cristiano-ronaldo');assert.equal(purchases[0].amount,-700);
+ s=change(s,'purchaseSticker',{id:'senne-lammens'});assert.equal(current(s).balance,50);
+ assert.equal(current(s).avatarSticker,'cristiano-ronaldo');
+ s=change(s,'avatarSticker',{id:'senne-lammens'});assert.equal(current(s).avatarSticker,'senne-lammens');
+});
+test('new and retired avatars restore and remain isolated and equippable across profiles',()=>{
+ let s=create();const first=s.activeProfileId;
+ s=change(s,'purchaseSticker',{id:'bruno-fernandes'});
+ s=change(s,'purchaseSticker',{id:'nilo-raio'});
+ s=change(s,'avatarSticker',{id:'nilo-raio'});
+ s=change(s,'create',{nickname:'Colecionador'});const second=s.activeProfileId;
+ assert.deepEqual(current(s).ownedStickers,[]);assert.equal(current(s).avatarSticker,null);
+ assert.throws(()=>change(s,'avatarSticker',{id:'bruno-fernandes'}),/Compre/);
+ assert.throws(()=>change(s,'avatarSticker',{id:'nilo-raio'}),/Compre/);
+ s=change(s,'purchaseSticker',{id:'cristiano-ronaldo'});
+ s=restore(JSON.stringify(s));
+ assert.equal(s.activeProfileId,second);assert.equal(current(s).avatarSticker,'cristiano-ronaldo');assert.equal(current(s).balance,300);
+ s=change(s,'login',{id:first});
+ assert.equal(current(s).balance,200);assert.deepEqual(current(s).ownedStickers,['bruno-fernandes','nilo-raio']);assert.equal(current(s).avatarSticker,'nilo-raio');
+ s=change(s,'avatarSticker',{id:'bruno-fernandes'});s=restore(JSON.stringify(s));assert.equal(current(s).avatarSticker,'bruno-fernandes');
+ s=change(s,'avatarSticker',{id:'nilo-raio'});assert.equal(current(s).avatarSticker,'nilo-raio');
+ assert.deepEqual(s.profiles[second].ownedStickers,['cristiano-ronaldo']);assert.equal(s.profiles[second].avatarSticker,'cristiano-ronaldo');
+});
 test('legacy migration preserves balance and history, orphan history is unassigned',()=>{
  const old=JSON.stringify({nickname:'OldPlayer',balance:720});const bets=JSON.stringify([{id:10,home:'NandoFC',away:'LucasD10',selection:'LucasD10',event:'Copa',stake:100,odds:2.2}]);
  let s=restore(null,old,bets);assert.equal(current(s).balance,720);assert.equal(current(s).bets[0].matchId,'m1');assert.equal(current(s).bets[0].side,'away');assert.equal(current(s).bets[0].potential,220);

@@ -39,6 +39,89 @@ test('EA ID dialog saves, displays and removes an unverified account without cla
  assert.match(h.nodes.modalContent.innerHTML,/CONEXÃO OFICIAL INDISPONÍVEL/);
  h.click('closeDialog');h.click('credits');assert.match(h.nodes.modalContent.innerHTML,/Jacek Stanislawek/);assert.match(h.nodes.modalContent.innerHTML,/CC BY-SA 4.0/);
 });
+const storeCardNames=html=>[...html.matchAll(/<article class='card (?:collectible-card[^']*|sticker-card)'>([\s\S]*?)<\/article>/g)].map(([,card])=>card.match(/<h2>([^<]+)<\/h2>/)?.[1]);
+
+test('shop initially shows three current cards; tier and owned filters preserve only owned legacy items',()=>{
+ const h=harness();h.api.getUI().view='store';h.api.render();
+ assert.deepEqual(storeCardNames(h.nodes.screen.innerHTML),['Cristiano Ronaldo','Bruno Fernandes','Senne Lammens']);
+ assert.doesNotMatch(h.nodes.screen.innerHTML,/Nilo Raio|Maya Luz|Tito Rocha|Breno Vale/);
+ for(const [value,name] of [['gold','Cristiano Ronaldo'],['silver','Bruno Fernandes'],['bronze','Senne Lammens']]){
+  h.click('storeFilter',{value});assert.deepEqual(storeCardNames(h.nodes.screen.innerHTML),[name]);
+  assert.ok(h.nodes.screen.innerHTML.includes(`data-value='${value}' aria-pressed='true'`));
+ }
+ h.click('storeFilter',{value:'owned'});assert.deepEqual(storeCardNames(h.nodes.screen.innerHTML),[]);
+ assert.match(h.nodes.screen.innerHTML,/Sua coleção começa em campo/);
+ h.submit('create','Colecionador');
+ h.api.commit('purchaseSticker',{id:'senne-lammens'});
+ h.api.commit('purchaseSticker',{id:'nilo-raio'});h.api.render();
+ assert.deepEqual(storeCardNames(h.nodes.screen.innerHTML),['Senne Lammens','Nilo Raio']);
+ assert.match(h.nodes.screen.innerHTML,/Sua coleção original/);
+ assert.match(h.nodes.screen.innerHTML,/data-action='equipSticker' data-id='nilo-raio'/);
+ for(const item of model.STICKERS.filter(item=>item.retired))assert.ok(!h.nodes.screen.innerHTML.includes(`data-action='buySticker' data-id='${item.id}'`));
+ h.click('storeFilter',{value:'gold'});assert.deepEqual(storeCardNames(h.nodes.screen.innerHTML),['Cristiano Ronaldo']);
+ h.click('storeFilter',{value:'all'});assert.deepEqual(storeCardNames(h.nodes.screen.innerHTML),['Cristiano Ronaldo','Bruno Fernandes','Senne Lammens','Nilo Raio']);
+ assert.doesNotMatch(h.nodes.screen.innerHTML,/Maya Luz|Tito Rocha|Breno Vale/);
+});
+
+test('caricature details expose original signature sources and explicitly disclaim athlete certification',()=>{
+ const h=harness();
+ for(const item of model.STICKERS.filter(item=>item.kind==='player-caricature')){
+  h.click('stickerDetails',{id:item.id});const html=h.nodes.modalContent.innerHTML;
+  assert.ok(h.nodes.modal.open);assert.ok(html.includes(`src='${item.art}'`));assert.ok(html.includes(`src='${item.signatureAsset}'`));
+  assert.ok(html.includes(`href='${item.signatureSource}'`));assert.ok(html.includes(`href='${item.signatureReference}'`));
+  assert.match(html,/Reprodução da assinatura atribuída a/);
+  assert.match(html,/Categoria editorial de reconhecimento/);
+  assert.match(html,/sem certificação do atleta ou autógrafo personalizado/);
+  assert.doesNotMatch(html,/autógrafo oficial|autenticidade garantida|certificado de autenticidade/i);
+  if(item.id==='senne-lammens'){
+   assert.match(html,/acesso direto ao post não pôde ser confirmado/);
+   assert.match(html,/Bryan Berlin \/ WikiPortraits/);assert.match(html,/CC BY-SA 4\.0/);
+  }
+  h.click('closeDialog');
+ }
+});
+
+test('new avatar confirmation charges once and equipping a purchased caricature renders its image',()=>{
+ const h=harness();h.submit('create','Ricardo');h.api.getUI().view='store';h.api.render();
+ const profileId=h.api.getState().activeProfileId;
+ h.click('buySticker',{id:'cristiano-ronaldo'});
+ assert.equal(h.api.getUI().pendingSticker.id,'cristiano-ronaldo');assert.equal(h.api.getUI().pendingSticker.profileId,profileId);
+ assert.equal(model.current(h.api.getState()).balance,1000);assert.match(h.nodes.modalContent.innerHTML,/Confirmar · 700 pts/);
+ h.click('confirmStickerPurchase');h.click('confirmStickerPurchase');
+ let p=model.current(h.api.getState());assert.equal(p.balance,300);assert.equal(p.avatarSticker,'cristiano-ronaldo');
+ assert.deepEqual(p.ownedStickers,['cristiano-ronaldo']);assert.equal(p.transactions.filter(t=>t.kind==='shop').length,1);
+ assert.equal(h.api.getUI().pendingSticker,null);assert.equal(h.nodes.modal.open,false);
+ assert.match(h.nodes.headerActions.innerHTML,/<img src='assets\/avatars\/cristiano-ronaldo\.png'/);
+ h.click('buySticker',{id:'senne-lammens'});h.click('confirmStickerPurchase');
+ assert.equal(model.current(h.api.getState()).balance,50);assert.equal(model.current(h.api.getState()).avatarSticker,'cristiano-ronaldo');
+ h.click('equipSticker',{id:'senne-lammens'});p=model.current(h.api.getState());assert.equal(p.avatarSticker,'senne-lammens');assert.equal(p.balance,50);
+ assert.match(h.nodes.headerActions.innerHTML,/<img src='assets\/avatars\/senne-lammens\.png'/);
+ h.click('profile');assert.match(h.nodes.modalContent.innerHTML,/<img src='assets\/avatars\/senne-lammens\.png'/);
+ h.click('closeDialog');h.click('defaultAvatar');assert.equal(model.current(h.api.getState()).avatarSticker,null);
+ assert.doesNotMatch(h.nodes.headerActions.innerHTML,/assets\/avatars\//);
+});
+
+test('stale shop confirmation cannot charge a profile selected in another tab',()=>{
+ const h=harness();h.submit('create','JogadorA');const first=h.api.getState().activeProfileId;
+ h.submit('create','JogadorB');const second=h.api.getState().activeProfileId;
+ h.click('login',{id:first});h.click('buySticker',{id:'cristiano-ronaldo'});
+ assert.equal(h.api.getUI().pendingSticker.profileId,first);
+ const external=JSON.parse(h.localStorage.getItem(model.STORAGE_KEY));external.activeProfileId=second;
+ const externalRaw=JSON.stringify(external);h.localStorage.setItem(model.STORAGE_KEY,externalRaw);
+ // Confirm before the other tab's storage event arrives: commit must read the latest profile.
+ h.click('confirmStickerPurchase');
+ assert.match(h.nodes.dialogError.textContent,/O perfil mudou/);
+ assert.equal(h.localStorage.getItem(model.STORAGE_KEY),externalRaw);
+ for(const id of [first,second]){
+  assert.equal(h.api.getState().profiles[id].balance,1000);assert.deepEqual(h.api.getState().profiles[id].ownedStickers,[]);
+  assert.equal(external.profiles[id].transactions.filter(t=>t.kind==='shop').length,0);
+ }
+ h.windowListeners.storage({key:model.STORAGE_KEY});
+ assert.equal(h.api.getState().activeProfileId,second);assert.equal(h.api.getUI().pendingSticker,null);assert.equal(h.nodes.modal.open,false);
+ h.click('confirmStickerPurchase');assert.equal(model.current(h.api.getState()).balance,1000);
+ assert.equal(h.localStorage.getItem(model.STORAGE_KEY),externalRaw);
+});
+
 test('legacy bet history still records results in the account',()=>{
  const h=harness();h.submit('create','Ricardo');h.click('pick',{id:'m1',side:'away'});h.click('reviewBet');assert.match(h.nodes.modalContent.innerHTML,/220 pts/);h.click('confirmBet');assert.equal(model.current(h.api.getState()).balance,900);assert.equal(model.current(h.api.getState()).bets.length,1);assert.equal(h.api.getUI().pick,null);
  h.click('settle',{id:'m1'});h.click('settleResult',{id:'m1',side:'away'});assert.equal(model.current(h.api.getState()).balance,1120);assert.equal(model.current(h.api.getState()).bets[0].status,'won');h.api.getUI().view='bets';h.api.render();assert.match(h.nodes.screen.innerHTML,/LucasD10/);assert.match(h.nodes.screen.innerHTML,/Vencedor/);

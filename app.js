@@ -1,4 +1,4 @@
-import {STORAGE_KEY,VIEWS,MATCHES,PEOPLE,COLORS,TROPHIES,emptyState,current,points,payout,validStake,change,restore} from './model.mjs';
+import {STORAGE_KEY,VIEWS,MATCHES,PEOPLE,COLORS,TROPHIES,emptyState,current,points,payout,validStake,change,restore} from './model.mjs?v=2';
 const $=id=>document.getElementById(id);
 const esc=x=>String(x??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
 const paths={

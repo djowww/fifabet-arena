@@ -28,6 +28,7 @@ export async function detectBackend(){
 export const loadSession=()=>request('/session');
 export const registerAccount=data=>request('/auth/register',{method:'POST',data});
 export const loginAccount=data=>request('/auth/login',{method:'POST',data});
+export const socialLoginUrl=provider=>{if(!['google','apple'].includes(provider))throw Error('Provedor de login inválido.');return `${prefix}/auth/oauth/${provider}/start`;};
 export const logoutAccount=async()=>{const result=await request('/auth/logout',{method:'POST',data:{}});csrfToken=null;return result;};
 export const getArena=()=>request('/me');
 export const getLeaderboard=()=>request('/leaderboard');
@@ -44,6 +45,8 @@ export const findPlayer=id=>request(`/players/${encodeURIComponent(String(id).tr
 export const createDuel=data=>request('/duels',{method:'POST',data});
 export const getInvite=token=>request(`/invites/${encodeURIComponent(token)}`);
 export const acceptInvite=token=>request(`/invites/${encodeURIComponent(token)}/accept`,{method:'POST',data:{}});
+export const getInviteCode=code=>request(`/invites/code/${encodeURIComponent(String(code).trim().toUpperCase())}`);
+export const acceptInviteCode=code=>request(`/invites/code/${encodeURIComponent(String(code).trim().toUpperCase())}/accept`,{method:'POST',data:{}});
 export const acceptDuel=id=>request(`/duels/${encodeURIComponent(id)}/accept`,{method:'POST',data:{}});
 export const cancelDuel=id=>request(`/duels/${encodeURIComponent(id)}/cancel`,{method:'POST',data:{}});
 export const withdrawCancellation=id=>request(`/duels/${encodeURIComponent(id)}/cancel-withdraw`,{method:'POST',data:{}});

@@ -10,7 +10,7 @@
     "server": "node backend/server.mjs"
   },
   "engines": {
-    "node": ">=18"
+    "node": ">=24"
   },
   "license": "SEE LICENSE IN LICENSE"
 }

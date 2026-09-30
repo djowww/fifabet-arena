@@ -21,6 +21,20 @@
 .wizard-test-note{margin-top:20px}
 .wizard-signup{margin-top:18px}
 .duel-composer .error-message{margin-top:18px}
+.social-login{display:grid;gap:8px;margin-bottom:20px}
+.social-login-button{width:100%;min-height:48px;gap:12px}
+.social-login-button>span{font-size:19px;font-weight:800}
+.social-login .meta{margin:0 0 6px}
+.auth-divider{display:flex;align-items:center;gap:12px;color:var(--muted);font-size:.8rem;margin:20px 0}
+.auth-divider::before,.auth-divider::after{content:'';height:1px;background:var(--line);flex:1}
+.payment-todo{margin-top:20px}
+.payment-todo .btn{margin-top:18px}
+.payment-todo .meta{margin-top:12px}
+.legacy-demo-history{margin-top:20px}
+.legacy-demo-history summary{cursor:pointer;font-weight:700}
+.legacy-demo-history p{margin:14px 0}
+.match-public-code{font-size:1.35rem;font-weight:800;letter-spacing:1px;margin-bottom:12px}
+.connection-unavailable .btn{margin-top:22px}
 @media(max-width:560px){
  .duel-wizard-steps{gap:7px;margin-bottom:22px}
  .duel-wizard-steps li{flex-direction:column;align-items:flex-start;font-size:.75rem;gap:7px}

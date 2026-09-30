@@ -1,6 +1,8 @@
-# Aposta entre amigos na FifaBet
+# Partidas entre amigos no Fifa GO
 
-O fluxo principal permite encontrar uma pessoa, combinar um desafio, jogar, registrar o resultado e acompanhar o histórico dentro da FifaBet. Os pontos da arena são fictícios e não podem ser convertidos em dinheiro. A publicação estática do GitHub funciona no modo local; o servidor incluído no projeto permite contas e partidas compartilhadas quando executado ou hospedado separadamente.
+O fluxo principal permite encontrar uma pessoa, combinar um desafio, jogar, registrar o resultado e acompanhar o histórico dentro do Fifa GO. A versão conectada usa contas no SQLite privado. Enquanto o provedor de pagamento está pendente (`paymentMode:'unconfigured'`), novas partidas são amistosas com zero créditos. O saldo principal começa zerado, sem bônus. Os créditos antigos de demonstração continuam separados, sem conversão em saldo financeiro. A publicação estática do GitHub funciona no modo local.
+
+Cada partida conectada recebe automaticamente um código público `FG-` seguido de dez dígitos hexadecimais. O amigo pode digitar esse código no celular enquanto joga no console, ou abrir o link de convite. O código pertence ao Fifa GO e não implica integração com a conta do PlayStation, Xbox ou EA. A prévia anônima não inclui nomes, IDs de jogadores, saldo ou fotos privadas. A aceitação exige login e respeita o destinatário, quando definido.
 
 ## Identidade e busca
 
@@ -10,7 +12,7 @@ No modo local, o formulário permite selecionar outro perfil cadastrado no mesmo
 
 ## Ciclo do confronto
 
-1. O desafiante escolhe o adversário, o modo e os pontos por pessoa. O convite informa as regras antes do aceite e reserva os pontos de quem o criou.
+1. O desafiante escolhe o adversário ou convite por link, o modo, a plataforma e as regras. Confirma o resumo antes de criar. Na etapa atual da versão conectada, a amistosa não cobra nem reserva créditos. As reservas descritas abaixo aplicam-se aos desafios antigos de demonstração ou à simulação local.
 2. O rival aceita ou recusa o convite no seu próprio perfil. O remetente não aceita em nome dele.
 3. O aceite reserva a mesma quantidade na conta do rival e deixa a partida pronta para jogar. Falta de saldo impede o aceite e mantém a reserva do criador; o rival não recebe uma cobrança parcial. Cancelar ou recusar um convite pendente devolve a reserva ao criador.
 4. Depois da partida, um participante informa os gols dos dois lados e anexa a foto do placar. O envio fica associado ao autor e ao horário.

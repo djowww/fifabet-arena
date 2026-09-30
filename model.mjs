@@ -119,7 +119,7 @@ function gameAccount(value){
 }
 function profile(name,color='mint'){
   const date=stamp();
-  return {id:uid(),publicPlayerId:'',nickname:name,color:COLORS.includes(color)?color:'mint',clubId:null,teamName:'',teamFlag:'green',avatarSticker:null,ownedStickers:[],gameAccount:null,createdAt:date,balance:1000,bets:[],depositRequests:[],transactions:[{id:uid(),ref:'welcome',kind:'bonus',label:'Boas-vindas à arena',amount:1000,date}],friends:[],requests:[{personId:'bia',direction:'in'}],challenges:[],favorites:[],reminders:[],achievements:{},visited:[],activity:[],unread:0};
+  return {id:uid(),publicPlayerId:'',nickname:name,color:COLORS.includes(color)?color:'mint',clubId:null,teamName:'',teamFlag:'green',avatarSticker:null,ownedStickers:[],gameAccount:null,createdAt:date,balance:0,bets:[],depositRequests:[],transactions:[],friends:[],requests:[{personId:'bia',direction:'in'}],challenges:[],favorites:[],reminders:[],achievements:{},visited:[],activity:[],unread:0};
 }
 function playerCode(id,salt=0){
   let hash=2166136261;for(const c of `${id}:${salt}`)hash=Math.imul(hash^c.charCodeAt(0),16777619)>>>0;
@@ -368,7 +368,7 @@ export function change(input,action,data={}){
   if(action==='create'){
     const name=nickname(data.nickname);
     if(Object.values(s.profiles).some(x=>x.nickname.toLocaleLowerCase()===name.toLocaleLowerCase()))throw Error('Esse apelido já existe neste navegador. Use a aba Entrar para continuar.');
-    p=profile(name,data.color);ensurePlayerCode(s,p);s.profiles[p.id]=p;s.activeProfileId=p.id;activity(p,'Seu perfil demo está pronto. Você recebeu 1.000 pontos.','user');
+    p=profile(name,data.color);ensurePlayerCode(s,p);s.profiles[p.id]=p;s.activeProfileId=p.id;activity(p,'Seu perfil está pronto. Adicione créditos para começar.','user');
   }else if(action==='login'){
     if(!Object.hasOwn(s.profiles,data.id))throw Error('Perfil não encontrado.');s.activeProfileId=data.id;p=current(s);
   }else if(action==='logout'){s.activeProfileId=null;return s;}

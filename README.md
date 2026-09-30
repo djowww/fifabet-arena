@@ -1,61 +1,61 @@
 # Fifa GO
 
-Partidas entre amigos no EA SPORTS FC, com ID próprio do Fifa GO, carteira de créditos de teste, foto do placar e revisão pela equipe.
+Partidas entre amigos no EA SPORTS FC, com contas persistentes, IDs próprios do Fifa GO, foto do placar e revisão pela equipe. A integração de pagamentos reais está pendente; enquanto isso, a versão conectada permite partidas amistosas sem créditos.
 
 **Domínio público:** https://betfifa.com.br/
 
 **Repositório:** https://github.com/djowww/fifabet-arena
 
-A interface e a API estão publicadas com HTTPS em `betfifa.com.br`, pelo VPS e pelo proxy da zona exclusiva do domínio na Cloudflare. Os nameservers foram salvos no registro da Hostinger e a rota pública foi conferida por DNS, API e navegador. O Fifa GO usa usuário, serviço, runtime Node.js, pasta de código e dados próprios. O Nginx encaminha somente o host `betfifa.com.br` à porta interna `127.0.0.1:4174`. Os serviços, arquivos, domínios e regras de firewall do Tibia permanecem preservados.
+A estrutura de publicação usa HTTPS em `betfifa.com.br`, pelo VPS e pelo proxy da zona exclusiva do domínio na Cloudflare, com registro do domínio na Hostinger. O Fifa GO tem usuário, serviço, runtime Node.js, pasta de código e dados próprios. O Nginx encaminha somente o host `betfifa.com.br` à porta interna `127.0.0.1:4174`. A atualização com SQLite e login social exige implantação e conferência da versão entregue pelo domínio; esta documentação descreve a arquitetura, sem confirmar que a atualização já foi instalada. Serviços, arquivos, domínios e regras de firewall do Tibia devem permanecer preservados.
 
-Alguns resolvedores podem manter o destino anterior do GitHub Pages em cache durante a propagação. Nesse caso, a API pode retornar 404 e a página identificar a demonstração local até o DNS atualizar; não alterar os nameservers novamente para contornar esse cache.
+Alguns resolvedores podem manter o destino anterior do GitHub Pages em cache durante a propagação. Nesse caso, a API pode retornar 404. No domínio de produção `betfifa.com.br`/`www.betfifa.com.br`, a interface exibe indisponibilidade e bloqueia cadastro/carteira locais até restabelecer a conexão; não cria contas ou saldos fictícios como alternativa. Não alterar os nameservers novamente para contornar esse cache.
 
-Contas, convites, histórico e créditos de teste da versão conectada ficam no servidor e podem ser acessados de outro dispositivo. Perfis da demonstração local continuam separados: dados salvos no navegador não são migrados automaticamente para contas do servidor. O GitHub mantém o código e uma publicação estática; voltar a entregar essa versão pelo domínio exige alterar os registros DNS. Se a API não estiver disponível, a interface identifica somente a demonstração local, sem tornar as contas do VPS acessíveis. **Um push no GitHub não instala uma atualização no VPS**.
+Contas, convites, histórico e carteira da versão conectada ficam em SQLite privado no servidor e podem ser acessados de outro dispositivo. Perfis da demonstração local continuam separados: dados salvos no navegador não são migrados automaticamente para contas do servidor. O GitHub mantém o código e uma publicação estática; voltar a entregar essa versão pelo domínio exige alterar os registros DNS. Sem API, o domínio de produção permanece indisponível; a demonstração local é permitida somente em hosts de demonstração, como localhost ou github.io sem redirecionamento ao domínio de produção. **Um push no GitHub não instala uma atualização no VPS**.
 
-**Revisão pendente de configuração:** ainda não há conta da equipe habilitada no VPS. Resultados enviados e comprovantes de transferência ficam em análise; os pontos dessas operações só serão liberados após uma decisão de revisor autorizado. Todos os créditos continuam fictícios, sem pagamentos reais.
+**Configurações externas pendentes:** habilitar a conta da equipe para revisar resultados; cadastrar as credenciais Google/Apple para ativar esses provedores; conectar o provedor e a conta comercial de pagamentos. Login por apelido/ID e senha funciona com o banco. Compras e recargas permanecem indisponíveis em `FIFABET_PAYMENT_MODE=unconfigured`; nenhum pagamento real está integrado.
 
 ## Fluxo principal
 
 1. Crie um perfil e receba um ID permanente.
-2. Escolha o amigo pelo ID, modo, plataforma, regras e pontos por jogador.
-3. Seus pontos ficam reservados no convite. O rival entra na própria conta e aceita, reservando a mesma quantidade.
+2. Escolha o amigo pelo ID, modo, plataforma e regras. Na configuração atual, crie uma amistosa sem créditos.
+3. Compartilhe o código público `FG-XXXXXXXXXX` ou link de convite. O rival entra na própria conta e aceita.
 4. Envie o placar com uma foto. O rival pode confirmar ou sinalizar fraude/divergência com outra foto.
-5. Uma conta autorizada da equipe revisa a evidência antes de distribuir pontos. Um participante não pode julgar o próprio desafio.
+5. Uma conta autorizada da equipe revisa a evidência antes de concluir o resultado. Um participante não pode julgar o próprio desafio.
 6. Consulte rival, placar, situação e decisão no histórico dos dois jogadores.
 
-A página inicial usa a chamada **Joga aí com seus amigos**, com a marca **Fifa GO**, e tem dois cartões práticos: **Entrar em uma partida**, com campo direto para código ou link, e **Criar minha partida**, com uma ilustração original de futebol. As fotos de atletas foram retiradas da entrada; os itens e as atribuições da coleção continuam preservados. A criação tem três etapas: amigo/modo/plataforma, créditos/regras e resumo. Só a confirmação final cria o convite e reserva os créditos. Voltar para editar preserva o rascunho.
+A página inicial usa a chamada **Joga aí com seus amigos**, com a marca **Fifa GO**, e tem dois cartões práticos: **Entrar em uma partida**, com campo direto para código ou link, e **Criar minha partida**, com uma ilustração original de futebol. As fotos de atletas foram retiradas da entrada; os itens e as atribuições da coleção continuam preservados. A criação tem três etapas: amigo/modo/plataforma, regras/créditos e resumo. A confirmação final cria o convite; na versão conectada sem provedor, `stake:0` permite jogar sem reserva. Voltar para editar preserva o rascunho.
 
-Os convites recebidos aparecem primeiro na lista de partidas. Antes de aceitar, o jogador confere as regras e a reserva necessária. Códigos locais usam `JOGO-XXXXXXXX`, independente do ID interno; códigos antigos continuam aceitos. Links da versão conectada usam apenas um token, sem saldo, fotos ou resultados. A consulta exige autenticação e permissão, e informa convites expirados, cancelados ou já aceitos. A criação no servidor é idempotente e confere a conta que confirmou o resumo.
+Os convites recebidos aparecem primeiro na lista de partidas. Antes de aceitar, o jogador autenticado confere as regras. Códigos públicos do servidor usam `FG-` e 10 dígitos hexadecimais maiúsculos; a prévia anônima mostra somente código, modo, plataforma, stake/creditMode, estado e prazo, sem nomes, regras em texto livre, IDs de contas, saldo, fotos ou resultados. Aceitar exige autenticação e autorização. Links secretos continuam usando um token aleatório. Códigos da demonstração local usam `JOGO-XXXXXXXX` e permanecem separados dos códigos do servidor. A criação é idempotente e confere a conta que confirmou o resumo.
 
-Sem perfil, a página oferece começar com 1.000 créditos de teste; com perfil, mostra disponíveis e reservados separadamente. Todas as ações de recarga usam **Adicionar créditos de teste**. Saldo zero e créditos reservados têm instruções para o próximo passo. A página identifica a demonstração local e a referência ao EA SPORTS FC como compatibilidade, mantendo claro o caráter independente do Fifa GO.
+Contas conectadas novas começam com saldo zero, sem bônus financeiro. O saldo disponível e o reservado são separados; o próximo passo enquanto os pagamentos estão pendentes é jogar uma amistosa. Créditos anteriores da demonstração conectada ficam separados em `demoBalance`/`demoTransactions`, sem conversão para dinheiro real. A referência ao EA SPORTS FC identifica compatibilidade, mantendo claro o caráter independente do Fifa GO.
 
 A classificação usa resultados revisados; não há adversários nem resultados inventados no fluxo principal. O ID e o histórico são internos do Fifa GO; não há consulta automática ao histórico da EA.
 
-## Carteira em ambiente de teste
+## Carteira e pagamentos pendentes
 
-- Saldo disponível, créditos reservados em partidas, pedidos pendentes e extrato.
-- Pacotes de 100, 250, 500 ou 1.000 créditos fictícios.
-- Cartão com 1 a 6 parcelas demonstrativas; Pix com confirmação de teste.
-- Aprovação ou recusa simulada em uma etapa separada. Criar o pedido não altera o saldo; confirmar adiciona créditos uma única vez.
-- Transferência com imagem de comprovante fictício. No servidor, outra conta autorizada da equipe confere a imagem e registra aprovação ou recusa. No modo local, o comprovante fica salvo em análise, sem liberação automática.
-- Pedidos e comprovantes ficam separados por jogador. No servidor, as imagens são privadas e decisões sobre versões antigas do comprovante são rejeitadas.
+- Produção com `paymentMode:'unconfigured'`, compras indisponíveis e partidas `friendly` com `stake:0`.
+- Carteira principal com saldo disponível, reservado e extrato próprios; nenhuma recarga real é apresentada como concluída.
+- Saldo, extrato e reservas da demonstração anterior ficam separados. Partidas antigas recebem `creditMode:'legacy_demo'` e movimentam somente essa carteira demonstrativa.
+- Cartão, Pix e transferência dependem da conexão futura do provedor comercial e sua confirmação no servidor.
+- A simulação anterior de cartão/Pix/transferência permanece restrita ao ambiente `demo` de desenvolvimento local, sem valor financeiro.
+- Pedidos e comprovantes existentes são preservados, privados e separados por jogador; não podem liberar saldo pela simulação no ambiente público.
 
-Esta carteira é uma simulação própria do Fifa GO, sem integração com processador de pagamentos. Não recebe cartão real, chave Pix nem dados bancários. A organização do caixa usa como referência a escolha de métodos descrita no [suporte oficial do PokerStars](https://www.pokerstars.com/help/articles/dep-options-avail-general/), com identidade própria.
+Não há integração com processador de pagamentos, saques ou consulta automática aos resultados da EA. A organização do caixa é própria; não há vínculo com PokerStars nem sandbox oficial de outro provedor. Consulte [armazenamento e migração da carteira](docs/BANCO.md).
 
 ## Duas modalidades
 
 | Modalidade | Como funciona |
 | --- | --- |
-| GitHub Pages / `node serve.mjs` | Perfis e desafios somente no navegador. Permite alternar dois perfis e experimentar convite, reserva, placar, contestação e histórico. Não envia fotos à equipe e não libera pontos por revisão real. |
-| VPS / `node backend/server.mjs` | Contas com senha, partidas compartilhadas e fotos privadas. Publicado e conferido com HTTPS em `betfifa.com.br`. A revisão exige uma conta da equipe configurada. |
+| Estático em localhost/github.io (quando servido nesse host) / `node serve.mjs` | Perfis e desafios demonstrativos somente no navegador. Permite alternar dois perfis e experimentar convite, reserva, placar, contestação e histórico. Não envia fotos à equipe e não libera pontos por revisão real. No domínio de produção, API ausente bloqueia esse modo. |
+| VPS / `node backend/server.mjs` | Contas persistentes com senha, partidas compartilhadas e fotos privadas. SQLite requer Node.js 24+. Google/Apple dependem das credenciais externas; revisão exige conta da equipe. Cada implantação deve ser conferida pelo domínio HTTPS. |
 
-A publicação no VPS é manual e separada do GitHub Pages. O servidor usa JSON com gravação atômica e uma única instância; é um protótipo funcional, ainda sem a infraestrutura de banco e operação de um lançamento comercial. Os modos locais e compartilhados têm cadastros separados, sem migração automática.
+A publicação no VPS é manual e separada do GitHub Pages. O servidor usa SQLite com transações atômicas e uma única instância escritora. Migra o JSON legado uma vez, preservando original e backup. Operação comercial ainda exige configuração de provedores, backups e recuperação de conta. Os modos locais e compartilhados têm cadastros separados, sem migração automática entre eles.
 
-Todas as operações usam **créditos fictícios, sem valor financeiro**. Os métodos de recarga são demonstrativos: não há pagamento real, saque ou integração automática com resultados da EA. O modo de pagamento do servidor está fixado em `demo`.
+O padrão do servidor é `FIFABET_PAYMENT_MODE=unconfigured`. Novas amistosas não usam créditos; créditos demonstrativos antigos continuam sem valor financeiro e não representam dinheiro depositado.
 
 ## Executar
 
-Node.js 18 ou superior, sem dependências externas.
+Node.js **24 ou superior**, sem dependências externas. O SQLite é o módulo nativo `node:sqlite`.
 
 ```powershell
 # Contas e partidas compartilhadas
@@ -63,7 +63,7 @@ node backend/server.mjs
 # Abra http://127.0.0.1:4174
 ```
 
-Os dados privados ficam fora da pasta publicada, em `%USERPROFILE%\.fifabet-arena` no Windows. No VPS, ficam em `/var/lib/fifago`. Consulte [configuração do servidor e revisão](docs/SERVIDOR.md) para habilitar a equipe, operar a publicação e consultar o procedimento de retorno ao GitHub Pages.
+Os dados privados ficam fora da pasta publicada, em `%USERPROFILE%\.fifabet-arena` no Windows. A estrutura do VPS usa `/var/lib/fifago`. `arena.sqlite` contém os registros; imagens e backups permanecem privados. Consulte [configuração do servidor e revisão](docs/SERVIDOR.md) e [banco e migração](docs/BANCO.md).
 
 Para a demonstração estática:
 
@@ -80,7 +80,7 @@ Para verificar regras, integração da interface e API:
 node --test *.test.mjs backend/*.test.mjs
 ```
 
-Os testes cobrem IDs estáveis, convites e códigos, reservas sem saldo negativo, permissões de aceite, fotos, contestação, aprovação por terceiro, distribuição única, histórico, cancelamento e persistência. A carteira verifica parcelamento, pedido sem crédito automático, confirmação única, recusa, privacidade dos comprovantes e revisão de transferências. Dados de teste do servidor ficam fora do projeto.
+A suíte existente documenta os fluxos anteriores de IDs, convites, reservas, fotos, revisão e carteira demonstrativa. Os casos do servidor precisam acompanhar o contrato SQLite, a carteira separada e o padrão `unconfigured`. A suíte não foi executada nesta atualização; dados temporários de testes devem ficar fora do projeto.
 
 ## Perfil e coleção preservados
 
@@ -96,6 +96,8 @@ Fontes: [uniformes](docs/UNIFORMES_FONTES.md), [clubes](docs/CLUBES_FONTES.md), 
 - `model.mjs`: regras e persistência da demonstração local.
 - `backend-client.mjs`: comunicação autenticada com a API na mesma origem.
 - `backend/server.mjs`, `backend/accounts.mjs`: servidor, contas, fotos, decisões e consulta administrativa dos IDs.
+- `backend/database.mjs`: SQLite privado, restrições, gravação atômica e migração do JSON legado.
+- `backend/oauth.mjs`: login Google/Apple verificado no servidor; ativação depende de credenciais externas.
 - `deploy/fifago.service`, `deploy/nginx-fifago.conf`: modelos do serviço isolado e do novo host Nginx, sem substituição da configuração dos demais sites.
 - `colecao.html`, `app.js`: coleção e personalização da demonstração anterior.
 - [Fluxo de desafios](docs/FLUXO_AMIGOS.md) e [servidor](docs/SERVIDOR.md): funcionamento, limites e publicação.

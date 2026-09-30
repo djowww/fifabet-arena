@@ -2,11 +2,13 @@ import {createServer} from 'node:http';
 import {isIP} from 'node:net';
 import {randomBytes,randomUUID,createHash,scrypt as scryptCallback,timingSafeEqual} from 'node:crypto';
 import {promisify} from 'node:util';
-import {readFile,writeFile,mkdir,rename,open,unlink} from 'node:fs/promises';
+import {readFile,writeFile,mkdir,open,unlink} from 'node:fs/promises';
 import {homedir} from 'node:os';
 import {resolve,relative,join,extname,isAbsolute,sep} from 'node:path';
 import {fileURLToPath,pathToFileURL} from 'node:url';
 import {CLUBS} from '../clubs.mjs';
+import {openArenaDatabase,normalizeNickname} from './database.mjs';
+import {createOAuthService} from './oauth.mjs';
 
 const scrypt=promisify(scryptCallback);
 const ROOT=fileURLToPath(new URL('../',import.meta.url));
@@ -89,18 +91,32 @@ async function jsonBody(request){
 function balanceChange(user,reference,amount,label){
   if(user.transactions.some(t=>t.reference===reference))return;
   if(!Number.isSafeInteger(amount)||!Number.isSafeInteger(user.balance+amount)||user.balance+amount<0)fail(409,'Pontos insuficientes ou saldo inválido.','insufficient_balance');
+  if(amount===0)return;
   user.balance+=amount;
   user.transactions.unshift({id:randomUUID(),reference,amount,label,date:now()});
+}
+// Old demonstration credits remain a separate, nonfinancial ledger.
+function duelBalanceChange(user,duel,reference,amount,label){
+  if(duel.creditMode!=='legacy_demo')return balanceChange(user,reference,amount,label);
+  const ledger={balance:user.demoBalance||0,transactions:user.demoTransactions||[]};
+  balanceChange(ledger,reference,amount,`[DEMO ANTIGA] ${label}`);
+  user.demoBalance=ledger.balance;user.demoTransactions=ledger.transactions;
+}
+function uniquePublicId(records,prefix,field){
+  let value;
+  do{value=`${prefix}-${randomBytes(5).toString('hex').toUpperCase()}`;}while(Object.values(records).some(record=>record[field]===value));
+  return value;
 }
 function publicPlayer(user){return {id:user.id,publicPlayerId:user.publicPlayerId,nickname:user.nickname,clubId:user.clubId,gameAccount:user.gameAccount,createdAt:user.createdAt};}
 function member(duel,user){return duel.hostId===user.id||duel.guestId===user.id;}
 function expireInvites(state){
-  const time=Date.now();
+  const time=Date.now();let changed=false;
   for(const duel of Object.values(state.duels))if(duel.status==='invited'&&Date.parse(duel.expiresAt)<=time){
-    balanceChange(state.users[duel.hostId],`expiry:${duel.id}`,duel.stake,'Convite expirado: reserva devolvida');
-    duel.status='expired';duel.closedAt=now();
+    duelBalanceChange(state.users[duel.hostId],duel,`expiry:${duel.id}`,duel.stake,'Convite expirado: reserva devolvida');
+    duel.status='expired';duel.closedAt=now();changed=true;
   }
-  for(const [id,session]of Object.entries(state.sessions))if(session.expiresAt<=time)delete state.sessions[id];
+  for(const [id,session]of Object.entries(state.sessions))if(session.expiresAt<=time){delete state.sessions[id];changed=true;}
+  return changed;
 }
 function duelView(state,duel,user){
   const result={...duel,host:publicPlayer(state.users[duel.hostId]),guest:duel.guestId?publicPlayer(state.users[duel.guestId]):null,recipient:duel.recipientId?publicPlayer(state.users[duel.recipientId]):null};
@@ -125,18 +141,20 @@ function depositVersion(deposit,version){
   if(!Number.isSafeInteger(version)||version!==deposit.version)fail(409,'O pedido mudou. Atualize a carteira antes de continuar.','stale_deposit');
 }
 
-/** File persistence is intentionally a single-process prototype, not a production database. */
+/** Private SQLite storage; one process owns the serialized state writer. */
 export async function createArenaServer(options={}){
   const dataDir=resolve(options.dataDir||process.env.FIFABET_DATA_DIR||join(homedir(),'.fifabet-arena'));
   const rootRelative=relative(ROOT,dataDir);
   if(rootRelative===''||(!rootRelative.startsWith(`..${sep}`)&&rootRelative!=='..'&&!isAbsolute(rootRelative)))throw Error('FIFABET_DATA_DIR deve ficar fora da pasta publicada do site.');
   const publicOrigin=options.publicOrigin||process.env.FIFABET_PUBLIC_ORIGIN||'';
-  const paymentMode=options.paymentMode||process.env.FIFABET_PAYMENT_MODE||'demo';
-  if(paymentMode!=='demo')throw Error('Somente FIFABET_PAYMENT_MODE=demo está disponível. Nenhum gateway de pagamento real está integrado.');
+  const paymentMode=options.paymentMode||process.env.FIFABET_PAYMENT_MODE||'unconfigured';
+  if(!['demo','unconfigured'].includes(paymentMode))throw Error('Nenhum gateway real está conectado. Use FIFABET_PAYMENT_MODE=unconfigured; demo é somente para desenvolvimento local.');
   if(publicOrigin&&(new URL(publicOrigin).origin!==publicOrigin||!/^https?:\/\//.test(publicOrigin)))throw Error('FIFABET_PUBLIC_ORIGIN deve conter somente a origem, sem caminho.');
   const reviewerIds=new Set(options.reviewerIds||String(process.env.FIFABET_REVIEWER_IDS||'').split(',').map(v=>v.trim()).filter(Boolean));
   const secureCookie=publicOrigin.startsWith('https://')||options.secureCookie===true;
   const trustProxyLoopback=options.trustProxyLoopback===true||process.env.FIFABET_TRUST_PROXY_LOOPBACK==='1';
+  if(paymentMode==='demo'&&publicOrigin&&!/^http:\/\/(localhost|127\.0\.0\.1)(:\d+)?$/.test(publicOrigin))throw Error('Recargas simuladas não podem ser habilitadas em uma origem pública.');
+  const oauth=await createOAuthService({publicOrigin,env:options.env||process.env});
   const maxEvidenceBytes=Number(options.maxEvidenceBytes||process.env.FIFABET_MAX_EVIDENCE_BYTES||200*1024*1024);
   if(!Number.isSafeInteger(maxEvidenceBytes)||maxEvidenceBytes<MAX_IMAGE)throw Error('FIFABET_MAX_EVIDENCE_BYTES deve ser um número inteiro de pelo menos 5 MiB.');
   await mkdir(dataDir,{recursive:true,mode:0o700});
@@ -146,23 +164,23 @@ export async function createArenaServer(options={}){
   let lock;
   try{lock=await open(lockPath,'wx',0o600);await lock.writeFile(String(process.pid));}
   catch(error){if(error.code==='EEXIST')throw Error('Já há uma instância usando esta pasta de dados. Se o processo encerrou inesperadamente, remova instance.lock somente após confirmar que o servidor parou.');throw error;}
-  const statePath=join(dataDir,'state.json');
-  let state;
+  let state,storage;
   try{
-    state=JSON.parse(await readFile(statePath,'utf8'));
-    if(state.version!==1||!plain(state.users)||!plain(state.duels)||!plain(state.sessions)||!plain(state.evidence))throw Error('Dados do servidor inválidos; restaure um backup.');
-    if(state.deposits===undefined)state.deposits={};
-    if(state.walletEvidence===undefined)state.walletEvidence={};
-    if(!plain(state.deposits)||!plain(state.walletEvidence))throw Error('Dados da carteira inválidos; restaure um backup.');
+    storage=await openArenaDatabase(dataDir);state=storage.load();
+    if(!state.walletLedgerVersion){
+      for(const user of Object.values(state.users)){
+        user.demoBalance=user.balance;user.demoTransactions=user.transactions;
+        user.balance=0;user.transactions=[];
+      }
+      for(const duel of Object.values(state.duels))duel.creditMode='legacy_demo';
+      state.walletLedgerVersion=1;state.walletLedgerMigratedAt=now();
+    }
+    for(const duel of Object.values(state.duels))if(!duel.publicMatchId)duel.publicMatchId=uniquePublicId(state.duels,'FG','publicMatchId');
+    storage.save(state);
   }catch(error){
-    if(error.code==='ENOENT')state={version:1,users:{},duels:{},sessions:{},evidence:{},deposits:{},walletEvidence:{}};
-    else{await lock.close();await unlink(lockPath);throw error;}
+    storage?.close();await lock.close();await unlink(lockPath);throw error;
   }
-  async function persist(draft){
-    const temp=join(dataDir,`state-${randomUUID()}.tmp`);
-    try{await writeFile(temp,JSON.stringify(draft),{mode:0o600,flag:'wx'});await rename(temp,statePath);}
-    catch(error){await unlink(temp).catch(()=>{});throw error;}
-  }
+  const persist=draft=>storage.save(draft);
   let tail=Promise.resolve();
   const serial=fn=>{const next=tail.then(fn,fn);tail=next.catch(()=>{});return next;};
   const limits=new Map();
@@ -197,9 +215,30 @@ export async function createArenaServer(options={}){
     const existing=Object.entries(draft.sessions).filter(([,s])=>s.userId===user.id).sort((a,b)=>a[1].createdAt-b[1].createdAt);
     while(existing.length>=8)delete draft.sessions[existing.shift()[0]];
     draft.sessions[sha(value)]=session;
-    response.setHeader('Set-Cookie',`${COOKIE}=${value}; Path=/; HttpOnly; SameSite=Lax; Max-Age=${14*DAY/1000}${secureCookie?'; Secure':''}`);
+    appendCookie(response,`${COOKIE}=${value}; Path=/; HttpOnly; SameSite=Lax; Max-Age=${14*DAY/1000}${secureCookie?'; Secure':''}`);
     return {user:{...publicPlayer(user),balance:user.balance,isReviewer:reviewer(user)},csrfToken};
   }
+  function appendCookie(response,value){
+    const existing=response.getHeader('Set-Cookie');
+    response.setHeader('Set-Cookie',[...(Array.isArray(existing)?existing:existing?[existing]:[]),value]);
+  }
+  function newUser(draft,name,passwordFields={}){
+    if(Object.keys(draft.users).length>=10_000)fail(503,'Cadastro temporariamente indisponível.');
+    const user={id:randomUUID(),publicPlayerId:uniquePublicId(draft.users,'FBA','publicPlayerId'),nickname:name,...passwordFields,clubId:null,gameAccount:null,createdAt:now(),balance:0,friends:[],transactions:[]};
+    draft.users[user.id]=user;return user;
+  }
+  function socialUser(draft,identity){
+    const key=`${identity.provider}:${identity.subject}`,existing=draft.authIdentities[key];
+    if(existing){const user=draft.users[existing.userId];if(!user)fail(409,'Conta indisponível.','account_conflict');return user;}
+    // Never expose a Google/Apple full name or auto-link an existing account by e-mail.
+    let name;
+    do{name=`Jogador_${randomBytes(4).toString('hex')}`;}while(Object.values(draft.users).some(user=>normalizeNickname(user.nickname)===normalizeNickname(name)));
+    const user=newUser(draft,name);
+    draft.authIdentities[key]={provider:identity.provider,subject:identity.subject,userId:user.id,email:identity.emailVerified?identity.email:null,emailVerified:identity.emailVerified,createdAt:now()};
+    return user;
+  }
+  const pendingDuels=(draft,user)=>Object.values(draft.duels).filter(duel=>member(duel,user)&&['invited','in_progress','pending_review','disputed'].includes(duel.status));
+  const reservedBalance=(draft,user,legacy=false)=>pendingDuels(draft,user).filter(duel=>(duel.creditMode==='legacy_demo')===legacy).reduce((sum,duel)=>sum+duel.stake,0);
   function ownDuel(draft,user,id){
     const duel=draft.duels[id];
     if(!duel||(!member(duel,user)&&duel.recipientId!==user.id))fail(404,'Desafio não encontrado.','not_found');
@@ -222,14 +261,14 @@ export async function createArenaServer(options={}){
     requirePendingInvite(duel);
     if(duel.hostId===user.id)fail(409,'Este convite é seu. Compartilhe o link com seu amigo.','invite_own');
     if(duel.recipientId&&duel.recipientId!==user.id)fail(403,'Este convite foi enviado para outro jogador.','invite_wrong_recipient');
-    balanceChange(user,`reserve:${duel.id}`,-duel.stake,'Pontos reservados para desafio');
+    duelBalanceChange(user,duel,`reserve:${duel.id}`,-duel.stake,'Pontos reservados para desafio');
     duel.guestId=user.id;duel.status='in_progress';duel.acceptedAt=now();
     for(const [one,two]of [[user.id,duel.hostId],[duel.hostId,user.id]])if(!draft.users[one].friends.includes(two))draft.users[one].friends.push(two);
     return duelView(draft,duel,user);
   }
   const mimeTypes={'.html':'text/html; charset=utf-8','.js':'text/javascript; charset=utf-8','.mjs':'text/javascript; charset=utf-8','.css':'text/css; charset=utf-8','.png':'image/png','.jpg':'image/jpeg','.webp':'image/webp','.svg':'image/svg+xml'};
   const publicFiles=new Set(['index.html','legacy.html','colecao.html','app.js','play.js','arena-app.js','backend-client.mjs','model.mjs','clubs.mjs','football-trophies.mjs','rivalry-section.mjs','styles.css','arena.css','shop.css','profile.css','achievements.css','rivalry.css','competitive-modes.css','practical.css','lobby.css','wizard.css','arena-app.css']);
-  const serverStatus=()=>({available:true,mode:'shared-prototype',paymentMode:'demo',realMoney:false,noRealMoney:true,apiVersion:1,reviewerConfigured:reviewerIds.size>0});
+  const serverStatus=()=>({available:true,mode:'shared',storage:'sqlite',schemaVersion:storage.schemaVersion,paymentMode,realMoney:false,noRealMoney:true,paymentsAvailable:paymentMode==='demo',authProviders:oauth.status(),apiVersion:1,reviewerConfigured:reviewerIds.size>0});
   async function route(draft,request,response,url){
     const path=url.pathname,method=request.method;
     if(method==='GET'&&path==='/api/v1/status')return serverStatus();
@@ -242,27 +281,39 @@ export async function createArenaServer(options={}){
       const data=await jsonBody(request);
       if(path.endsWith('/register')){
         const name=nickname(data.nickname),pass=password(data.password);
-        if(Object.values(draft.users).some(u=>u.nickname.toLocaleLowerCase()===name.toLocaleLowerCase()))fail(409,'Este apelido já está em uso.','nickname_taken');
-        if(Object.keys(draft.users).length>=10_000)fail(503,'Cadastro temporariamente indisponível.');
+        if(Object.values(draft.users).some(u=>normalizeNickname(u.nickname)===normalizeNickname(name)))fail(409,'Este apelido já está em uso.','nickname_taken');
         const salt=randomBytes(16).toString('hex');
         const digest=(await scrypt(pass,salt,64)).toString('hex');
-        let playerId;
-        do{playerId=`FBA-${randomBytes(5).toString('hex').toUpperCase()}`;}while(Object.values(draft.users).some(u=>u.publicPlayerId===playerId));
-        const user={id:randomUUID(),publicPlayerId:playerId,nickname:name,passwordHash:digest,passwordSalt:salt,clubId:null,gameAccount:null,createdAt:now(),balance:1000,friends:[],transactions:[]};
-        user.transactions=[{id:randomUUID(),reference:'welcome',amount:1000,label:'Pontos de demonstração de boas-vindas',date:user.createdAt}];
-        draft.users[user.id]=user;
+        const user=newUser(draft,name,{passwordHash:digest,passwordSalt:salt});
         return setSession(draft,user,response);
       }
       const identifier=String(data.identifier??data.nickname??'').trim();
       const pass=typeof data.password==='string'&&data.password.length<=256?data.password:'';
-      const user=Object.values(draft.users).find(u=>u.nickname.toLocaleLowerCase()===identifier.toLocaleLowerCase()||u.publicPlayerId===identifier.toUpperCase());
+      const user=Object.values(draft.users).find(u=>normalizeNickname(u.nickname)===normalizeNickname(identifier)||u.publicPlayerId===identifier.toUpperCase());
       const digest=await scrypt(pass,user?.passwordSalt||'fifabet-invalid-user-salt',64);
-      if(!user||!safeEqual(digest.toString('hex'),user.passwordHash))fail(401,'ID, apelido ou senha incorretos.','invalid_credentials');
+      if(!user?.passwordHash||!user.passwordSalt||!safeEqual(digest.toString('hex'),user.passwordHash))fail(401,'ID, apelido ou senha incorretos.','invalid_credentials');
       return setSession(draft,user,response);
+    }
+    const codeMatch=/^\/api\/v1\/invites\/code\/([^/]+)(\/accept)?$/.exec(path);
+    if(method==='GET'&&codeMatch&&!codeMatch[2]){
+      rateLimit(request,'invite-lookup',60,10*60*1000);
+      if(!/^FG-[A-F0-9]{10}$/.test(codeMatch[1]))fail(400,'Código inválido. Use FG seguido dos 10 caracteres da partida.','invite_invalid');
+      const duel=Object.values(draft.duels).find(item=>item.publicMatchId===codeMatch[1]);
+      if(!duel)fail(404,'Partida não encontrada. Confira o código com seu amigo.','invite_not_found');
+      requirePendingInvite(duel);
+      const current=sessionFor(draft,request),user=current&&current.expiresAt>Date.now()&&draft.users[current.userId];
+      if(user&&duel.recipientId&&duel.recipientId!==user.id&&duel.hostId!==user.id)fail(403,'Este convite foi enviado para outro jogador.','invite_wrong_recipient');
+      return {invite:{publicMatchId:duel.publicMatchId,stake:duel.stake,creditMode:duel.creditMode,mode:duel.mode,platform:duel.platform,status:duel.status,expiresAt:duel.expiresAt,...(user?{rules:duel.rules,host:{nickname:draft.users[duel.hostId].nickname}}:{})}};
     }
     const {user,session}=authenticated(draft,request);
     if(method!=='GET')mutationAllowed(request,session);
     if(method==='POST')rateLimit(request,'mutation',120,60*1000);
+    if(method==='POST'&&codeMatch&&codeMatch[2]){
+      if(!/^FG-[A-F0-9]{10}$/.test(codeMatch[1]))fail(400,'Código de partida inválido.','invite_invalid');
+      const duel=Object.values(draft.duels).find(item=>item.publicMatchId===codeMatch[1]);
+      if(!duel)fail(404,'Partida não encontrada. Confira o código com seu amigo.','invite_not_found');
+      return {duel:accept(draft,duel,user)};
+    }
     if(method==='POST'&&path==='/api/v1/auth/logout'){
       delete draft.sessions[sha(readCookie(request))];
       response.setHeader('Set-Cookie',`${COOKIE}=; Path=/; HttpOnly; SameSite=Lax; Max-Age=0${secureCookie?'; Secure':''}`);
@@ -271,7 +322,7 @@ export async function createArenaServer(options={}){
     if(method==='GET'&&path==='/api/v1/me'){
       const duels=Object.values(draft.duels).filter(d=>member(d,user)||d.recipientId===user.id).sort((a,b)=>b.createdAt.localeCompare(a.createdAt));
       const closed=duels.filter(d=>['completed','cancelled','expired'].includes(d.status));
-      return {user:{...publicPlayer(user),balance:user.balance,isReviewer:reviewer(user),friends:user.friends.map(id=>publicPlayer(draft.users[id])),transactions:user.transactions},duels:duels.filter(d=>!closed.includes(d)).map(d=>duelView(draft,d,user)),history:closed.map(d=>duelView(draft,d,user)),stats:{played:closed.filter(d=>d.status==='completed').length,wins:closed.filter(d=>d.winnerId===user.id).length,reserved:duels.filter(d=>['invited','in_progress','pending_review','disputed'].includes(d.status)&&(d.hostId===user.id||d.guestId===user.id)).reduce((sum,d)=>sum+d.stake,0)},csrfToken:session.csrfToken};
+      return {user:{...publicPlayer(user),balance:user.balance,demoBalance:user.demoBalance||0,legacyDemoBalance:user.demoBalance||0,isReviewer:reviewer(user),friends:user.friends.map(id=>publicPlayer(draft.users[id])),transactions:user.transactions},duels:duels.filter(d=>!closed.includes(d)).map(d=>duelView(draft,d,user)),history:closed.map(d=>duelView(draft,d,user)),stats:{played:closed.filter(d=>d.status==='completed').length,wins:closed.filter(d=>d.winnerId===user.id).length,reserved:reservedBalance(draft,user),legacyDemoReserved:reservedBalance(draft,user,true)},csrfToken:session.csrfToken};
     }
     if(method==='GET'&&path==='/api/v1/leaderboard'){
       const ranked=new Map();
@@ -289,15 +340,15 @@ export async function createArenaServer(options={}){
     }
     if(method==='PATCH'&&path==='/api/v1/me'){
       const data=await jsonBody(request);
-      if(Object.hasOwn(data,'nickname')){const name=nickname(data.nickname);if(Object.values(draft.users).some(u=>u.id!==user.id&&u.nickname.toLocaleLowerCase()===name.toLocaleLowerCase()))fail(409,'Este apelido já está em uso.');user.nickname=name;}
+      if(Object.hasOwn(data,'nickname')){const name=nickname(data.nickname);if(Object.values(draft.users).some(u=>u.id!==user.id&&normalizeNickname(u.nickname)===normalizeNickname(name)))fail(409,'Este apelido já está em uso.');user.nickname=name;}
       if(Object.hasOwn(data,'clubId')){if(data.clubId!==null&&!CLUBS.some(c=>c.id===data.clubId))fail(400,'Escolha um clube do catálogo.');user.clubId=data.clubId;}
       return {user:{...publicPlayer(user),balance:user.balance,isReviewer:reviewer(user)}};
     }
     if(method==='GET'&&path==='/api/v1/wallet'){
-      const reserved=Object.values(draft.duels).filter(duel=>member(duel,user)&&['invited','in_progress','pending_review','disputed'].includes(duel.status)).reduce((sum,duel)=>sum+duel.stake,0);
-      return {balance:user.balance,reserved,transactions:user.transactions,deposits:Object.values(draft.deposits).filter(deposit=>deposit.userId===user.id).sort((a,b)=>b.createdAt.localeCompare(a.createdAt)).map(deposit=>depositView(draft,deposit)),catalog:DEPOSIT_AMOUNTS,methods:DEPOSIT_METHODS,paymentMode:'demo',realMoney:false,noRealMoney:true};
+      return {balance:user.balance,reserved:reservedBalance(draft,user),transactions:user.transactions,legacyDemoBalance:user.demoBalance||0,legacyDemoReserved:reservedBalance(draft,user,true),legacyDemoTransactions:user.demoTransactions||[],deposits:Object.values(draft.deposits).filter(deposit=>deposit.userId===user.id).sort((a,b)=>b.createdAt.localeCompare(a.createdAt)).map(deposit=>depositView(draft,deposit)),catalog:paymentMode==='demo'?DEPOSIT_AMOUNTS:[],packs:paymentMode==='demo'?DEPOSIT_AMOUNTS:[],methods:paymentMode==='demo'?DEPOSIT_METHODS:[],paymentMode,paymentsAvailable:paymentMode==='demo',realMoney:false,noRealMoney:true};
     }
     if(method==='POST'&&path==='/api/v1/wallet/deposits'){
+      if(paymentMode!=='demo')fail(503,'Compra de créditos pendente: ainda precisamos conectar a conta comercial e o provedor de pagamento.','payments_unavailable');
       const data=await jsonBody(request);fields(data,['amount','method','installments','idempotencyKey']);
       if(!DEPOSIT_AMOUNTS.includes(data.amount)||!DEPOSIT_METHODS.includes(data.method))fail(400,'Escolha um pacote de créditos e um método de teste válidos.');
       const installments=integer(data.installments??1,1,6,'Número de parcelas');
@@ -316,6 +367,7 @@ export async function createArenaServer(options={}){
     const depositMatch=/^\/api\/v1\/wallet\/deposits\/([a-f0-9-]{36})\/(simulate|cancel|proof)$/.exec(path);
     if(method==='POST'&&depositMatch){
       const deposit=ownDeposit(draft,user,depositMatch[1]),action=depositMatch[2];
+      if(paymentMode!=='demo'&&action!=='cancel')fail(503,'Recargas desativadas até a conexão do provedor de pagamento.','payments_unavailable');
       if(!['pending','review'].includes(deposit.status))fail(409,'Este pedido já foi encerrado.');
       if(action==='proof'){
         if(deposit.method!=='transfer')fail(409,'Comprovante é usado apenas na simulação de transferência.');
@@ -359,6 +411,7 @@ export async function createArenaServer(options={}){
     }
     const walletReviewMatch=/^\/api\/v1\/wallet\/reviews\/([a-f0-9-]{36})$/.exec(path);
     if(method==='POST'&&walletReviewMatch){
+      if(paymentMode!=='demo')fail(503,'Recargas desativadas até a conexão do provedor de pagamento.','payments_unavailable');
       if(!reviewer(user))fail(403,'Apenas a equipe autorizada pode decidir sobre comprovantes.');
       const deposit=draft.deposits[walletReviewMatch[1]];
       if(!deposit)fail(404,'Pedido de recarga não encontrado.','not_found');
@@ -380,7 +433,9 @@ export async function createArenaServer(options={}){
     if(method==='POST'&&path==='/api/v1/duels'){
       const data=await jsonBody(request);
       if(data.expectedHostId!==undefined&&data.expectedHostId!==user.id)fail(409,'A conta mudou. Confira quem está conectado e prepare a partida novamente.','account_changed');
-      const stake=integer(data.stake,10,5000,'Quantidade de pontos');
+      const stake=integer(data.stake,0,5000,'Quantidade de créditos');
+      if(paymentMode!=='demo'&&stake!==0)fail(503,'Enquanto os pagamentos estão em configuração, crie uma partida amistosa sem créditos.','payments_unavailable');
+      if(stake>0&&stake<10)fail(400,'Use zero para amistosa ou pelo menos 10 créditos de teste.');
       if(!MODES.includes(data.mode)||!PLATFORMS.includes(data.platform))fail(400,'Escolha um modo e uma plataforma válidos.');
       let operationId=null;
       if(data.operationId!==undefined){
@@ -401,7 +456,7 @@ export async function createArenaServer(options={}){
       }
       if(Object.values(draft.duels).filter(d=>d.hostId===user.id&&d.status==='invited').length>=20)fail(409,'Conclua ou cancele convites pendentes antes de criar mais.');
       if(Object.values(draft.duels).filter(d=>member(d,user)&&['invited','in_progress','pending_review','disputed'].includes(d.status)).length>=50)fail(409,'Conclua desafios em andamento antes de criar mais.');
-      const duel={id:randomUUID(),hostId:user.id,guestId:null,recipientId:recipient?.id||null,stake,mode:data.mode,platform:data.platform,rules,status:'invited',inviteToken:token(),createdAt:now(),expiresAt:new Date(Date.now()+7*DAY).toISOString(),reports:[],disputes:[],result:null,cancellationRequestedBy:[]};
+      const duel={id:randomUUID(),publicMatchId:uniquePublicId(draft.duels,'FG','publicMatchId'),creditMode:paymentMode==='demo'?'demo':'friendly',hostId:user.id,guestId:null,recipientId:recipient?.id||null,stake,mode:data.mode,platform:data.platform,rules,status:'invited',inviteToken:token(),createdAt:now(),expiresAt:new Date(Date.now()+7*DAY).toISOString(),reports:[],disputes:[],result:null,cancellationRequestedBy:[]};
       if(operationId){duel.creationOperationId=operationId;duel.creationOperationSignature=operationSignature;}
       balanceChange(user,`reserve:${duel.id}`,-stake,'Pontos reservados para desafio');
       draft.duels[duel.id]=duel;
@@ -414,7 +469,7 @@ export async function createArenaServer(options={}){
       if(!duel)fail(404,'Convite não encontrado. Confira o código ou peça um novo link.','invite_not_found');
       if(duel.recipientId&&duel.recipientId!==user.id&&duel.hostId!==user.id)fail(403,'Este convite foi enviado para outro jogador.','invite_wrong_recipient');
       requirePendingInvite(duel);
-      if(method==='GET'&&!inviteMatch[2])return {invite:{host:{nickname:draft.users[duel.hostId].nickname},stake:duel.stake,mode:duel.mode,platform:duel.platform,rules:duel.rules,status:duel.status,expiresAt:duel.expiresAt}};
+      if(method==='GET'&&!inviteMatch[2])return {invite:{publicMatchId:duel.publicMatchId,creditMode:duel.creditMode,host:{nickname:draft.users[duel.hostId].nickname},stake:duel.stake,mode:duel.mode,platform:duel.platform,rules:duel.rules,status:duel.status,expiresAt:duel.expiresAt}};
       if(method==='POST'&&inviteMatch[2])return {duel:accept(draft,duel,user)};
     }
     const duelMatch=/^\/api\/v1\/duels\/([a-f0-9-]{36})\/(accept|cancel|cancel-withdraw|result|confirm|dispute)$/.exec(path);
@@ -431,12 +486,12 @@ export async function createArenaServer(options={}){
       if(action==='cancel'){
         if(duel.status==='invited'&&(duel.hostId===user.id||duel.recipientId===user.id)){
           const declined=duel.recipientId===user.id;
-          balanceChange(draft.users[duel.hostId],`cancel:${duel.id}`,duel.stake,declined?'Convite recusado: reserva devolvida':'Convite cancelado: reserva devolvida');
+          duelBalanceChange(draft.users[duel.hostId],duel,`cancel:${duel.id}`,duel.stake,declined?'Convite recusado: reserva devolvida':'Convite cancelado: reserva devolvida');
           duel.status='cancelled';duel.closedAt=now();duel.cancelledBy=user.id;duel.cancellationReason=declined?'declined':'withdrawn';
         }
         else if(duel.status==='in_progress'&&member(duel,user)){
           if(!duel.cancellationRequestedBy.includes(user.id))duel.cancellationRequestedBy.push(user.id);
-          if(duel.cancellationRequestedBy.length===2){for(const id of [duel.hostId,duel.guestId])balanceChange(draft.users[id],`cancel:${duel.id}`,duel.stake,'Cancelamento combinado: reserva devolvida');duel.status='cancelled';duel.closedAt=now();}
+          if(duel.cancellationRequestedBy.length===2){for(const id of [duel.hostId,duel.guestId])duelBalanceChange(draft.users[id],duel,`cancel:${duel.id}`,duel.stake,'Cancelamento combinado: reserva devolvida');duel.status='cancelled';duel.closedAt=now();}
         }else fail(409,'Este desafio precisa ser resolvido pela revisão.');
         return {duel:duelView(draft,duel,user)};
       }
@@ -501,8 +556,8 @@ export async function createArenaServer(options={}){
       const data=await jsonBody(request),text=reason(data.reason);
       if(data.reportId!==duel.result.id)fail(409,'O placar mudou. Revise a versão atual antes de distribuir pontos.','stale_result');
       if(!['host','guest','draw'].includes(data.winner))fail(400,'Escolha anfitrião, convidado ou empate.');
-      if(data.winner==='draw')for(const id of [duel.hostId,duel.guestId])balanceChange(draft.users[id],`settlement:${duel.id}`,duel.stake,'Empate aprovado: reserva devolvida');
-      else{const id=data.winner==='host'?duel.hostId:duel.guestId;balanceChange(draft.users[id],`settlement:${duel.id}`,2*duel.stake,'Vitória aprovada pela equipe: pontos do desafio');}
+      if(data.winner==='draw')for(const id of [duel.hostId,duel.guestId])duelBalanceChange(draft.users[id],duel,`settlement:${duel.id}`,duel.stake,'Empate aprovado: reserva devolvida');
+      else{const id=data.winner==='host'?duel.hostId:duel.guestId;duelBalanceChange(draft.users[id],duel,`settlement:${duel.id}`,2*duel.stake,'Vitória aprovada pela equipe: pontos do desafio');}
       duel.winner=data.winner;duel.winnerId=data.winner==='draw'?null:(data.winner==='host'?duel.hostId:duel.guestId);
       duel.review={reviewerId:user.id,reason:text,approvedAt:now(),resultId:duel.result.id};duel.status='completed';duel.closedAt=now();
       return {duel:duelView(draft,duel,user)};
@@ -516,15 +571,53 @@ export async function createArenaServer(options={}){
       try{url=new URL(request.url||'/',publicOrigin||'http://localhost');}
       catch{fail(400,'Endereço inválido.');}
       rateLimit(request,'requests',500,60*1000);
+      const oauthRoute=/^\/api\/v1\/auth\/oauth\/(google|apple)\/(start|callback)$/.exec(url.pathname);
+      if(oauthRoute){
+        const [,provider,action]=oauthRoute;let clearOAuthCookie;
+        try{
+          rateLimit(request,'oauth',30,10*60*1000);
+          if(action==='start'){
+            if(request.method!=='GET')fail(405,'Método não permitido.');
+            if(request.headers['sec-fetch-site']==='cross-site')fail(403,'Inicie o login na própria arena.','oauth_invalid_state');
+            const flow=await oauth.start(provider);appendCookie(response,flow.setCookie);
+            response.writeHead(303,{Location:flow.authorizationUrl});response.end();return;
+          }
+          let params;
+          if(provider==='apple'){
+            if(request.method!=='POST'||String(request.headers['content-type']||'').split(';')[0]!=='application/x-www-form-urlencoded')fail(400,'Resposta de login inválida.','oauth_invalid_response');
+            params=new URLSearchParams((await readBody(request,48*1024)).toString('utf8'));
+          }else{
+            if(request.method!=='GET')fail(405,'Resposta de login inválida.','oauth_invalid_response');
+            params=url.searchParams;
+          }
+          // Provider I/O runs outside the database queue. Only a verified identity can commit a session.
+          const completed=await oauth.finish(provider,{params,cookieHeader:request.headers.cookie});
+          clearOAuthCookie=completed.setCookie;
+          await serial(async()=>{
+            const draft=structuredClone(state);expireInvites(draft);
+            const user=socialUser(draft,completed.identity);
+            appendCookie(response,completed.setCookie);setSession(draft,user,response);
+            await persist(draft);state=draft;
+          });
+          response.writeHead(303,{Location:'/?auth=success#arena'});response.end();
+        }catch(error){
+          response.removeHeader('Set-Cookie');
+          if(error.setCookie||clearOAuthCookie)appendCookie(response,error.setCookie||clearOAuthCookie);
+          const allowed=['oauth_unavailable','oauth_expired','oauth_invalid_state','oauth_cancelled','oauth_rejected','oauth_invalid_response','oauth_provider_unavailable','account_conflict'];
+          response.writeHead(303,{Location:`/?auth_error=${allowed.includes(error.code)?error.code:'failed'}#arena`});response.end();
+        }
+        return;
+      }
       if(request.method==='GET'&&url.pathname==='/api/v1/status'){
         response.writeHead(200,{'Content-Type':'application/json; charset=utf-8'});response.end(JSON.stringify(serverStatus()));
         return;
       }
       if(url.pathname.startsWith('/api/')){
         await serial(async()=>{
-          const draft=structuredClone(state);expireInvites(draft);
+          const draft=structuredClone(state),expired=expireInvites(draft);
           const result=await route(draft,request,response,url);
-          await persist(draft);state=draft;
+          if(request.method!=='GET'||expired)await persist(draft);
+          state=draft;
           if(result!==null){response.writeHead(200,{'Content-Type':'application/json; charset=utf-8'});response.end(JSON.stringify(result));}
         });
         return;
@@ -540,14 +633,14 @@ export async function createArenaServer(options={}){
       // Failed persistence must not install an authenticated cookie for an uncommitted session.
       response.removeHeader('Set-Cookie');
       const status=error.status||(error.code==='ENOENT'?404:500);
-      if(status===500)console.error('FifaBet request failed:',error.message);
+      if(status===500)console.error('Fifa GO request failed:',error.message);
       response.writeHead(status,{'Content-Type':'application/json; charset=utf-8'});
       response.end(JSON.stringify({error:status===500?'O servidor não conseguiu concluir o pedido.':error.message,code:error.status?error.code:'server_error'}));
     }
   });
   server.requestTimeout=30_000;server.headersTimeout=15_000;server.keepAliveTimeout=5_000;
   let cleanupPromise;
-  const cleanup=()=>cleanupPromise||(cleanupPromise=tail.then(async()=>{await lock.close().catch(()=>{});await unlink(lockPath).catch(()=>{});}));
+  const cleanup=()=>cleanupPromise||(cleanupPromise=tail.then(async()=>{storage.close();await lock.close().catch(()=>{});await unlink(lockPath).catch(()=>{});}));
   server.on('close',()=>{void cleanup();});
   return {server,dataDir,reviewerIds,async close(){await new Promise((resolveClose,reject)=>server.close(error=>error?reject(error):resolveClose()));await cleanup();}};
 }
@@ -556,7 +649,7 @@ if(process.argv[1]&&import.meta.url===pathToFileURL(resolve(process.argv[1])).hr
   const host=process.env.FIFABET_HOST||'127.0.0.1',port=Number(process.env.FIFABET_PORT||4174);
   if(host!=='127.0.0.1'&&host!=='localhost'&&!process.env.FIFABET_PUBLIC_ORIGIN)throw Error('Configure FIFABET_PUBLIC_ORIGIN ao abrir o servidor para outros dispositivos.');
   const arena=await createArenaServer();
-  arena.server.listen(port,host,()=>{console.log(`FifaBet com contas compartilhadas: ${process.env.FIFABET_PUBLIC_ORIGIN||`http://${host}:${port}`}`);console.log(`Dados privados: ${arena.dataDir}`);console.log('Protótipo com pontos fictícios. Configure revisão antes de concluir os desafios.');});
+  arena.server.listen(port,host,()=>{console.log(`Fifa GO com banco SQLite: ${process.env.FIFABET_PUBLIC_ORIGIN||`http://${host}:${port}`}`);console.log(`Dados privados: ${arena.dataDir}`);console.log('Pagamentos reais ainda não conectados. Configure os provedores de login social e a equipe de revisão.');});
   const stop=async()=>{await arena.close();process.exit(0);};
   process.on('SIGINT',stop);process.on('SIGTERM',stop);
 }

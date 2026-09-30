@@ -8,3 +8,11 @@ site-package*.tar.gz
 fifabet-hostinger.zip
 .fifabet-arena/
 backend/data/
+*.sqlite
+*.sqlite-wal
+*.sqlite-shm
+*.db
+*.bak
+*.p8
+*.pem
+*.key

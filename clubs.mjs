@@ -1,4 +1,4 @@
-// Club identity catalog. Provenance: assets/clubs/credits.json.
+// Club identity catalog. Provenance: assets/clubs/credits.json and assets/kits/credits.json.
 export const CLUBS = [
   {
     "id": "internacional",
@@ -17,7 +17,13 @@ export const CLUBS = [
       "Sport Club Internacional",
       "SC Internacional"
     ],
-    "source": "https://internacional.com.br/"
+    "source": "https://internacional.com.br/",
+    "kit": {
+      "file": "assets/kits/internacional.jpg",
+      "season": "25/26",
+      "name": "Camisa Internacional I 25/26 adidas",
+      "sourceUrl": "https://www.lojadointer.com.br/p/camisa-internacional-i-2526-sn-com-patrocinio-torcedor-adidas-masculina-FBA-82F4-016"
+    }
   },
   {
     "id": "gremio",
@@ -34,7 +40,13 @@ export const CLUBS = [
       "Gremio",
       "Grêmio FBPA"
     ],
-    "source": "https://internacional.com.br/"
+    "source": "https://internacional.com.br/",
+    "kit": {
+      "file": "assets/kits/gremio.jpg",
+      "season": "2026",
+      "name": "Camisa Grêmio Home 2026 Atleta New Balance",
+      "sourceUrl": "https://www.loja.gremiomania.com.br/camisa-gremio-i-2026-atleta-new-balance/p"
+    }
   },
   {
     "id": "flamengo",
@@ -50,7 +62,13 @@ export const CLUBS = [
     "aliases": [
       "CR Flamengo"
     ],
-    "source": "https://www.flamengo.com.br/"
+    "source": "https://www.flamengo.com.br/",
+    "kit": {
+      "file": "assets/kits/flamengo.png",
+      "season": "2025",
+      "name": "Manto Flamengo Jogo 1 adidas 2025",
+      "sourceUrl": "https://www.flamengo.com.br/loja/manto-flamengo-jogo-1-adidas-2025/p"
+    }
   },
   {
     "id": "palmeiras",
@@ -66,7 +84,13 @@ export const CLUBS = [
     "aliases": [
       "SE Palmeiras"
     ],
-    "source": "https://www.palmeiras.com.br/"
+    "source": "https://www.palmeiras.com.br/",
+    "kit": {
+      "file": "assets/kits/palmeiras.png",
+      "season": "2026",
+      "name": "Camisa Palmeiras HOME 26 Torcedor PUMA",
+      "sourceUrl": "https://www.palmeirasstore.com/camisa-palmeiras-home-26-torcedor-masculino-787218-99/p"
+    }
   },
   {
     "id": "corinthians",
@@ -82,7 +106,13 @@ export const CLUBS = [
     "aliases": [
       "Sport Club Corinthians Paulista"
     ],
-    "source": "https://internacional.com.br/"
+    "source": "https://internacional.com.br/",
+    "kit": {
+      "file": "assets/kits/corinthians.jpg",
+      "season": "26/27",
+      "name": "Camisa Corinthians I 26/27 Torcedor Nike",
+      "sourceUrl": "https://www.shoptimao.com.br/p/camisa-corinthians-i-2627-sn-torcedor-nike-masculina-SGL-0539-028"
+    }
   },
   {
     "id": "sao-paulo",
@@ -99,7 +129,13 @@ export const CLUBS = [
       "São Paulo FC",
       "SPFC"
     ],
-    "source": "https://www.saopaulofc.net/"
+    "source": "https://www.saopaulofc.net/",
+    "kit": {
+      "file": "assets/kits/sao-paulo.jpg",
+      "season": "2026",
+      "name": "Camisa Home Jogador SPFC 2026 New Balance",
+      "sourceUrl": "https://www.newbalance.com.br/camisa-home-jogador-spfc-2026-masculina-1345626/p"
+    }
   },
   {
     "id": "santos",
@@ -115,7 +151,13 @@ export const CLUBS = [
     "aliases": [
       "Santos FC"
     ],
-    "source": "https://www.santosfc.com.br/"
+    "source": "https://www.santosfc.com.br/",
+    "kit": {
+      "file": "assets/kits/santos.jpg",
+      "season": "2026/27",
+      "name": "Camisa Santos I 26/27 s/n Torcedor Umbro Masculina",
+      "sourceUrl": "https://www.santosstore.com.br/p/camisa-santos-i-2627-sn-torcedor-umbro-masculina-branco%2Bbronze-SID-0111-032"
+    }
   },
   {
     "id": "vasco",
@@ -132,7 +174,13 @@ export const CLUBS = [
       "Vasco",
       "CR Vasco da Gama"
     ],
-    "source": "https://internacional.com.br/"
+    "source": "https://internacional.com.br/",
+    "kit": {
+      "file": "assets/kits/vasco.jpg",
+      "season": "2025/26",
+      "name": "Camisa Vasco I 25/26 s/n Jogador Kappa Masculino",
+      "sourceUrl": "https://www.shopvasco.com.br/p/camisa-vasco-i-2526-sn-jogador-kappa-masculino-preto%2Bbranco-D24-7038-026"
+    }
   },
   {
     "id": "cruzeiro",
@@ -148,7 +196,13 @@ export const CLUBS = [
     "aliases": [
       "Cruzeiro EC"
     ],
-    "source": "https://internacional.com.br/"
+    "source": "https://internacional.com.br/",
+    "kit": {
+      "file": "assets/kits/cruzeiro.jpg",
+      "season": "2025/26",
+      "name": "Camisa Cruzeiro I 25/26 - Japa nº 77 - Torcedor Adidas Masculina (foto frontal)",
+      "sourceUrl": "https://loja.cruzeiro.com.br/p/camisa-cruzeiro-i-2526-japa-n-77-torcedor-adidas-masculina-azul-FBA-6277-008"
+    }
   },
   {
     "id": "atletico-mineiro",
@@ -167,7 +221,13 @@ export const CLUBS = [
       "Galo",
       "CAM"
     ],
-    "source": "https://atletico.com.br/"
+    "source": "https://atletico.com.br/",
+    "kit": {
+      "file": "assets/kits/atletico-mineiro.png",
+      "season": "2025",
+      "name": "Camisa Masculina adidas Atlético Mineiro 2025 - Jogo 1 Com Patrocínio H2bet",
+      "sourceUrl": "https://www.lojadogalo.com.br/camisa-adidas-atletico-mineiro-2025-jogo-1-h2bet/p"
+    }
   },
   {
     "id": "botafogo",
@@ -183,7 +243,13 @@ export const CLUBS = [
     "aliases": [
       "Botafogo FR"
     ],
-    "source": "https://www.botafogo.com.br/"
+    "source": "https://www.botafogo.com.br/",
+    "kit": {
+      "file": "assets/kits/botafogo.jpg",
+      "season": "2025/26",
+      "name": "Camisa Botafogo Reebok Home 25/26",
+      "sourceUrl": "https://store.botafogo.com.br/camisa-botafogo-reebok-home-2526/p"
+    }
   },
   {
     "id": "fluminense",
@@ -199,7 +265,13 @@ export const CLUBS = [
     "aliases": [
       "Fluminense FC"
     ],
-    "source": "https://www.fluminense.com.br/"
+    "source": "https://www.fluminense.com.br/",
+    "kit": {
+      "file": "assets/kits/fluminense.jpg",
+      "season": "2026",
+      "name": "Camisa Fluminense Torcedor Home OF1 2026 Puma",
+      "sourceUrl": "https://www.loja.fluminense.com.br/camisa-fluminense-torcedor-home-of1-2026-puma/p"
+    }
   },
   {
     "id": "real-madrid",
@@ -215,7 +287,13 @@ export const CLUBS = [
     "aliases": [
       "Real Madrid CF"
     ],
-    "source": "https://www.realmadrid.com/en-US"
+    "source": "https://www.realmadrid.com/en-US",
+    "kit": {
+      "file": "assets/kits/real-madrid.jpg",
+      "season": "26/27",
+      "name": "Mens Home Jersey 26/27 White adidas",
+      "sourceUrl": "https://us.shop.realmadrid.com/products/rmcfmz0941-mens-home-shirt-26-27-white"
+    }
   },
   {
     "id": "barcelona",
@@ -232,7 +310,13 @@ export const CLUBS = [
       "FC Barcelona",
       "Barça"
     ],
-    "source": "https://www.fcbarcelona.com/en/"
+    "source": "https://www.fcbarcelona.com/en/",
+    "kit": {
+      "file": "assets/kits/barcelona.webp",
+      "season": "26/27",
+      "name": "Uniforme I titular 26/27 — costas",
+      "sourceUrl": "https://store.fcbarcelona.com/products/fc-barcelona-home-fullshirt-26-27-ucl"
+    }
   },
   {
     "id": "manchester-united",
@@ -249,7 +333,13 @@ export const CLUBS = [
       "Man United",
       "Man Utd"
     ],
-    "source": "https://www.manutd.com/"
+    "source": "https://www.manutd.com/",
+    "kit": {
+      "file": "assets/kits/manchester-united.jpg",
+      "season": "2025/26",
+      "name": "Manchester United 25/26 Home Jersey",
+      "sourceUrl": "https://store.manutd.com/en/p/manchester-united-2526-home-jersey-4081"
+    }
   },
   {
     "id": "manchester-city",
@@ -265,7 +355,13 @@ export const CLUBS = [
     "aliases": [
       "Man City"
     ],
-    "source": "https://www.mancity.com/"
+    "source": "https://www.mancity.com/",
+    "kit": {
+      "file": "assets/kits/manchester-city.png",
+      "season": "2026/27",
+      "name": "Manchester City Home Jersey 2026/27",
+      "sourceUrl": "https://shop.mancity.com/gb/en/manchester-city-home-jersey-2026-27/701242784-teamlightblue-icyblue.html"
+    }
   },
   {
     "id": "liverpool",
@@ -281,7 +377,13 @@ export const CLUBS = [
     "aliases": [
       "Liverpool FC"
     ],
-    "source": "https://www.liverpoolfc.com/"
+    "source": "https://www.liverpoolfc.com/",
+    "kit": {
+      "file": "assets/kits/liverpool.webp",
+      "season": "2025/26",
+      "name": "LFC adidas Mens 25/26 Home Jersey",
+      "sourceUrl": "https://store.liverpoolfc.com/lfc-adidas-mens-25-26-home-jersey"
+    }
   },
   {
     "id": "arsenal",
@@ -297,7 +399,13 @@ export const CLUBS = [
     "aliases": [
       "Arsenal FC"
     ],
-    "source": "https://www.arsenal.com/"
+    "source": "https://www.arsenal.com/",
+    "kit": {
+      "file": "assets/kits/arsenal.webp",
+      "season": "2025/26",
+      "name": "Arsenal 25/26 Home Jersey",
+      "sourceUrl": "https://www.adidas.com/qa/en/arsenal-25-26-home-jersey/JI9517.html"
+    }
   },
   {
     "id": "bayern",
@@ -315,7 +423,13 @@ export const CLUBS = [
       "Bayern de Munique",
       "Bayern Munich"
     ],
-    "source": "https://fcbayern.com/en"
+    "source": "https://fcbayern.com/en",
+    "kit": {
+      "file": "assets/kits/bayern.webp",
+      "season": "2025/26",
+      "name": "Herren Trikot Home 25-26",
+      "sourceUrl": "https://fcbayern.com/store/de-de/p/trikot-home-25-26-73352"
+    }
   },
   {
     "id": "psg",
@@ -332,7 +446,13 @@ export const CLUBS = [
       "PSG",
       "Paris Saint Germain"
     ],
-    "source": "https://www.psg.fr/"
+    "source": "https://www.psg.fr/",
+    "kit": {
+      "file": "assets/kits/psg.jpg",
+      "season": "2024/25",
+      "name": "PSG Nike Home Stadium Shirt 2024-25",
+      "sourceUrl": "https://store.psg.fr/en/maillot-domicile-stadium-psg-nike-24/25/p-800033202430512843%2Bz-8-642426344"
+    }
   },
   {
     "id": "juventus",
@@ -348,7 +468,13 @@ export const CLUBS = [
     "aliases": [
       "Juve"
     ],
-    "source": "https://www.juventus.com/en"
+    "source": "https://www.juventus.com/en",
+    "kit": {
+      "file": "assets/kits/juventus.webp",
+      "season": "2025/26",
+      "name": "Juventus Home Authentic Jersey 2025/26",
+      "sourceUrl": "https://store.juventus.com/my/juventus-home-authentic-jersey-2025-26"
+    }
   },
   {
     "id": "milan",
@@ -364,7 +490,13 @@ export const CLUBS = [
     "aliases": [
       "Milan"
     ],
-    "source": "https://www.acmilan.com/en"
+    "source": "https://www.acmilan.com/en",
+    "kit": {
+      "file": "assets/kits/milan.webp",
+      "season": "2025/26",
+      "name": "Milan Home 2025/26 Jersey",
+      "sourceUrl": "https://store.acmilan.com/en/products/acm-home-jersey-replica"
+    }
   },
   {
     "id": "inter-milan",
@@ -382,7 +514,13 @@ export const CLUBS = [
       "Internazionale",
       "Inter de Milão"
     ],
-    "source": "https://www.inter.it/en"
+    "source": "https://www.inter.it/en",
+    "kit": {
+      "file": "assets/kits/inter-milan.webp",
+      "season": "2025/26",
+      "name": "FC Inter Home Stadium Jersey 2025/26",
+      "sourceUrl": "https://store.inter.it/cm/fc-inter-home-stadium-jersey-2025-26"
+    }
   }
 ];
 const normalized=value=>String(value||'').normalize('NFD').replace(/[\u0300-\u036f]/g,'').toLocaleLowerCase().trim().replace(/\s+/g,' ');

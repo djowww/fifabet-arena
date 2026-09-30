@@ -1,6 +1,6 @@
 # Créditos de terceiros
 
-Fontes anteriores de atletas e assinaturas: 29 de setembro de 2026. Expansão de avatares, pesquisa de assinaturas, bandeiras e fontes dos clubes: 30 de setembro de 2026.
+Fontes anteriores de atletas e assinaturas: 29 de setembro de 2026. Expansão de avatares, pesquisa de assinaturas, bandeiras, fontes dos clubes e fotografias de uniformes: 30 de setembro de 2026.
 
 ## Fotografias de atletas
 
@@ -82,6 +82,14 @@ O registro em [assets/clubs/credits.json](assets/clubs/credits.json) reúne os l
 O Internacional usa o brasão do [site oficial do clube](https://internacional.com.br/) e o vermelho `#E20613` presente no SVG. Os demais fundos usam cores de interface aproximadas à identidade de cada clube. O catálogo inclui fontes como [Flamengo](https://www.flamengo.com.br/), [Real Madrid](https://www.realmadrid.com/en-US), [Barcelona](https://www.fcbarcelona.com/en/) e [Manchester United](https://www.manutd.com/); as atribuições completas de todos os arquivos permanecem no manifesto.
 
 Os nomes e brasões pertencem aos respectivos clubes. A publicação dos arquivos em fontes oficiais não equivale a uma licença comercial, parceria ou endosso deste aplicativo. A licença proprietária do código não se estende a essas marcas.
+
+## Fotografias dos uniformes de perfil
+
+Os 23 uniformes titulares de `assets/kits/` são fotografias de produto publicadas em lojas oficiais de clubes ou fabricantes. Mostram a camiseta sozinha, sem pessoa ou manequim. Os arquivos foram baixados com os bytes preservados; não houve geração por IA, redesenho ou edição local. O CSS apenas enquadra a imagem com `object-fit: contain`, preservando sua proporção.
+
+As temporadas disponíveis vão de 2024/25 a 2026/27, incluindo modelos anuais de 2025 e 2026. A seleção documenta um uniforme oficial de cada clube, sem afirmar que todos são o modelo mais recente. Barcelona usa a fotografia de costas fornecida pela fonte; os outros 22 uniformes usam fotografias de frente. As páginas de origem, URLs exatas dos ativos, fornecedores, temporadas, datas de consulta e hashes SHA-256 estão em [assets/kits/credits.json](assets/kits/credits.json). A [tabela de fontes dos uniformes](docs/UNIFORMES_FONTES.md) reúne os 23 itens.
+
+As fotografias, brasões e marcas presentes nas camisetas pertencem aos respectivos titulares. Sua publicação por uma fonte oficial não concede licença comercial, parceria ou endosso ao aplicativo; esses direitos permanecem separados da licença do código. A camiseta neutra SVG exibida quando nenhum clube do catálogo está selecionado é uma ilustração original da arena, sujeita à [LICENSE](LICENSE), sem identidade de clube.
 
 ## Artes originais das conquistas
 

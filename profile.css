@@ -1,4 +1,11 @@
 /* Club identity is selected from a source-backed local catalog. */
+.avatar.kit-avatar{padding:3px;overflow:hidden;background:#f4f4f2;border:1px solid var(--kit-accent)!important;box-shadow:0 0 0 2px #ffffff0b}
+.avatar.kit-avatar>img{display:block;width:100%;height:100%;object-fit:contain;border-radius:inherit}
+.avatar.kit-avatar.small{width:40px;height:40px;padding:2px;border-radius:11px}
+.avatar.kit-avatar.large{width:92px;height:92px;border-radius:19px;padding:5px}
+.avatar.neutral-kit-avatar{background:#142119;border-color:#32583e;overflow:hidden;padding:4px}.neutral-kit-avatar>svg{width:100%;height:100%}.neutral-kit-avatar.large{padding:9px}
+.profile-kit-card{display:flex;align-items:center;gap:18px;margin:13px 0 20px;padding:16px;background:#17201a;border:1px solid #354c3e;border-radius:10px}.profile-kit-card>div{min-width:0}.profile-kit-card small{display:block;color:var(--lime);font-size:8px;letter-spacing:1.4px;margin-bottom:7px}.profile-kit-card strong{display:block;font-size:14px;line-height:1.35}.profile-kit-card p{font-size:10px;line-height:1.5;color:#b6c7bc;margin:5px 0 7px}.profile-kit-card a{display:inline-flex;align-items:center;gap:5px;color:var(--lime);font-size:10px}.profile-kit-card .icon{width:13px;height:13px}.profile-kit-card .avatar.large{width:92px;height:92px}
+@media(max-width:600px){.profile-kit-card{gap:12px;padding:12px}.profile-kit-card .avatar.large{width:76px;height:76px}.profile-kit-card strong{font-size:12px}.profile-kit-card small{font-size:7px}}
 .club-banner-empty{border-color:#3d4941;border-radius:10px;background:#202823}.club-banner-empty strong{font-size:15px}.club-banner-empty .team-banner-badge{color:var(--lime);background:#183b25;border-color:#315b3d;box-shadow:none}.club-banner-empty::after{opacity:.25}
 .club-banner{min-height:112px;padding:18px 22px;border-radius:10px;border-color:#ffffff38;background:linear-gradient(115deg,var(--club-primary) 15%,var(--club-primary) 68%,var(--club-secondary))!important;color:var(--club-ink)!important;box-shadow:inset 0 1px 0 #ffffff1f}
 .club-banner::before{content:'';position:absolute;inset:0;background:linear-gradient(115deg,#00000008,#00000025);z-index:-1}.club-banner::after{opacity:.3;background:repeating-linear-gradient(118deg,transparent 0 22px,#ffffff1c 22px 28px)}

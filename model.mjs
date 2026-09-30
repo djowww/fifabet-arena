@@ -1,4 +1,4 @@
-import {CLUBS,clubById,findClub} from './clubs.mjs?v=10';
+import {CLUBS,clubById,findClub} from './clubs.mjs?v=14';
 export {CLUBS,clubById,findClub};
 export const STORAGE_KEY = 'fifabet:arena:v2';
 export const VIEWS = ['arena', 'friends', 'store', 'ranking', 'bets', 'trophies', 'wallet'];
@@ -155,6 +155,7 @@ export function change(input,action,data={}){
         p.clubId=club?.id||null;if(club)p.teamName=club.name;
       }
       if(TEAM_FLAGS.some(flag=>flag.id===data.teamFlag))p.teamFlag=data.teamFlag;
+      if(data.avatarStyle==='club')p.avatarSticker=null;
     }else if(action==='saveGameAccount'){
       const id=eaId(data.eaId);
       if(!GAME_PLATFORMS.some(item=>item.id===data.platform))throw Error('Escolha a plataforma em que você joga.');

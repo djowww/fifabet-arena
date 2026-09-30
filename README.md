@@ -6,8 +6,9 @@ Protótipo front-end de uma arena para desafiar amigos no EA SPORTS FC, combinar
 
 ## O que dá para explorar
 
-- Criar um perfil local com apelido e avatar.
+- Criar um perfil local com apelido e avatar usando a camiseta oficial do clube preferido, em vez de iniciais.
 - Personalizar o perfil escolhendo entre 23 clubes brasileiros e europeus, com busca, prévia do brasão e fundo nas cores do time.
+- Escolher no perfil entre o uniforme do clube e uma figurinha da coleção, com prévia antes de salvar.
 - Comprar com pontos fictícios 13 avatares de jogadores: 12 caricaturas e uma fotografia licenciada de Messi, montar uma coleção e equipar o avatar no perfil.
 - Ver a bandeira da seleção de cada atleta, explorar as categorias Ouro, Prata e Bronze e consultar os créditos das artes e assinaturas disponíveis.
 - Descobrir jogadores de exemplo, aceitar convites e montar uma lista de amigos.
@@ -37,7 +38,11 @@ A seção “Escolha a disputa. Chame seu rival.” destaca 1v1, Torneios e Apos
 
 A configuração do perfil permite buscar e selecionar um dos **23 clubes** do catálogo. A prévia mostra o brasão e as cores antes de salvar. O clube escolhido é persistido pelo seu identificador, permitindo recuperar a mesma identidade ao reabrir a arena. No Internacional, o vermelho `#E20613` foi extraído do próprio SVG publicado no site oficial.
 
-Os perfis anteriores são migrados para o esquema 6, preservando avatares, coleção, conquistas e nomes de time personalizados que já estavam salvos. O catálogo organiza os clubes conhecidos sem apagar a personalização anterior.
+O avatar padrão passa a mostrar a **camiseta oficial titular do clube escolhido**, em vez de iniciais. O seletor de aparência permite usar o uniforme ou uma figurinha equipada da coleção, e a prévia acompanha as alterações antes de salvar. Sem um clube do catálogo selecionado, aparece uma camiseta neutra original da arena, sem iniciais; ela não representa um uniforme oficial.
+
+As 23 fotos de camisetas vêm de lojas oficiais de clubes ou dos fabricantes. São fotografias publicadas do produto sozinho, com os bytes preservados, sem geração por IA, redesenho ou edição local. O CSS apenas ajusta o enquadramento com `object-fit: contain`. As temporadas vão de 2024/25 a 2026/27, incluindo modelos anuais de 2025 e 2026; o catálogo não afirma que todas são o uniforme mais recente. Barcelona usa uma vista de costas, identificada nas fontes; os demais uniformes aparecem de frente. Consulte [fontes dos uniformes](docs/UNIFORMES_FONTES.md) e [assets/kits/credits.json](assets/kits/credits.json).
+
+Os perfis anteriores preservam coleção, conquistas e nomes de time personalizados que já estavam salvos. O catálogo organiza os clubes conhecidos sem apagar a personalização anterior; a figurinha adquirida continua disponível como alternativa ao uniforme.
 
 Os brasões vêm de fontes oficiais documentadas; as cores de interface aproximam a identidade de cada clube. A origem de cada arquivo e as alterações estão em [assets/clubs/credits.json](assets/clubs/credits.json) e [fontes dos clubes](docs/CLUBES_FONTES.md), conferidas em 30/09/2026.
 
@@ -106,6 +111,7 @@ Depois, acesse http://127.0.0.1:4173. Mantenha o terminal aberto enquanto usa a 
 - `assets/avatars/`, `assets/signatures/` e `assets/players/` — caricaturas, fotografia de Messi, reproduções de assinaturas e fotografias editoriais, com créditos separados.
 - `assets/flags/` — bandeiras SVG de flag-icons e sua licença MIT.
 - `assets/clubs/` — brasões com manifesto de fontes; `assets/trophies/` — seis ilustrações SVG originais da arena.
+- `assets/kits/` — fotografias oficiais de camisetas titulares e manifesto de procedência; a camiseta neutra original é um SVG inline em `app.js`.
 - `model.test.mjs` e `ui-flows.test.mjs` — testes das regras e dos fluxos da demonstração.
 - `package.json` — comandos do projeto, sem dependências externas.
 

@@ -127,8 +127,8 @@ Todas as rotas ficam em `/api/v1`; respostas são JSON, exceto o conteúdo de fo
 | Fila de comprovantes | `GET /wallet/reviews` | Equipe: `{deposits,paymentMode,realMoney}`, sem os próprios pedidos |
 | Decidir sobre comprovante | `POST /wallet/reviews/:id` | Equipe terceira: `{decision:'approve'|'reject',reason,version}` |
 | Buscar jogador | `GET /players/:publicPlayerId` | Perfil público mínimo, requer conta |
-| Criar desafio | `POST /duels` | `{stake,mode,platform,opponentPlayerId?,rules?}` |
-| Abrir convite | `GET /invites/:token` | Convite mínimo, requer conta |
+| Criar desafio | `POST /duels` | `{stake,mode,platform,opponentPlayerId?,rules?,operationId?,expectedHostId?}`; chave UUID permite repetir o mesmo envio sem nova reserva; anfitrião esperado vincula confirmação à conta |
+| Abrir convite | `GET /invites/:token` | Requer conta e convite pendente autorizado; `{invite:{host:{nickname},stake,mode,platform,rules,status,expiresAt}}` |
 | Aceitar link | `POST /invites/:token/accept` | Reserva do convidado e desafio em andamento |
 | Aceitar pelo ID | `POST /duels/:id/accept` | Somente o destinatário predefinido |
 | Cancelar | `POST /duels/:id/cancel` | Cancelamento antes do aceite ou pedido de concordância dupla |
@@ -145,10 +145,37 @@ Modos: `1v1`, `Ultimate Team`, `Clubes`. Plataformas: `playstation`, `xbox`, `pc
 
 Estados de desafio: `invited`, `in_progress`, `pending_review`, `disputed`, `completed`, `cancelled`, `expired`. O perfil mantém `id` interno e `publicPlayerId` estável; o desafio inclui `host`, `guest`, `recipient`, `result`, `reports` e `disputes`. O token de convite só aparece para o criador enquanto o convite estiver pendente. Conta da equipe recebe `isReviewer:true` do servidor.
 
+### Privacidade e validação dos convites
+
+Links de convite transportam somente um token aleatório de 32 bytes em base64url (43 caracteres); não embutem perfis, saldo, placar ou fotos. A consulta do token exige sessão. Convites destinados a uma conta só podem ser consultados pelo criador ou destinatário. Convites abertos podem ser consultados e aceitos por uma conta autenticada que possua o token, enquanto estiverem pendentes.
+
+O resumo para aceitar contém somente o apelido do criador e os termos do desafio: pontos por pessoa, modo, plataforma, regras, estado e prazo. Não contém UUID do desafio ou das contas, ID público FBA, conta de jogo, e-mail, saldo, dados da carteira, resultado ou evidências. Após o aceite, cancelamento ou expiração, o token retorna um erro sem resumo: participantes acompanham a partida na própria arena, conforme suas permissões. O aceite bem-sucedido retorna o desafio privado aos participantes.
+
+Erros de consulta/aceite de convites usam o mesmo formato `{error,code}`:
+
+| HTTP | `code` | Situação |
+|---|---|---|
+| 401 | `unauthorized` | É necessário entrar na conta antes de consultar ou aceitar |
+| 400 | `invite_invalid` | Token com formato inválido |
+| 404 | `invite_not_found` | Token válido no formato, mas inexistente |
+| 403 | `invite_wrong_recipient` | Convite destinado a outra conta; o estado e o resumo ficam privados |
+| 410 | `invite_expired` | Prazo encerrado; reserva do criador devolvida uma única vez |
+| 410 | `invite_cancelled` | Convite cancelado ou recusado |
+| 409 | `invite_already_accepted` | Convite consumido; sem retorno de resultado ou evidências pelo token |
+| 409 | `invite_own` | Tentativa de aceitar o próprio convite |
+
+A proteção também se aplica ao aceite por ID: uma partida cancelada/expirada retorna respectivamente `invite_cancelled`/`invite_expired`, e um novo aceite retorna `invite_already_accepted`. O destinatário incorreto recebe `invite_wrong_recipient` antes de qualquer estado do convite ser mostrado.
+
+### Reenvio seguro de criação
+
+O formulário pode enviar `operationId` UUID estável no `POST /duels`. Essa chave é individual por criador e persiste junto ao desafio. Duas requisições com a mesma chave e os mesmos termos retornam o mesmo desafio e, enquanto pendente, o mesmo token; a reserva ocorre uma única vez. Repetir após o aceite ou encerramento recupera o registro correspondente sem criar outra partida nem devolver um token ativo. Reutilizar a chave com modo, plataforma, adversário, pontos ou regras diferentes retorna `409 operation_conflict`. Formato inválido retorna `400 invalid_operation_id`. A interface deve gerar outra chave quando editar os termos e preservar a chave em um reenvio após falha de rede. Clientes anteriores sem a chave continuam suportados. Somente o criador autenticado recebe `duel.operationId`, inclusive na própria arena, para reconhecer uma criação já concluída após uma falha de rede antes de validar novamente o saldo. O convidado e os resumos de convite não recebem essa chave. Campos de armazenamento e assinaturas internas de comparação não são incluídos nas respostas.
+
+O campo opcional `expectedHostId` contém o ID interno da conta que conferiu o resumo. O servidor compara esse valor com a conta autenticada antes de criar ou recuperar a operação. Se uma troca de sessão ocorrer entre a confirmação e o envio, retorna `409 account_changed` sem criar desafio nem reservar pontos da nova conta. Esse ID pertence somente à requisição autenticada, não faz parte do link nem do resumo de convite. Clientes anteriores que omitem o campo permanecem suportados.
+
 ## Verificação executada
 
 ```powershell
 node --test backend/server.test.mjs
 ```
 
-Os testes fazem requisições HTTP a servidores temporários e verificam autenticação, origem/CSRF, reservas concorrentes sem saldo negativo, aceite restrito, fotos privadas, confirmação sem liberação, revisão por terceiro, distribuição única, disputa e versão antiga de resultado, cancelamento conjunto, histórico, ranking, reinício com dados persistentes e bloqueio de arquivos privados. A carteira verifica criação idempotente, ausência de crédito automático, aprovação única explícita, rejeição/cancelamento sem crédito, recusa de dados bancários/cartão, comprovante privado, revisão por terceiro e bloqueio de versões antigas. Os dados temporários ficam fora do projeto e são removidos ao final.
+Os testes fazem requisições HTTP a servidores temporários e verificam autenticação, origem/CSRF, reservas concorrentes sem saldo negativo, criação com reenvio idempotente, resumos de convite com campos mínimos, erros de formato/estado, expiração com devolução única, aceite restrito, fotos privadas, confirmação sem liberação, revisão por terceiro, distribuição única, disputa e versão antiga de resultado, cancelamento conjunto, histórico, ranking, reinício com dados persistentes e bloqueio de arquivos privados. A carteira verifica criação idempotente, ausência de crédito automático, aprovação única explícita, rejeição/cancelamento sem crédito, recusa de dados bancários/cartão, comprovante privado, revisão por terceiro e bloqueio de versões antigas. Os dados temporários ficam fora do projeto e são removidos ao final.

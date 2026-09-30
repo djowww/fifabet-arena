@@ -1,13 +1,13 @@
-import * as M from './model.mjs?v=16';
-import * as API from './backend-client.mjs?v=16';
+import * as M from './model.mjs?v=17';
+import * as API from './backend-client.mjs?v=17';
 const $=id=>document.getElementById(id);
 const esc=x=>String(x??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
 const fmt=M.points;
 const when=x=>new Date(x).toLocaleString('pt-BR',{day:'2-digit',month:'2-digit',hour:'2-digit',minute:'2-digit'});
 const read=()=>{try{return M.restore(localStorage.getItem(M.STORAGE_KEY),localStorage.getItem('fifabet-profile'),localStorage.getItem('fifabet-bets'));}catch{return M.emptyState();}};
 let state=read(),online=false,arena=null,busy=false,foundPlayer=null,invite=null,reviewDuels=[],walletData=null,depositReviews=[],pendingIntent=null,opener,toastTimer;
-const ui={view:'arena',filter:'all',search:'',mode:'1v1',platform:'pc',stake:'100',rival:'',rules:''};
-const names={invited:'Convite pendente',active:'Em jogo',review:'Aguardando equipe',disputed:'Resultado contestado',settled:'Finalizado',rejected:'Recusado',cancelled:'Cancelado',expired:'Expirado'};
+const ui={view:'arena',filter:'all',search:'',mode:'1v1',platform:'pc',stake:'100',rival:'',rules:'',duelStep:1,duelOwner:null,duelRevision:0,duelOperation:'',duelError:''};
+const names={invited:'Convite pendente',active:'Partida confirmada',review:'Resultado em análise',disputed:'Resultado contestado',settled:'Resultado concluído',rejected:'Recusado',cancelled:'Cancelado',expired:'Expirado'};
 const tones={invited:'amber',active:'mint',review:'violet',disputed:'live',settled:'lime'};
 const profile=()=>online?arena?.user:M.current(state);
 const open=d=>['invited','active','review','disputed'].includes(d.status);
@@ -29,7 +29,7 @@ function duels(){return online?[...(arena?.duels||[]),...(arena?.history||[])].m
 const opponent=d=>d.hostId===profile()?.id?d.guest:d.host;
 const score=d=>d.result?`${d.result.homeScore} × ${d.result.awayScore}`:'—';
 const playerScore=d=>d.result?(d.hostId===profile()?.id?score(d):`${d.result.awayScore} × ${d.result.homeScore}`):'—';
-const resultText=d=>d.status==='settled'?(d.winnerId===profile()?.id?'Você venceu':d.winnerId?'Você perdeu':'Empate'):names[d.status];
+const resultText=d=>d.status==='settled'?`Resultado concluído · ${d.winnerId===profile()?.id?'Você venceu':d.winnerId?'Você perdeu':'Empate'}`:names[d.status];
 const photoUrl=r=>r?(online?API.evidenceUrl(r.evidenceId):r.evidenceDataUrl):'';
 function reportHistory(d){
  const previous=(d.reports||[]).filter(r=>r.id!==d.result?.id);
@@ -41,6 +41,7 @@ async function refresh(){if(online)arena=await API.getArena();else state=read();
 function modal(title,subtitle,html){opener=document.activeElement;$('modalContent').innerHTML=`<div class='dialog-head'><div><h2 id='dialogTitle'>${esc(title)}</h2><p>${esc(subtitle)}</p></div><button class='icon-only' data-action='close' aria-label='Fechar janela'>×</button></div><div class='dialog-body'>${html}<p id='dialogError' class='error-message' role='alert' hidden></p></div>`;if(!$('modal').open)$('modal').showModal();}
 function closeModal(){if($('modal').open)$('modal').close();if(opener?.isConnected)opener.focus();}
 function fail(message){if($('dialogError')&&$('modal').open){$('dialogError').textContent=message;$('dialogError').hidden=false;}else toast(message);}
+function joinFeedback(message){if($('modal').open)return fail(message);const feedback=$('joinError');if(feedback){feedback.textContent=message;feedback.hidden=false;}else toast(message);}
 function intro(title,description){return `<div class='practical-intro'><div><p class='eyebrow'>FIFABET · ENTRE AMIGOS</p><h1>${title}</h1><p class='muted'>${description}</p></div></div>`;}
 function header(){
  const p=profile(),items=[['arena','Início','⌂'],['carteira','Carteira','▣'],['historico','Histórico','◷'],['ranking','Ranking','🏆'],['perfil','Meu perfil','♙']];
@@ -53,16 +54,56 @@ function summaries(){return `<div class='summary-grid'><div><small>DISPONÍVEL</
 function identity(){
  const p=profile();
  if(!p)return `<aside class='card arena-sidebar pad'><h2>Seu próximo rival está aqui.</h2><p class='muted'>Crie seu perfil, receba seu ID FifaBet e comece com 1.000 créditos de demonstração.</p><button class='btn primary wide' data-action='signup'>Criar conta</button><p class='meta'>Créditos fictícios, sem valor financeiro.</p></aside>`;
- return `<aside class='card arena-sidebar pad'><div class='row'>${avatar(p)}<div><strong>${esc(p.nickname)}</strong><p class='meta'>${esc(M.clubById(p.clubId)?.name||'Escolha seu time no perfil')}</p></div></div><p class='form-label'>Seu ID FifaBet</p><div class='player-id'><code>${esc(p.publicPlayerId)}</code><button class='btn secondary small' data-action='copy-id'>Copiar</button></div><p class='meta'>Envie seu ID para um amigo te desafiar.</p><div class='divider'></div><ol class='step-list'><li>Combine créditos e regras.</li><li>Seu rival aceita o convite.</li><li>Envie o placar com uma foto.</li><li>A equipe revisa e libera os créditos.</li></ol><button class='text-button' data-action='profile'>Editar perfil</button></aside>`;
+ return `<aside class='card arena-sidebar pad'><div class='row'>${avatar(p)}<div><strong>${esc(p.nickname)}</strong><p class='meta'>${esc(M.clubById(p.clubId)?.name||'Escolha seu time no perfil')}</p></div></div><p class='form-label'>Seu ID FifaBet</p><div class='player-id'><code>${esc(p.publicPlayerId)}</code><button class='btn secondary small' data-action='copy-id'>Copiar</button></div><p class='meta'>Envie seu ID para um amigo te desafiar.</p><div class='divider'></div><ol class='step-list'><li>Combine créditos e regras.</li><li>Seu rival aceita o convite.</li><li>Envie o placar com uma foto.</li><li>${online?"A equipe revisa e libera os créditos.":"A revisão da equipe funciona na versão conectada."}</li></ol><button class='text-button' data-action='profile'>Editar perfil</button></aside>`;
+}
+function resetDuelDraft(owner=profile()?.id||null){ui.duelOwner=owner;ui.duelStep=1;ui.duelRevision++;ui.duelOperation='';ui.duelError='';ui.rival='';ui.mode='1v1';ui.platform='pc';ui.stake='100';ui.rules='';foundPlayer=null;}
+function updateDuelDraft(values){
+ let changed=false;for(const [key,value] of Object.entries(values)){if(ui[key]!==value){ui[key]=value;changed=true;if(key==='rival')foundPlayer=null;}}
+ if(changed){ui.duelRevision++;ui.duelOperation='';ui.duelError='';const form=$('screen').querySelector?.("[data-form='duel']");if(form){form.dataset.revision=String(ui.duelRevision);form.dataset.operation='';}if($('composerError'))$('composerError').hidden=true;}
+}
+function ensureDuelOwner(){
+ if(!profile()||profile().id!==ui.duelOwner)throw Error('A conta mudou. Abra a criação de partida novamente.');
+ if(!online&&read().activeProfileId!==ui.duelOwner)throw Error('O perfil mudou em outra aba. Atualize antes de criar a partida.');
+}
+async function validateDuelDraft(includeCredits=false){
+ ensureDuelOwner();
+ const revision=ui.duelRevision,owner=ui.duelOwner,code=ui.rival.trim().toUpperCase();
+ if(!['1v1','Ultimate Team','Clubes'].includes(ui.mode))throw Error('Escolha um modo de jogo válido.');
+ if(!['pc','playstation','xbox','switch'].includes(ui.platform))throw Error('Escolha uma plataforma válida.');
+ let other=null;
+ if(online&&code){
+  if(!/^FBA-[A-F0-9]{10}$/.test(code))throw Error('Confira o ID do amigo: use FBA- seguido de 10 letras ou números.');
+  const data=await API.findPlayer(code);other=data.player||data.user||data;
+  if(!other?.id||other.publicPlayerId!==code)throw Error('Jogador não encontrado. Confira o ID ou crie um convite por link.');
+ }else if(!online){
+  const latest=read();other=M.findProfileByPlayerId(latest,code);
+  if(!other)throw Error('Selecione um amigo cadastrado neste navegador.');
+ }
+ if(other?.id===owner)throw Error('Escolha outro jogador para receber seu desafio.');
+ if(profile()?.id!==owner||ui.duelRevision!==revision)throw Error('Os dados mudaram durante a conferência. Revise a partida e continue novamente.');
+ ensureDuelOwner();
+ if(includeCredits){
+  const balance=online?profile().balance:M.current(read()).balance,amount=Number(ui.stake);
+  if(!Number.isSafeInteger(amount)||amount<10||amount>5000)throw Error('Escolha de 10 a 5.000 créditos de teste, sem casas decimais.');
+  if(amount>balance)throw Error('Créditos de teste insuficientes. Reduza o valor ou adicione créditos pela carteira.');
+  if(ui.rules.length>240)throw Error('Escreva as regras em até 240 caracteres.');
+ }
+ foundPlayer=other;return other;
 }
 function composer(){
- const p=profile(),others=Object.values(state.profiles).filter(x=>x.id!==p?.id);
- const rivals=online?`<input class='form-input' id='rivalId' name='rivalId' maxlength='16' value='${esc(ui.rival)}' placeholder='FBA-XXXXXXXX ou deixe vazio para gerar convite'><button class='text-button' type='button' data-action='find'>Buscar jogador</button><p id='rivalPreview' class='meta'>${foundPlayer?esc(foundPlayer.nickname):'Com o ID, só esse jogador poderá aceitar.'}</p>`:`<select class='form-input' id='rivalId' name='rivalId' ${!others.length?'disabled':''}><option value=''>Selecione um jogador</option>${others.map(x=>`<option value='${esc(x.publicPlayerId)}' ${ui.rival===x.publicPlayerId?'selected':''}>${esc(x.nickname)} · ${esc(x.publicPlayerId)}</option>`).join('')}</select>${p&&!others.length?`<p class='meta'>Crie outro perfil para experimentar os dois lados do desafio.</p><button class='text-button' type='button' data-action='signup'>Adicionar outro jogador</button>`:''}`;
- return `<section class='card duel-composer pad'><div class='card-top'><h2>Detalhes da partida</h2><span class='pill lime'>1 CONTRA 1</span></div><form data-form='duel'><fieldset ${!p?'disabled':''} style='border:0;padding:0;margin:0'><label class='form-label' for='rivalId'>${online?'ID do amigo · opcional':'Seu amigo'}</label>${rivals}<div class='form-grid'><div><label class='form-label' for='gameMode'>Modo de jogo</label><select class='form-input' id='gameMode' name='mode'>${['1v1','Ultimate Team','Clubes'].map(m=>`<option ${ui.mode===m?'selected':''}>${m}</option>`).join('')}</select></div><div><label class='form-label' for='duelStake'>Créditos por jogador</label><input class='form-input' id='duelStake' name='stake' type='number' min='10' max='5000' step='1' value='${esc(ui.stake)}' required></div></div><div class='stake-options'>${[50,100,250,500].map(n=>`<button class='btn secondary small' type='button' data-action='stake' data-id='${n}'>${n} créditos</button>`).join('')}</div><label class='form-label' for='gamePlatform'>Plataforma</label><select class='form-input' id='gamePlatform' name='platform'>${[['pc','PC'],['playstation','PlayStation'],['xbox','Xbox'],['switch','Nintendo Switch']].map(([v,label])=>`<option value='${v}' ${ui.platform===v?'selected':''}>${label}</option>`).join('')}</select><label class='form-label' for='duelRules'>Regras combinadas · opcional</label><input class='form-input' id='duelRules' name='rules' maxlength='240' placeholder='Ex.: jogo único, 6 minutos, sem times personalizados' value='${esc(ui.rules)}'><div class='between wrap' style='margin-top:20px'><p class='meta'>Total em disputa: <strong id='potPreview'>${fmt(Number(ui.stake||0)*2)} créditos</strong></p><button class='btn primary' type='submit' ${!online&&!others.length?'disabled':''}>Enviar desafio →</button></div></fieldset></form>${!p?`<div class='row wrap' style='margin-top:18px'><button class='btn primary' data-action='signup'>Criar conta para desafiar</button><button class='btn secondary' data-action='login'>Já tenho conta</button></div>`:''}<p class='meta' style='margin-top:14px'>Créditos de teste, sem cobrança ou saques.</p></section>`;
+ const p=profile();if(ui.duelOwner!==(p?.id||null))resetDuelDraft(p?.id||null);
+ const others=Object.values(state.profiles).filter(x=>x.id!==p?.id),step=ui.duelStep,platforms=[['pc','PC'],['playstation','PlayStation'],['xbox','Xbox'],['switch','Nintendo Switch']];
+ const progress=`<ol class='duel-wizard-steps' aria-label='Etapas da criação'>${['Partida','Créditos e regras','Confirmar'].map((label,i)=>`<li class='${step===i+1?'current':step>i+1?'done':''}' ${step===i+1?"aria-current='step'":''}><span aria-hidden='true'>${i+1}</span>${label}</li>`).join('')}</ol>`;
+ const rivals=online?`<input class='form-input' id='rivalId' name='rivalId' maxlength='14' value='${esc(ui.rival)}' placeholder='FBA-XXXXXXXXXX ou deixe vazio para convidar por link' aria-describedby='rivalPreview'><button class='text-button' type='button' data-action='find'>Conferir ID do amigo</button><p id='rivalPreview' class='meta'>${foundPlayer?`Jogador encontrado: ${esc(foundPlayer.nickname)}`:'Com o ID, só esse jogador aceita. Sem ID, você compartilha um convite.'}</p>`:`<select class='form-input' id='rivalId' name='rivalId' ${!others.length?'disabled':''} required><option value=''>Selecione um jogador</option>${others.map(x=>`<option value='${esc(x.publicPlayerId)}' ${ui.rival===x.publicPlayerId?'selected':''}>${esc(x.nickname)} · ${esc(x.publicPlayerId)}</option>`).join('')}</select><p class='meta'>Perfis cadastrados neste navegador. Convites entre aparelhos precisam da versão com servidor.</p>`;
+ let content;
+ if(step===1)content=`<h3 class='wizard-heading' id='wizardHeading' tabindex='-1'>Quem joga com você?</h3><label class='form-label' for='rivalId'>${online?'ID FifaBet do amigo · opcional':'Seu amigo'}</label>${rivals}<div class='form-grid'><div><label class='form-label' for='gameMode'>Modo de jogo</label><select class='form-input' id='gameMode' name='mode'>${['1v1','Ultimate Team','Clubes'].map(m=>`<option ${ui.mode===m?'selected':''}>${m}</option>`).join('')}</select></div><div><label class='form-label' for='gamePlatform'>Plataforma</label><select class='form-input' id='gamePlatform' name='platform'>${platforms.map(([v,label])=>`<option value='${v}' ${ui.platform===v?'selected':''}>${label}</option>`).join('')}</select></div></div><div class='duel-wizard-actions'><button class='btn primary' type='submit' ${!online&&!others.length?'disabled':''}>Continuar →</button></div>`;
+ else if(step===2)content=`<h3 class='wizard-heading' id='wizardHeading' tabindex='-1'>Combinem créditos e regras.</h3><p class='wizard-available'>Você tem <strong>${fmt(p?.balance||0)} créditos de teste disponíveis</strong>.</p><label class='form-label' for='duelStake'>Créditos de teste por jogador</label><input class='form-input' id='duelStake' name='stake' type='number' min='10' max='5000' step='1' value='${esc(ui.stake)}' required aria-describedby='stakeHint'><div class='stake-options'>${[50,100,250,500].map(n=>`<button class='btn secondary small' type='button' data-action='stake' data-id='${n}'>${n} créditos</button>`).join('')}</div><p class='meta' id='stakeHint'>De 10 a 5.000 créditos. Total quando os dois aceitarem: <strong id='potPreview'>${fmt(Number(ui.stake||0)*2)} créditos de teste</strong>.</p><label class='form-label' for='duelRules'>Regras combinadas · opcional</label><textarea class='form-input' id='duelRules' name='rules' maxlength='240' rows='3' placeholder='Ex.: jogo único, 6 minutos, sem times personalizados'>${esc(ui.rules)}</textarea><div class='duel-wizard-actions'><button class='btn secondary' type='button' data-action='duel-back'>← Voltar</button><button class='btn primary' type='submit'>Revisar desafio →</button></div>`;
+ else{const rival=foundPlayer||(!online?M.findProfileByPlayerId(state,ui.rival):null);content=`<h3 class='wizard-heading' id='wizardHeading' tabindex='-1'>Tudo certo para chamar seu rival?</h3><dl class='duel-summary'><div><dt>Amigo</dt><dd>${esc(rival?.nickname||'Convite por link')}<button class='text-button' type='button' data-action='duel-edit' data-id='1'>Editar partida</button></dd></div><div><dt>Modo e plataforma</dt><dd>${esc(ui.mode)} · ${esc(platforms.find(([id])=>id===ui.platform)?.[1]||ui.platform)}</dd></div><div><dt>Por jogador</dt><dd>${fmt(Number(ui.stake))} créditos de teste<button class='text-button' type='button' data-action='duel-edit' data-id='2'>Editar créditos e regras</button></dd></div><div><dt>Total em disputa</dt><dd>${fmt(Number(ui.stake)*2)} créditos de teste, após o aceite do amigo</dd></div><div><dt>Regras</dt><dd class='duel-summary-rules'>${esc(ui.rules.trim()||'Sem regras extras. Combine os detalhes com seu amigo antes de jogar.')}</dd></div></dl><p class='hint'>Ao confirmar, ${fmt(Number(ui.stake))} créditos de teste serão reservados do seu saldo. Seu amigo reserva a parte dele ao aceitar. ${online?'O placar e a foto seguem para revisão antes de liberar os créditos.':'No modo local, resultado e foto ficam neste navegador. A revisão pela equipe exige um servidor conectado.'}</p><div class='duel-wizard-actions'><button class='btn secondary' type='button' data-action='duel-back'>← Voltar</button><button class='btn primary' type='submit'>Confirmar e criar convite</button></div>`;}
+ return `<section class='card duel-composer pad'><div class='card-top'><h2>Criar minha partida</h2><span class='pill subtle'>ETAPA ${step} DE 3</span></div>${progress}<form data-form='duel' data-step='${step}' data-owner='${esc(ui.duelOwner||'')}' data-revision='${ui.duelRevision}' data-operation='${esc(ui.duelOperation)}'><fieldset ${!p?'disabled':''} class='duel-wizard-fields'>${content}</fieldset><p id='composerError' class='error-message' role='alert' ${ui.duelError?'':'hidden'}>${esc(ui.duelError)}</p></form>${!p?`<div class='row wrap wizard-signup'><button class='btn primary' data-action='signup'>Criar conta para desafiar</button><button class='btn secondary' data-action='login'>Já tenho conta</button></div>`:!online&&!others.length?`<div class='wizard-signup'><p class='meta'>Adicione outro perfil para testar uma partida entre dois jogadores.</p><button class='btn secondary' data-action='signup'>Adicionar outro jogador</button></div>`:''}<p class='meta wizard-test-note'>Créditos fictícios, sem cobrança ou saques. Nenhum crédito é reservado antes da sua confirmação.</p></section>`;
 }
 function actions(d){
  const p=profile(),host=d.hostId===p?.id;if(!p||(!host&&d.guestId!==p.id&&d.recipientId!==p.id))return '';
- if(d.status==='invited')return host?btn('cancel',d.id,'Cancelar convite')+(online&&d.inviteToken?btn('share',d.id,'Copiar convite'):''):btn('accept',d.id,'Aceitar desafio',true)+btn('decline',d.id,'Recusar');
+ if(d.status==='invited')return host?btn('cancel',d.id,'Cancelar convite')+(online&&d.inviteToken?btn('share',d.id,'Copiar convite')+btn('share-native',d.id,'Compartilhar'):!online?btn('copy-code',d.publicDuelId||d.id.slice(0,8).toUpperCase(),'Copiar código'):''):btn('accept-preview',d.id,'Ver e aceitar',true)+btn('decline',d.id,'Recusar');
  if(d.cancelRequestedBy&&(!online||d.status==='active'))return d.cancelRequestedBy!==p.id?btn('cancel',d.id,'Confirmar cancelamento')+btn('withdraw-cancel',d.id,'Recusar cancelamento'):btn('withdraw-cancel',d.id,'Retirar pedido de cancelamento');
  if(d.status==='active'){
   return btn('result',d.id,'Enviar placar',true)+btn('cancel',d.id,'Pedir cancelamento');
@@ -70,34 +111,39 @@ function actions(d){
  if(['review','disputed'].includes(d.status))return btn('details',d.id,'Ver placar e foto')+(d.result?.submittedBy!==p.id&&!d.peerConfirmed&&d.status==='review'?btn('confirm',d.id,'Confirmar placar',true):'')+(d.result?.submittedBy!==p.id&&d.status==='review'?btn('dispute',d.id,'Sinalizar fraude / divergência'):'')+(d.status==='disputed'?btn('result',d.id,'Enviar novo placar'):'')+(!online?btn('cancel',d.id,'Pedir cancelamento'):'');
  return btn('details',d.id,'Ver detalhes');
 }
-function duelCard(d){const other=opponent(d);return `<article class='duel-entry'><div class='duel-players'>${avatar(other)}<div><h3>${esc(other?.nickname||'Amigo convidado')}</h3><small>${esc(other?.publicPlayerId||'Convite por link')} · ${esc(d.mode)}</small></div><span class='pill ${tones[d.status]||'subtle'}'>${esc(resultText(d))}</span></div><div class='duel-metrics'><span><small>POR JOGADOR</small><strong>${fmt(d.stake)} créditos</strong></span><span><small>TOTAL</small><strong>${fmt(d.stake*2)} créditos</strong></span><span><small>VOCÊ × RIVAL</small><strong>${playerScore(d)}</strong></span></div>${d.peerConfirmed&&d.status==='review'?`<p class='meta'>Placar confirmado pelo rival. Aguardando a equipe.</p>`:''}${d.cancelRequestedBy?`<p class='meta'>Cancelamento solicitado. Os dois precisam concordar.</p>`:''}<div class='duel-actions'>${actions(d)}</div></article>`;}
+function duelCard(d){const other=opponent(d);return `<article class='duel-entry'><div class='duel-players'>${avatar(other)}<div><h3>${esc(other?.nickname||'Amigo convidado')}</h3><small>${esc(other?.publicPlayerId||'Convite por link')} · ${esc(d.mode)}</small></div><span class='pill ${tones[d.status]||'subtle'}'>${esc(resultText(d))}</span></div><div class='duel-metrics'><span><small>POR JOGADOR</small><strong>${fmt(d.stake)} créditos</strong></span><span><small>${d.status==="invited"?"APÓS O ACEITE":"TOTAL RESERVADO"}</small><strong>${fmt(d.stake*2)} créditos</strong></span><span><small>VOCÊ × RIVAL</small><strong>${playerScore(d)}</strong></span></div>${d.peerConfirmed&&d.status==='review'?`<p class='meta'>Placar confirmado pelo rival. Aguardando a equipe.</p>`:''}${d.cancelRequestedBy?`<p class='meta'>Cancelamento solicitado. Os dois precisam concordar.</p>`:''}<div class='duel-actions'>${actions(d)}</div></article>`;}
 function queue(){
- const list=duels().filter(d=>open(d)&&(ui.filter==='all'||(ui.filter==='review'?['review','disputed'].includes(d.status):d.status===ui.filter)));
- return `<section class='duel-queue'><div class='card-top'><h2>Seus desafios</h2><button class='text-button' data-action='refresh'>Atualizar</button></div><div class='tabs' role='group' aria-label='Filtrar desafios'>${[['all','Todos'],['invited','Convites'],['active','Em jogo'],['review','Em análise']].map(([v,label])=>`<button class='tab ${ui.filter===v?'active':''}' data-action='filter' data-id='${v}' aria-pressed='${ui.filter===v}'>${label}</button>`).join('')}</div>${list.length?list.map(duelCard).join(''):`<div class='card pad'><h3>${ui.filter==='all'?'Seu próximo desafio começa acima.':'Nenhum desafio nessa etapa.'}</h3><p class='muted'>Os convites recebidos e enviados aparecerão aqui.</p></div>`}</section>`;
+ const p=profile(),incoming=d=>d.status==='invited'&&d.hostId!==p?.id,all=duels(),count=all.filter(incoming).length;
+ const list=all.filter(d=>open(d)&&(ui.filter==='all'||(ui.filter==='incoming'?incoming(d):ui.filter==='review'?['review','disputed'].includes(d.status):d.status===ui.filter))).sort((a,b)=>Number(incoming(b))-Number(incoming(a)));
+ return `<section class='duel-queue lobby-queue' aria-labelledby='queueTitle'><div class='card-top'><h2 id='queueTitle'>Suas partidas</h2><button class='text-button' data-action='refresh'>Atualizar</button></div>${count?`<p class='queue-nudge'>${count===1?'Você recebeu um convite.':`Você recebeu ${count} convites.`} Confira as regras antes de aceitar.</p>`:''}<div class='tabs' role='group' aria-label='Filtrar desafios'>${[['all','Todos'],['incoming',`Recebidos (${count})`],['invited','Convites'],['active','Confirmadas'],['review','Em análise']].map(([v,label])=>`<button class='tab ${ui.filter===v?'active':''}' data-action='filter' data-id='${v}' aria-pressed='${ui.filter===v}'>${label}</button>`).join('')}</div>${list.length?list.map(duelCard).join(''):`<div class='card pad'><h3>Nenhuma partida nessa etapa.</h3><p class='muted'>Seus convites e partidas aparecerão aqui.</p></div>`}</section>`;
 }
+function joinForm(dialog=false){const id=dialog?'dialogJoinCode':'joinCode';return `<form data-form='join' class='join-form'><label class='form-label' for='${id}'>Código ou link de convite</label><input class='form-input' id='${id}' name='code' maxlength='1024' value='${esc(ui.joinCode||'')}' required placeholder='Cole o convite do seu amigo' autocomplete='off' spellcheck='false' ${!dialog?`aria-describedby='joinError'`:''}><button class='btn primary' type='submit'>Buscar partida →</button>${!dialog?`<p id='joinError' class='error-message' role='alert' hidden></p>`:''}</form>`;}
+function balanceHint(p){return !p?'Crie seu perfil e comece com 1.000 créditos de teste.':!p.balance?(reserved()?'Seu saldo está reservado em partidas. Adicione créditos de teste para criar outro desafio.':'Seu saldo está zerado. Adicione créditos de teste para começar uma partida.'):'Créditos fictícios, sem valor financeiro. Reservas só são liberadas após o resultado revisado ou cancelamento.';}
 function arenaView(){
  const p=profile(),arrow=`<svg viewBox='0 0 24 24' fill='none' aria-hidden='true'><path d='M5 12h14m-6-6 6 6-6 6' stroke='currentColor' stroke-width='1.8' stroke-linecap='round' stroke-linejoin='round'/></svg>`;
- return `<div class='lobby-intro'><div><p class='eyebrow'>EA SPORTS FC · ENTRE AMIGOS</p><h1>Bora jogar?</h1><p class='muted'>Seu próximo clássico começa aqui.</p></div><img class='lobby-game-mark' src='assets/brand/ea-sports-fc.svg' alt='EA SPORTS FC' width='65' height='34'></div>
+ return `<div class='lobby-intro'><div><p class='eyebrow'>FIFABET · PARTIDAS ENTRE AMIGOS</p><h1>Joga aí com seus amigos.</h1><p class='muted'>Recebeu um convite ou vai chamar seu rival?</p></div><span class='game-compatibility'>Para jogar EA SPORTS FC</span></div>
+ ${!online?`<div class='local-demo-note'><span><strong>Demonstração neste navegador</strong> Experimente com dois perfis aqui. Convites entre aparelhos precisam da versão conectada.</span><button class='text-button' data-action='connection'>Entenda</button></div>`:''}
  <div class='lobby-layout'>
-  <button class='lobby-choice join' data-action='join'><span class='choice-art'><img src='assets/players/haaland.jpg' alt='' width='160' height='220' decoding='async'></span><span class='choice-content'><span class='eyebrow'>JÁ TEM UM CONVITE?</span><span class='choice-title'>Entrar em uma partida</span><span class='choice-description'>Encontre seu rival e aceite o desafio.</span><span class='choice-link'>Vamos para o jogo <span class='choice-arrow'>${arrow}</span></span></span></button>
-  <button class='lobby-choice create' data-action='create'><span class='choice-art'><img src='assets/players/putellas.jpg' alt='' width='160' height='220' decoding='async'></span><span class='choice-content'><span class='eyebrow'>O DESAFIO É SEU</span><span class='choice-title'>Criar minha partida</span><span class='choice-description'>Escolha o modo, os créditos e chame seu amigo.</span><span class='choice-link'>Preparar o confronto <span class='choice-arrow'>${arrow}</span></span></span></button>
+  <section class='lobby-choice join' aria-labelledby='joinTitle'><div class='choice-content'><p class='eyebrow'>TENHO UM CONVITE</p><h2 class='choice-title' id='joinTitle'>Entrar em uma partida</h2><p class='choice-description'>Cole o convite e confira o desafio antes de aceitar.</p>${joinForm()}${p?`<button class='text-button received-link' data-action='join'>Ver convites recebidos</button>`:''}</div></section>
+  <section class='lobby-choice create' aria-labelledby='createTitle'><span class='choice-art'><img src='assets/players/haaland.jpg' alt='' width='160' height='220' decoding='async'></span><div class='choice-content'><p class='eyebrow'>EU CHAMO O RIVAL</p><h2 class='choice-title' id='createTitle'>Criar minha partida</h2><p class='choice-description'>Escolha seu amigo, combine as regras e confira tudo antes de enviar.</p><button class='btn primary' data-action='create'>Criar minha partida ${arrow}</button><span class='choice-footnote'>3 passos · créditos de teste</span></div></section>
  </div>
- <div class='lobby-balance'><div><span class='form-label'>SEUS CRÉDITOS DEMO</span><strong>${fmt(p?.balance||0)} <small>disponíveis</small></strong><span class='meta'>${fmt(reserved())} reservados em partidas</span></div><button class='btn primary' data-action='deposit'>+ Adicionar créditos</button></div>
- <div class='lobby-meta'>${p?`<span>Seu ID <code>${esc(p.publicPlayerId)}</code> <button class='text-button' data-action='copy-id'>Copiar</button></span>`:`<span>Crie sua conta e receba seu ID FifaBet.</span>`}<span>${online?'Conta conectada · ambiente de teste':'Modo local · este navegador'} <button class='text-button' data-action='connection'>Como funciona</button></span></div>
+ <section class='lobby-balance' aria-label='Créditos de teste'>${p?`<div><span class='form-label'>DISPONÍVEIS</span><strong>${fmt(p.balance)} <small>créditos de teste</small></strong></div><div><span class='form-label'>RESERVADOS</span><strong>${fmt(reserved())} <small>em partidas</small></strong></div><button class='btn secondary' data-action='deposit'>Adicionar créditos de teste</button>`:`<div class='guest-start'><strong>Seu primeiro desafio começa aqui.</strong></div><button class='btn secondary' data-action='signup'>Criar meu perfil</button>`}<p class='balance-help'>${balanceHint(p)}</p></section>
+ ${p?`<div class='lobby-meta'><span>Seu ID <code>${esc(p.publicPlayerId)}</code> <button class='text-button' data-action='copy-id'>Copiar</button></span><span>${online?'Conta conectada · ambiente de teste':'Perfil neste navegador'}</span></div>`:''}
  ${duels().some(open)?queue():''}`;
 }
 function createView(){return intro('Criar minha partida.','Combine as regras, escolha os créditos e chame seu rival.')+`<a class='text-button' href='#arena'>← Voltar ao início</a>`+`<div class='arena-workspace' style='margin-top:18px'>${composer()}${identity()}</div>`;}
 function showJoin(){
- const p=profile();if(!p){pendingIntent='join';return showAuth(false);}
- const incoming=duels().filter(d=>d.status==='invited'&&d.hostId!==p.id);
+ const p=profile();
+ const incoming=duels().filter(d=>d.status==='invited'&&d.hostId!==p?.id);
  const invitations=incoming.length?`<h3 style='margin-top:24px'>Seus convites recebidos</h3><div class='stack'>${incoming.map(duelCard).join('')}</div>`:`<p class='meta' style='margin-top:18px'>Seus convites recebidos aparecerão aqui.</p>`;
- modal('Entrar em uma partida','Aceite um convite ou use o código que seu amigo enviou.',`<form data-form='join'><label class='form-label' for='joinCode'>Link do convite ou código da partida</label><input class='form-input' id='joinCode' name='code' maxlength='1024' required placeholder='Cole o convite ou digite o código' autocomplete='off'><button class='btn primary wide' type='submit' style='margin-top:14px'>Buscar partida</button></form>${invitations}${!online?`<p class='hint'>Neste modo, o código funciona entre perfis cadastrados no mesmo navegador.</p>`:''}`);
+ modal('Entrar em uma partida','Confira o convite e confirme com seu próprio perfil.',`${joinForm(true)}${invitations}${!online?`<p class='hint'>Neste modo, o código funciona entre perfis cadastrados no mesmo navegador.</p>`:''}`);
 }
 async function continueIntent(){
  if(invite)return showInvite();
  const next=pendingIntent;pendingIntent=null;
  if(next==='create')go('criar');
  else if(next==='join')showJoin();
+ else if(next==='join-code')await findInvitation(ui.joinCode);
  else if(next==='deposit')await showDeposit();
 }
 const paymentLabels={card:'Cartão',pix:'Pix',transfer:'Transferência'};
@@ -117,14 +163,14 @@ async function walletView(){
  const data=await loadWallet(),pending=data.deposits.filter(d=>['pending','review'].includes(d.status)).reduce((n,d)=>n+d.amount,0);
  const deposits=data.deposits.slice(0,20).map(raw=>{const d=normalizeDeposit(raw);return `<article class='deposit-row'><div class='grow'><strong>${fmt(d.amount)} créditos demo · ${paymentLabels[d.method]}</strong><small>${when(d.createdAt)}${d.method==='card'?` · ${d.installments}x de teste`:''}</small></div><span class='wallet-status ${d.status}'>${depositLabels[d.status]}</span>${btn('deposit-details',d.id,'Detalhes')}</article>`;}).join('');
  const rows=data.transactions.slice(0,40).map(t=>`<tr><td>${when(t.date)}</td><td>${esc(t.label)}</td><td class='${t.amount>=0?'credit-positive':''}'>${t.amount>0?'+':''}${fmt(t.amount)} créditos</td></tr>`).join('');
- return intro('Sua carteira.','Seus créditos, recargas e movimentações em um só lugar.')+`<div class='wallet-overview'><div><small>DISPONÍVEIS</small><strong>${fmt(data.balance)} <small>créditos</small></strong><p>Prontos para suas partidas</p></div><div><small>RESERVADOS</small><strong>${fmt(data.reserved)} <small>créditos</small></strong><p>Em convites e partidas</p></div><div><small>RECARGAS PENDENTES</small><strong>${fmt(pending)} <small>créditos</small></strong><p>Aguardando confirmação</p></div></div><div class='between wrap'><button class='btn primary' data-action='deposit'>+ Adicionar créditos</button><span class='meta'>Ambiente de teste · nenhum dinheiro é cobrado</span></div><section class='wallet-extract'><div class='card-top'><h2>Minhas recargas</h2><button class='text-button' data-action='refresh'>Atualizar</button></div>${deposits||`<div class='card pad'><p class='muted'>Você ainda não fez uma recarga. Escolha cartão, Pix ou transferência para testar.</p></div>`}</section><section class='wallet-extract'><h2>Extrato</h2><div class='card history-table'><table><thead><tr><th>DATA</th><th>MOVIMENTAÇÃO</th><th>CRÉDITOS DEMO</th></tr></thead><tbody>${rows||`<tr><td colspan='3'>Nenhuma movimentação.</td></tr>`}</tbody></table></div></section>`;
+ return intro('Sua carteira.','Créditos de teste, reservas e movimentações. Sem valor financeiro.')+`<div class='wallet-overview'><div><small>DISPONÍVEIS</small><strong>${fmt(data.balance)} <small>créditos de teste</small></strong><p>Prontos para suas partidas</p></div><div><small>RESERVADOS</small><strong>${fmt(data.reserved)} <small>créditos de teste</small></strong><p>Em convites e partidas</p></div><div><small>RECARGAS PENDENTES</small><strong>${fmt(pending)} <small>créditos de teste</small></strong><p>Aguardando confirmação</p></div></div>${!data.balance?`<p class='hint'>${data.reserved?'Seus créditos estão reservados em partidas.':'Seu saldo está zerado.'} Adicione créditos de teste e confirme a simulação para começar outro desafio.${pending?' Você também pode conferir suas recargas pendentes abaixo.':''}</p>`:''}<div class='between wrap'><button class='btn primary' data-action='deposit'>Adicionar créditos de teste</button><span class='meta'>Ambiente de teste · nenhum dinheiro é cobrado</span></div><section class='wallet-extract'><div class='card-top'><h2>Minhas recargas</h2><button class='text-button' data-action='refresh'>Atualizar</button></div>${deposits||`<div class='card pad'><p class='muted'>Você ainda não fez uma recarga. Escolha cartão, Pix ou transferência para testar.</p></div>`}</section><section class='wallet-extract'><h2>Extrato</h2><div class='card history-table'><table><thead><tr><th>DATA</th><th>MOVIMENTAÇÃO</th><th>CRÉDITOS DE TESTE</th></tr></thead><tbody>${rows||`<tr><td colspan='3'>Nenhuma movimentação.</td></tr>`}</tbody></table></div></section>`;
 }
 async function showDeposit({amount=100,method='pix',installments=1}={}){
  if(!profile()){pendingIntent='deposit';return showAuth(true);}
  await loadWallet();
- const descriptions={card:'Até 6 parcelas no teste',pix:'Confirmação de teste',transfer:'Envie um comprovante'};
+ const descriptions={card:'Até 6 parcelas no teste',pix:'Confirmação de teste',transfer:'Comprovante fictício'};
  const methods=['card','pix','transfer'].map(id=>`<button type='button' class='wallet-method ${method===id?'selected':''}' aria-pressed='${method===id}' data-action='payment-method' data-id='${id}'><strong>${paymentLabels[id]}</strong><small>${descriptions[id]}</small></button>`).join('');
- modal('Adicionar créditos','Escolha a quantidade e a forma de pagamento.',`<ol class='wallet-steps'><li class='active'><b>1</b>Escolher</li><li><b>2</b>Confirmar</li><li><b>3</b>Jogar</li></ol><form class='wallet-form' data-form='deposit' data-operation='${crypto.randomUUID()}'><label class='form-label' for='depositAmount'>Quantidade de créditos demo</label><select class='form-input' id='depositAmount' name='amount'>${[100,250,500,1000].map(n=>`<option value='${n}' ${Number(amount)===n?'selected':''}>${fmt(n)} créditos</option>`).join('')}</select><p class='form-label'>Forma de pagamento</p><div class='wallet-methods'>${methods}</div><input id='depositMethod' name='method' type='hidden' value='${method}'>${method==='card'?`<label class='form-label' for='depositInstallments'>Parcelas demonstrativas</label><select class='form-input' id='depositInstallments' name='installments'>${[1,2,3,4,5,6].map(n=>`<option value='${n}' ${Number(installments)===n?'selected':''}>${n===1?'À vista':`${n} parcelas`}</option>`).join('')}</select>`:`<input name='installments' type='hidden' value='1'>`}<p class='hint'>Teste com créditos fictícios, sem cobrança.${method==='card'?' Não informe dados de cartão real.':method==='pix'?' Não é gerada uma chave Pix para pagamento.':' Use um comprovante fictício, sem dados bancários reais.'}</p><button class='btn primary wide' type='submit'>Continuar com ${paymentLabels[method]}</button></form>`);
+ modal('Adicionar créditos de teste','Escolha a quantidade e o método para simular.',`<ol class='wallet-steps'><li class='active'><b>1</b>Escolher</li><li><b>2</b>Confirmar</li><li><b>3</b>Jogar</li></ol><form class='wallet-form' data-form='deposit' data-operation='${crypto.randomUUID()}'><label class='form-label' for='depositAmount'>Quantidade de créditos demo</label><select class='form-input' id='depositAmount' name='amount'>${[100,250,500,1000].map(n=>`<option value='${n}' ${Number(amount)===n?'selected':''}>${fmt(n)} créditos</option>`).join('')}</select><p class='form-label'>Forma de pagamento</p><div class='wallet-methods'>${methods}</div><input id='depositMethod' name='method' type='hidden' value='${method}'>${method==='card'?`<label class='form-label' for='depositInstallments'>Parcelas demonstrativas</label><select class='form-input' id='depositInstallments' name='installments'>${[1,2,3,4,5,6].map(n=>`<option value='${n}' ${Number(installments)===n?'selected':''}>${n===1?'À vista':`${n} parcelas`}</option>`).join('')}</select>`:`<input name='installments' type='hidden' value='1'>`}<p class='hint'>Teste com créditos fictícios, sem cobrança.${method==='card'?' Não informe dados de cartão real.':method==='pix'?' Não é gerada uma chave Pix para pagamento.':' Use um comprovante fictício, sem dados bancários reais.'}</p><button class='btn primary wide' type='submit'>Continuar com ${paymentLabels[method]}</button></form>`);
 }
 function showDepositDetails(id){
  const d=byDeposit(id),photo=receiptUrl(d);
@@ -180,7 +226,11 @@ function showProfile(){
 }
 function fileField(){return `<label class='form-label' for='resultImage'>Foto do placar</label><input class='evidence-input' id='resultImage' name='evidence' type='file' accept='image/jpeg,image/png,image/webp' capture='environment' required><p class='meta'>Fotografe o placar final com os dois jogadores visíveis. JPG, PNG ou WebP, até 8 MB.</p><div id='photoPreview' class='evidence-preview' hidden></div>`;}
 function showResult(id){const d=byId(id);modal('Enviar resultado','O placar e a foto ficarão aguardando revisão.',`<form data-form='result' data-id='${esc(id)}'><div class='form-grid score-entry'><label for='homeScore'><span class='form-label'>${esc(d.host.nickname)}</span><input id='homeScore' class='form-input' name='homeScore' type='number' min='0' max='99' step='1' required value='${d.result?.homeScore??''}'></label><label for='awayScore'><span class='form-label'>${esc(d.guest.nickname)}</span><input id='awayScore' class='form-input' name='awayScore' type='number' min='0' max='99' step='1' required value='${d.result?.awayScore??''}'></label></div>${fileField()}<p class='hint'>Os créditos ficam reservados até a decisão da equipe.${online?'':' No modo local, a foto fica neste navegador e não chega à equipe.'}</p><button type='submit' class='btn primary wide' style='margin-top:20px'>Enviar placar e foto</button></form>`);}
-function showDetails(id){const d=byId(id);modal('Detalhes da partida',`${d.host.nickname} × ${d.guest.nickname}`,`<span class='pill ${tones[d.status]||'subtle'}'>${esc(resultText(d))}</span><p class='meta' style='margin-top:14px'>ID: ${esc(d.id)}<br>${when(d.createdAt)} · ${esc(d.mode)} · ${d.stake} créditos por jogador</p>${d.rules?`<p class='hint'>Regras: ${esc(d.rules)}</p>`:''}${d.result?`<p class='score-pair'>${score(d)}</p><img class='review-image' src='${esc(photoUrl(d.result))}' alt='Foto do placar desta partida'>`:`<p class='hint'>Resultado ainda não enviado.</p>`}${reportHistory(d)}${(d.disputes||[d.dispute].filter(Boolean)).map(x=>`<p class='hint'>Divergência: ${esc(x.reason)}</p>`).join('')}${d.review?`<p class='hint'>Decisão da equipe: ${esc(d.review.reason)}</p>`:''}<div class='duel-actions'>${actions(d).replaceAll(`data-action='details'`,`data-action='close'`)}</div>`);}
+function showDetails(id){
+ const d=byId(id),incoming=d.status==='invited'&&d.hostId!==profile()?.id,enough=(profile()?.balance||0)>=d.stake;
+ const controls=incoming?(enough?btn('accept',d.id,'Aceitar desafio',true):btn('deposit',d.id,'Adicionar créditos de teste',true))+btn('decline',d.id,'Recusar'):actions(d).replaceAll(`data-action='details'`,`data-action='close'`);
+ modal(incoming?'Confira o convite':'Detalhes da partida',`${d.host.nickname} × ${d.guest.nickname}`,`<span class='pill ${tones[d.status]||'subtle'}'>${esc(resultText(d))}</span><p class='meta' style='margin-top:14px'>Código: ${esc(d.publicDuelId||d.id.slice(0,8).toUpperCase())}<br>${when(d.createdAt)} · ${esc(d.mode)} · ${esc(({pc:'PC',playstation:'PlayStation',xbox:'Xbox',switch:'Nintendo Switch'})[d.platform]||'PC')}<br>${fmt(d.stake)} créditos de teste por jogador</p>${d.rules?`<p class='hint'>Regras: ${esc(d.rules)}</p>`:''}${incoming?`<p class='hint'>${enough?`Ao aceitar, ${fmt(d.stake)} créditos de teste serão reservados do seu saldo.`:`Saldo insuficiente: você tem ${fmt(profile()?.balance||0)} créditos disponíveis.`} O resultado precisa da foto e revisão da equipe.${!online?' Aqui, as fotos ficam neste navegador e não são enviadas à equipe.':''}</p>`:''}${d.result?`<p class='score-pair'>${score(d)}</p><img class='review-image' src='${esc(photoUrl(d.result))}' alt='Foto do placar desta partida'>`:!incoming?`<p class='hint'>Resultado ainda não enviado.</p>`:''}${reportHistory(d)}${(d.disputes||[d.dispute].filter(Boolean)).map(x=>`<p class='hint'>Divergência: ${esc(x.reason)}</p>`).join('')}${d.review?`<p class='hint'>Decisão da equipe: ${esc(d.review.reason)}</p>`:''}<div class='duel-actions'>${controls}</div>`);
+}
 function showDispute(id){modal('Sinalizar divergência','Os créditos seguem bloqueados durante a análise.',`<form data-form='dispute' data-id='${esc(id)}' data-report='${esc(byId(id).result?.id)}'><label class='form-label' for='disputeReason'>O que aconteceu?</label><textarea class='form-input' id='disputeReason' name='reason' minlength='10' maxlength='300' required placeholder='Explique a divergência ou a suspeita de fraude.'></textarea>${fileField()}<button class='btn primary wide' style='margin-top:20px' type='submit'>Enviar contestação e foto</button></form>`);}
 function showHelp(){modal('Como funciona','Do convite ao resultado revisado.',`<ol class='step-list'><li>Envie seu ID FifaBet ao amigo ou procure o ID dele.</li><li>Combine modo, regras e créditos por jogador.</li><li>O amigo aceita pelo próprio perfil.</li><li>Joguem e enviem o placar com uma foto.</li><li>O rival confirma ou sinaliza divergência.</li><li>A equipe revisa a evidência. Só a aprovação libera créditos.</li></ol><p class='hint'>${online?'As contas, as fotos e as partidas ficam no servidor.':'Na publicação do GitHub, o fluxo é local. Crie dois perfis e alterne entre eles para experimentar. Não há envio de fotos à equipe nem revisão real nessa modalidade.'}</p><p class='meta'>Créditos fictícios, sem valor financeiro.</p>`);}
 function showConnection(){modal('Amigos em dispositivos diferentes','O servidor de contas e partidas está incluído no projeto.',`<p>O GitHub Pages hospeda esta versão local. Para compartilhar partidas entre celulares, a aplicação precisa ser publicada junto com o servidor FifaBet em uma hospedagem própria.</p><p class='hint'>O servidor pode rodar em uma hospedagem Node.js separada do Tibia.</p><a class='btn primary wide' href='https://github.com/djowww/fifabet-arena/blob/main/docs/SERVIDOR.md' target='_blank' rel='noopener noreferrer'>Ver instruções do servidor</a>`);}
@@ -195,18 +245,57 @@ async function preparePhoto(file){
  const blob=await(await fetch(dataUrl)).blob();return {dataUrl,blob,name:'placar.jpg'};
  }finally{bitmap.close();}
 }
-async function copy(value){try{await navigator.clipboard.writeText(value);toast('Copiado.');}catch{modal('Copie este texto','Selecione e copie para compartilhar.',`<input class='form-input' value='${esc(value)}' readonly>`);}}
-const inviteLink=d=>new URL(`?convite=${encodeURIComponent(d.inviteToken)}#arena`,location.href).href;
+async function copy(value,message='Copiado.'){try{await navigator.clipboard.writeText(value);toast(message);}catch{modal('Copie este texto','Selecione e copie para compartilhar.',`<label class='form-label' for='manualCopy'>Convite ou código</label><input id='manualCopy' class='form-input' value='${esc(value)}' readonly>`);}}
+const inviteLink=d=>new URL(`?convite=${encodeURIComponent(d.inviteToken)}#arena`,location.origin+location.pathname).href;
+function invitationInput(value){
+ const raw=String(value||'').trim();if(!raw)throw Error('Cole um link de convite ou digite o código da partida.');
+ if(/^https?:\/\//i.test(raw)){
+  let url;try{url=new URL(raw);}catch{throw Error('Esse link não é um convite válido. Peça um novo ao seu amigo.');}
+  if(url.origin!==location.origin)throw Error('Use um convite do mesmo endereço da sua arena FifaBet.');
+  const token=url.searchParams.get('convite');if(!token||!/^[A-Za-z0-9_-]{43}$/.test(token))throw Error('Esse link não contém um convite válido. Peça um novo ao seu amigo.');
+  return {token,code:''};
+ }
+ if(/^[A-Za-z0-9_-]{43}$/.test(raw))return {token:raw,code:''};
+ if(!/^(?:JOGO-[A-Z0-9]{8}|[a-f0-9]{8}|[a-f0-9]{8}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{12})$/i.test(raw))throw Error('Código inválido. Copie o código completo ou o link que seu amigo enviou.');
+ return {token:'',code:raw.toUpperCase()};
+}
+async function findInvitation(value){
+ const parsed=invitationInput(value);ui.joinCode=String(value).trim();
+ if(parsed.token&&!online)throw Error('Este link precisa da versão conectada. Aqui você pode testar um código entre dois perfis neste navegador.');
+ if(!profile()){pendingIntent='join-code';return showAuth(false);}
+ if(parsed.token){
+  invite={token:parsed.token};return showInvite();
+ }
+ const candidates=duels().filter(d=>d.publicDuelId===parsed.code||d.id.toUpperCase()===parsed.code||d.id.slice(0,8).toUpperCase()===parsed.code);
+ if(candidates.length>1)throw Error('Esse código corresponde a mais de uma partida. Peça o convite completo.');
+ const d=candidates[0];
+ if(!d)throw Error(online?'Convite não encontrado. Confira o código ou cole o link completo.':'Partida não encontrada para este perfil. No modo local, os dois jogadores precisam estar cadastrados neste navegador.');
+ if(d.hostId===profile().id)throw Error('Este é o seu próprio convite. Envie o código ao seu amigo.');
+ if(d.status==='expired')throw Error('Este convite expirou. Peça ao seu amigo para criar uma nova partida.');
+ if(d.status!=='invited')throw Error(['cancelled','rejected'].includes(d.status)?'Este convite foi cancelado ou recusado. Peça um novo ao seu amigo.':'Esta partida já saiu da etapa de convite. Veja o andamento no início ou histórico.');
+ showDetails(d.id);
+}
+const inviteErrors={invite_invalid:'Esse convite é inválido. Copie o link completo.',invite_not_found:'Convite não encontrado. Confira o link com seu amigo.',invite_expired:'Este convite expirou. Peça ao seu amigo para criar uma nova partida.',invite_cancelled:'Este convite foi cancelado. Peça um novo ao seu amigo.',invite_already_accepted:'Este convite já foi aceito. Confira suas partidas no início ou histórico.',invite_wrong_recipient:'Este convite foi enviado a outro jogador. Entre com o perfil convidado.',invite_own:'Este é seu próprio convite. Compartilhe o link com seu amigo.'};
+function inviteNotice(message){modal('Confira seu convite',message,`<p class='hint'>Nenhum crédito foi reservado por esta consulta.</p><button class='btn secondary wide' data-action='clear-invite'>Voltar ao início</button>`);}
 async function showInvite(){
+ if(!invite||!/^[A-Za-z0-9_-]{43}$/.test(invite.token))return inviteNotice(inviteErrors.invite_invalid);
  if(!profile())return modal('Você recebeu um desafio','Entre ou crie sua conta FifaBet para ver e aceitar o convite.',`<button class='btn primary wide' data-action='signup'>Criar conta</button><button class='btn secondary wide' data-action='login' style='margin-top:12px'>Já tenho conta</button>`);
- const data=await API.getInvite(invite.token),d=data.invite;
- modal('Você recebeu um desafio',`${d.host.nickname} te chamou para jogar.`,`<p><strong>${esc(d.mode)}</strong> · ${fmt(d.stake)} créditos por jogador.</p><p class='hint'>${esc(d.rules||'Combine as regras com seu amigo antes de aceitar.')}</p><button class='btn primary wide' data-action='accept-invite'>Aceitar desafio</button>`);
+ const token=invite.token,owner=profile().id;
+ if(duels().some(d=>d.hostId===owner&&d.inviteToken===token))return inviteNotice(inviteErrors.invite_own);
+ let data;try{data=await API.getInvite(token);}catch(e){return inviteNotice(inviteErrors[e.code]||e.message);}
+ if(profile()?.id!==owner||invite?.token!==token)return;
+ const d=data.invite;if(d.status!=='invited')return inviteNotice(inviteErrors[d.status==='expired'?'invite_expired':d.status==='cancelled'?'invite_cancelled':'invite_already_accepted']);
+ if(d.expiresAt&&Date.parse(d.expiresAt)<=Date.now())return inviteNotice(inviteErrors.invite_expired);
+ invite={token,owner};const enough=profile().balance>=d.stake;
+ modal('Você recebeu um desafio',`${d.host.nickname} te chamou para jogar.`,`<span class='pill amber'>Convite pendente</span><dl class='invite-summary'><div><dt>Modo</dt><dd>${esc(d.mode)}</dd></div><div><dt>Plataforma</dt><dd>${esc(({pc:'PC',playstation:'PlayStation',xbox:'Xbox',switch:'Nintendo Switch'})[d.platform]||'Combinada com o amigo')}</dd></div><div><dt>Por jogador</dt><dd>${fmt(d.stake)} créditos de teste</dd></div></dl><p class='hint'>${esc(d.rules||'Combine as regras com seu amigo antes de aceitar.')}</p><p class='meta'>Ao aceitar, ${fmt(d.stake)} créditos de teste serão reservados. O resultado precisa da foto e revisão da equipe.</p>${d.expiresAt?`<p class='meta'>Convite válido até ${when(d.expiresAt)}.</p>`:''}${enough?`<button class='btn primary wide' data-action='accept-invite'>Aceitar desafio</button>`:`<p class='hint'>Você tem ${fmt(profile().balance)} créditos disponíveis. Adicione créditos de teste antes de aceitar.</p><button class='btn primary wide' data-action='deposit'>Adicionar créditos de teste</button><button class='btn secondary wide' data-action='view-invite'>Conferir convite novamente</button>`}<p class='meta invite-privacy'>Seu saldo, fotos e resultados ficam privados. O link contém apenas o convite.</p>`);
 }
 async function execute(action,id){
  if(action==='close')return closeModal();
  if(action==='signup')return showAuth(true);
  if(action==='login')return showAuth(false);
  if(action==='join')return showJoin();
+ if(action==='view-invite')return showInvite();
+ if(action==='clear-invite'){invite=null;ui.joinCode='';pendingIntent=null;const url=new URL(location.href);url.searchParams.delete('convite');url.hash='arena';history.replaceState(null,'',url.href);return go('arena');}
  if(action==='create'){if(!profile()){pendingIntent='create';return showAuth(true);}return go('criar');}
  if(action==='deposit')return showDeposit();
  if(action==='payment-method')return showDeposit({method:id,amount:Number($('depositAmount').value),installments:Number($('depositInstallments')?.value||1)});
@@ -226,21 +315,36 @@ async function execute(action,id){
  if(action==='help')return showHelp();
  if(action==='connection')return showConnection();
  if(action==='copy-id')return copy(profile()?.publicPlayerId||'');
- if(action==='stake'){ui.stake=id;$('duelStake').value=id;$('potPreview').textContent=`${fmt(Number(id)*2)} créditos`;return;}
+ if(action==='stake'){updateDuelDraft({stake:id});$('duelStake').value=id;$('potPreview').textContent=`${fmt(Number(id)*2)} créditos de teste`;return;}
+ if(action==='duel-back'||action==='duel-edit'){
+  ensureDuelOwner();const next=action==='duel-back'?ui.duelStep-1:Number(id);
+  if(!Number.isInteger(next)||next<1||next>=ui.duelStep)throw Error('Volte a uma etapa anterior para editar sua partida.');
+  ui.duelStep=next;ui.duelRevision++;ui.duelOperation='';ui.duelError='';render();$('wizardHeading')?.focus();return;
+ }
  if(action==='filter'){ui.filter=id;return render();}
- if(action==='details')return showDetails(id);
+ if(action==='details'||action==='accept-preview')return showDetails(id);
  if(action==='result')return showResult(id);
  if(action==='dispute')return showDispute(id);
  if(action==='select-profile'){save(M.change(read(),'login',{id}));ui.rival='';foundPlayer=null;walletData=null;closeModal();render();return continueIntent();}
  if(action==='logout'){if(online){await API.logoutAccount();arena=null;}else localChange('logout');walletData=null;pendingIntent=null;closeModal();render();return;}
- if(action==='copy-code')return copy(id);
+ if(action==='copy-code')return copy(id,online?'Convite copiado. Pronto para compartilhar.':'Código copiado. Use no perfil convidado deste navegador.');
  if(action==='refresh'){await refresh();return toast('Arena atualizada.');}
  if(action==='retry')return start();
  if(action==='credits')return modal('Créditos das imagens','Fontes dos uniformes e figurinhas.',`<a class='btn secondary wide' href='https://github.com/djowww/fifabet-arena/blob/main/THIRD_PARTY_NOTICES.md' target='_blank' rel='noopener noreferrer'>Abrir créditos e fontes</a>`);
- if(action==='find'){const data=await API.findPlayer($('rivalId').value.trim().toUpperCase());foundPlayer=data.player||data.user||data;$('rivalPreview').textContent=`${foundPlayer.nickname} · ${foundPlayer.publicPlayerId}`;return;}
- if(action==='accept-invite'){if(!profile())return showAuth(true);await API.acceptInvite(invite.token);invite=null;history.replaceState(null,'',location.pathname+'#arena');closeModal();await refresh();return toast('Desafio aceito. Os créditos foram reservados.');}
+ if(action==='find'){updateDuelDraft({rival:$('rivalId').value.trim().toUpperCase()});if(!ui.rival)throw Error('Informe o ID do amigo para conferir ou continue para criar um convite por link.');const other=await validateDuelDraft();$('rivalPreview').textContent=`Jogador encontrado: ${other.nickname} · ${other.publicPlayerId}`;return;}
+ if(action==='accept-invite'){
+  if(!profile())return showAuth(true);
+  if(!invite||invite.owner!==profile().id)return showInvite();
+  try{await API.acceptInvite(invite.token);}catch(e){if(inviteErrors[e.code])return inviteNotice(inviteErrors[e.code]);throw e;}
+  invite=null;ui.joinCode='';history.replaceState(null,'',location.pathname+'#arena');closeModal();await refresh();return toast('Convite aceito. Partida confirmada e créditos de teste reservados.');
+ }
  const d=byId(id);
- if(action==='share')return copy(inviteLink(d));
+ if(action==='share'||action==='share-native'){
+  if(!online||d.status!=='invited'||d.hostId!==profile()?.id||!d.inviteToken)throw Error('Este convite não está disponível para compartilhar.');
+  const url=inviteLink(d);
+  if(action==='share-native'&&navigator.share)try{await navigator.share({title:'Convite FifaBet',text:'Joga aí! Confira este desafio no FifaBet.',url});return toast('Convite compartilhado.');}catch(e){if(e.name==='AbortError')return;}
+  return copy(url,'Link do convite copiado. Pronto para compartilhar.');
+ }
  if(action==='review'){return modal('Decisão da equipe',`${d.host.nickname} × ${d.guest.nickname}`,`<p class='score-pair'>${score(d)}</p><img class='review-image' src='${esc(photoUrl(d.result))}' alt='Foto do resultado atual para revisão'>${reportHistory(d)}<form data-form='review' data-id='${esc(id)}' data-report='${esc(d.result.id)}'><label class='form-label' for='reviewWinner'>Resultado validado</label><select class='form-input' id='reviewWinner' name='winner' required><option value=''>Escolha o resultado conferido</option><option value='host'>${esc(d.host.nickname)} venceu</option><option value='guest'>${esc(d.guest.nickname)} venceu</option><option value='draw'>Empate</option></select><label class='form-label' for='reviewReason'>Justificativa da revisão</label><textarea id='reviewReason' class='form-input' name='reason' minlength='10' maxlength='300' required></textarea><p class='hint'>A decisão será registrada e os créditos serão distribuídos uma única vez.</p><button class='btn primary wide' type='submit'>Aprovar resultado e distribuir créditos</button></form>`);}
  if(action==='accept'){if(online)await API.acceptDuel(id);else localChange('acceptDuel',{id});}
  else if(action==='decline'){if(online)await API.cancelDuel(id);else localChange('rejectDuel',{id});}
@@ -248,7 +352,7 @@ async function execute(action,id){
  else if(action==='withdraw-cancel'){if(online)await API.withdrawCancellation(id);else localChange('withdrawDuelCancel',{id});}
  else if(action==='confirm'){if(online)await API.confirmResult(id,d.result.id);else localChange('confirmDuelResult',{id,reportId:d.result.id});}
  else return;
- closeModal();await refresh();toast(action==='confirm'?'Placar confirmado. A liberação aguarda a equipe.':'Desafio atualizado.');
+ closeModal();await refresh();toast(action==='confirm'?'Placar confirmado. A liberação aguarda a equipe.':action==='accept'?'Convite aceito. Partida confirmada e créditos de teste reservados.':'Desafio atualizado.');
 }
 document.addEventListener('click',async event=>{
  if(event.target.closest('.skip-link')){event.preventDefault();$('screen').focus();return;}
@@ -257,13 +361,14 @@ document.addEventListener('click',async event=>{
 });
 document.addEventListener('input',event=>{
  const t=event.target;
- if(t.id==='duelStake'){ui.stake=t.value;$('potPreview').textContent=`${fmt(Number(t.value||0)*2)} créditos`;}
- if(t.id==='rivalId'){ui.rival=t.value;foundPlayer=null;}
- if(t.id==='duelRules')ui.rules=t.value;
+ if(t.id==='joinCode'||t.id==='dialogJoinCode'){ui.joinCode=t.value;if($('joinError'))$('joinError').hidden=true;}
+ if(t.id==='duelStake'){updateDuelDraft({stake:t.value});$('potPreview').textContent=`${fmt(Number(t.value||0)*2)} créditos de teste`;}
+ if(t.id==='rivalId'){updateDuelDraft({rival:t.value});if($('rivalPreview'))$('rivalPreview').textContent=online?'Com o ID, só esse jogador aceita. Sem ID, você compartilha um convite.':'';}
+ if(t.id==='duelRules')updateDuelDraft({rules:t.value});
  if(t.id==='historySearch'){ui.search=t.value;const cursor=t.selectionStart;render();$('historySearch').focus();$('historySearch').setSelectionRange(cursor,cursor);}
 });
 document.addEventListener('change',async event=>{
- const t=event.target;if(t.id==='gameMode')ui.mode=t.value;if(t.id==='gamePlatform')ui.platform=t.value;if(t.id==='rivalId')ui.rival=t.value;
+ const t=event.target;if(t.id==='gameMode')updateDuelDraft({mode:t.value});if(t.id==='gamePlatform')updateDuelDraft({platform:t.value});if(t.id==='rivalId')updateDuelDraft({rival:t.value});
  if(t.id==='historyStatus'){ui.filter=t.value;render();}
  if(t.id==='profileClub')$('clubPreview').innerHTML=avatar({...profile(),clubId:t.value,avatarSticker:null,teamName:''},'large');
  if(t.id==='resultImage'||t.id==='receiptImage')try{const photo=await preparePhoto(t.files[0]),preview=$(t.id==='receiptImage'?'receiptPreview':'photoPreview');if(t.isConnected&&preview){preview.innerHTML=`<img src='${photo.dataUrl}' alt='Prévia da imagem enviada'>`;preview.hidden=false;}}catch(e){fail(e.message);}
@@ -278,24 +383,10 @@ document.addEventListener('submit',async event=>{
   else save(M.change(read(),'create',{nickname:data.get('nickname')}));
   ui.rival='';foundPlayer=null;walletData=null;closeModal();render();window.scrollTo({top:0});await continueIntent();return toast(kind==='signup'?'Seu ID FifaBet está pronto.':'Você entrou na arena.');
  }
- if(!profile()||profile().id!==profileId)throw Error('Entre na sua conta para continuar.');
  if(kind==='join'){
-  const raw=String(data.get('code')||'').trim();let token='',code=raw;
-  if(/^https?:\/\//i.test(raw)){
-   let url;try{url=new URL(raw);}catch{throw Error('Esse link não é um convite válido.');}
-   if(url.origin!==location.origin)throw Error('Use um convite do mesmo endereço da sua arena FifaBet.');
-   token=url.searchParams.get('convite')||'';if(!token)throw Error('O link precisa conter um convite de partida.');
-  }
-  const d=duels().find(d=>d.id.toUpperCase()===code.toUpperCase()||d.id.slice(0,8).toUpperCase()===code.toUpperCase()||d.publicDuelId===code.toUpperCase());
-  if(d){
-   if(d.hostId===profileId)throw Error('Este é o seu próprio convite. Envie o código ao seu amigo.');
-   if(d.status!=='invited')throw Error('Esta partida já saiu da etapa de convite.');
-   return showDetails(d.id);
-  }
-  token=token||(/^[A-Za-z0-9_-]{43}$/.test(raw)?raw:'');
-  if(online&&token){invite={token};return await showInvite();}
-  throw Error(online?'Convite não encontrado. Confira o código ou cole o link completo.':'Partida não encontrada para este perfil. No modo local, os dois jogadores precisam estar cadastrados neste navegador.');
+  return await findInvitation(data.get('code'));
  }
+ if(!profile()||profile().id!==profileId)throw Error('Entre na sua conta para continuar.');
  if(kind==='deposit'){
   const payload={amount:Number(data.get('amount')),method:data.get('method'),installments:Number(data.get('installments')),idempotencyKey:form.dataset.operation};let id;
   if(online){const created=await API.createDeposit(payload);id=(created.deposit||created).id;}
@@ -315,13 +406,33 @@ document.addEventListener('submit',async event=>{
  }
  if(kind==='profile'){const payload={nickname:data.get('nickname'),clubId:data.get('clubId')||null,avatarStyle:data.get('avatarStyle')};if(online)await API.updateAccount(payload);else localChange('profile',payload);}
  else if(kind==='duel'){
-  const payload={stake:Number(data.get('stake')),mode:data.get('mode'),rules:data.get('rules'),opponentPlayerId:String(data.get('rivalId')||'').trim().toUpperCase(),platform:data.get('platform')||'pc'};
-  let d;
-  if(online){const created=await API.createDuel(payload);d=created.duel||created;await refresh();}
-  else{const other=M.findProfileByPlayerId(state,payload.opponentPlayerId);if(!other)throw Error('Escolha outro perfil deste navegador.');const operationId=crypto.randomUUID();localChange('createDuel',{opponentId:other.id,stake:payload.stake,mode:payload.mode,rules:payload.rules,operationId});d=duels().find(x=>x.operationId===operationId);}
+  ensureDuelOwner();
+  if(form.dataset.owner!==ui.duelOwner||Number(form.dataset.step)!==ui.duelStep||Number(form.dataset.revision)!==ui.duelRevision)throw Error('Esta etapa mudou. Revise os dados da partida e continue novamente.');
+  if(ui.duelStep===1){
+   updateDuelDraft({rival:String(data.get('rivalId')||'').trim().toUpperCase(),mode:String(data.get('mode')||''),platform:String(data.get('platform')||'pc')});
+   await validateDuelDraft();ui.duelStep=2;ui.duelError='';render();$('wizardHeading')?.focus();return;
+  }
+  if(ui.duelStep===2){
+   updateDuelDraft({stake:String(data.get('stake')??''),rules:String(data.get('rules')||'')});
+   await validateDuelDraft(true);ui.duelStep=3;ui.duelOperation=crypto.randomUUID();ui.duelError='';render();$('wizardHeading')?.focus();return;
+  }
+  if(ui.duelStep!==3||!ui.duelOperation||form.dataset.operation!==ui.duelOperation)throw Error('Confira o resumo antes de confirmar a criação da partida.');
+  const revision=ui.duelRevision;let d;
+  if(online){const latest=await API.getArena();if(latest.user?.id!==ui.duelOwner)throw Error('A conta mudou no servidor. Entre novamente e revise a partida.');arena=latest;d=[...(latest.duels||[]),...(latest.history||[])].find(x=>x.hostId===ui.duelOwner&&x.operationId===ui.duelOperation);}
+  else{const latest=read(),existing=Object.values(latest.duels||{}).find(x=>x.creatorId===ui.duelOwner&&x.operationId===ui.duelOperation);if(existing)d=normalize(existing);}
+  const payload={stake:Number(ui.stake),mode:ui.mode,rules:ui.rules.trim(),opponentPlayerId:ui.rival.trim().toUpperCase(),platform:ui.platform,operationId:ui.duelOperation,expectedHostId:ui.duelOwner};
+  if(!d){
+   const other=await validateDuelDraft(true);
+   if(ui.duelRevision!==revision)throw Error('Os dados mudaram. Confira o resumo antes de confirmar.');
+   if(online){const created=await API.createDuel(payload);d=created.duel||created;}
+   else{localChange('createDuel',{opponentId:other.id,stake:payload.stake,mode:payload.mode,platform:payload.platform,rules:payload.rules,operationId:payload.operationId});d=duels().find(x=>x.operationId===payload.operationId);}
+  }
+  if(online)await refresh();
+  resetDuelDraft();
   go('arena');
-  const value=online&&d.inviteToken?inviteLink(d):d.id.slice(0,8).toUpperCase();
-  modal('Partida criada','Envie o convite ao seu amigo.',`<label class='form-label' for='shareInvite'>${online&&d.inviteToken?'Link do convite':'Código da partida'}</label><input id='shareInvite' class='form-input' value='${esc(value)}' readonly>${btn('copy-code',value,'Copiar convite',true)}<p class='hint'>A partida começa quando o amigo aceita pelo próprio perfil.${!online?' Neste modo, os perfis ficam neste navegador.':''}</p>`);
+  if(d.status!=='invited'){showDetails(d.id);return toast('A partida já foi criada. Confira o andamento.');}
+  const shareable=online&&d.inviteToken,value=shareable?inviteLink(d):d.publicDuelId||d.id.slice(0,8).toUpperCase();
+  modal('Partida criada',shareable?'Compartilhe o convite com seu amigo.':'Entre no perfil convidado para testar o aceite.',`<span class='pill amber'>Convite pendente</span><label class='form-label' for='shareInvite'>${shareable?'Link do convite':'Código da partida'}</label><input id='shareInvite' class='form-input' value='${esc(value)}' readonly><div class='duel-actions'>${btn('copy-code',value,shareable?'Copiar convite':'Copiar código',true)}${shareable?btn('share-native',d.id,'Compartilhar'):''}</div><p class='hint'>${shareable?'O amigo confere as regras e aceita pelo próprio perfil. O link não expõe saldo, fotos ou resultados.':'Este código funciona entre perfis neste navegador. Para jogar entre aparelhos, é necessária a versão conectada.'}</p>`);
   return toast('Convite enviado. Seus créditos ficaram reservados.');
  }
  else if(kind==='result'||kind==='dispute'){
@@ -332,7 +443,7 @@ document.addEventListener('submit',async event=>{
  }
  else if(kind==='review')await API.reviewDuel(form.dataset.id,{reportId:form.dataset.report,winner:data.get('winner'),reason:data.get('reason')});
  closeModal();await refresh();toast(kind==='result'?'Placar e foto enviados. Aguardando revisão.':kind==='dispute'?'Contestação enviada. Os créditos seguem bloqueados.':kind==='review'?'Resultado revisado e créditos distribuídos.':'Perfil atualizado.');
- }catch(e){fail(e.message);}finally{busy=false;if(submit?.isConnected)submit.disabled=false;}
+ }catch(e){if(kind==='duel'){ui.duelError=e.message;const error=$('composerError');if(error){error.textContent=e.message;error.hidden=false;}toast(e.message);}else if(kind==='join')joinFeedback(e.message);else fail(e.message);}finally{busy=false;if(submit?.isConnected)submit.disabled=false;}
 });
 $('modal').addEventListener('cancel',event=>{event.preventDefault();closeModal();});
 $('modal').addEventListener('click',event=>{if(event.target===$('modal')){const r=$('modal').getBoundingClientRect();if(event.clientX<r.left||event.clientX>r.right||event.clientY<r.top||event.clientY>r.bottom)closeModal();}});
@@ -343,6 +454,6 @@ async function start(){
  online=!!(await API.detectBackend());if(online){const session=await API.loadSession();if(session.user)arena=await API.getArena();}else save();
  render();const token=new URL(location.href).searchParams.get('convite');
  if(token&&online){invite={token};await showInvite();}
- else if(token)toast('Abra este convite no endereço do servidor FifaBet.');
+ else if(token)inviteNotice('Este convite precisa da versão conectada. Nesta demonstração, use um código entre perfis neste navegador.');
 }
 start().catch(e=>{$('screen').innerHTML=`<section class='card pad'><h1>A arena não conseguiu iniciar.</h1><p>${esc(e.message)}</p><button class='btn primary' data-action='retry'>Tentar novamente</button></section>`;});

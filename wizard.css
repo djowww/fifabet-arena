@@ -1,0 +1,31 @@
+.duel-wizard-fields{border:0;padding:0;margin:0;min-width:0}
+.duel-wizard-steps{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:12px;padding:0;margin:0 0 28px;list-style:none}
+.duel-wizard-steps li{display:flex;align-items:center;gap:9px;color:var(--muted);font-size:.82rem;line-height:1.35}
+.duel-wizard-steps li>span{display:grid;place-items:center;flex-shrink:0;width:28px;height:28px;border:1px solid var(--line);border-radius:50%;font-weight:800}
+.duel-wizard-steps .current{color:var(--text);font-weight:700}
+.duel-wizard-steps .current>span{background:var(--lime);color:#031109;border-color:var(--lime)}
+.duel-wizard-steps .done>span{color:var(--lime);border-color:var(--lime)}
+.wizard-heading{margin:0 0 20px;font-size:1.2rem;outline-offset:6px;scroll-margin-top:90px}
+.wizard-available{margin:0 0 22px;color:var(--muted);font-size:.9rem}
+.wizard-available strong{color:var(--text)}
+.duel-wizard-fields textarea{resize:vertical;min-height:90px;line-height:1.55;font:inherit;color:var(--text);background:#131b18;border:1px solid #596b60;border-radius:8px;padding:12px;touch-action:manipulation}
+.duel-wizard-fields textarea:focus-visible{outline:3px solid var(--lime);outline-offset:4px}
+.duel-wizard-actions{display:flex;gap:12px;align-items:center;justify-content:space-between;margin-top:24px;flex-wrap:wrap}
+.duel-wizard-actions>.primary{margin-left:auto}
+.duel-summary{display:grid;gap:0;margin:0 0 20px}
+.duel-summary>div{display:grid;grid-template-columns:minmax(100px,1fr) minmax(0,2fr);gap:12px;padding:15px 0;border-bottom:1px solid var(--line)}
+.duel-summary dt{color:var(--muted);font-size:.85rem}
+.duel-summary dd{margin:0;line-height:1.55;overflow-wrap:anywhere}
+.duel-summary dd .text-button{display:block;text-align:left;margin-top:4px}
+.duel-summary-rules{white-space:pre-wrap}
+.wizard-test-note{margin-top:20px}
+.wizard-signup{margin-top:18px}
+.duel-composer .error-message{margin-top:18px}
+@media(max-width:560px){
+ .duel-wizard-steps{gap:7px;margin-bottom:22px}
+ .duel-wizard-steps li{flex-direction:column;align-items:flex-start;font-size:.75rem;gap:7px}
+ .duel-summary>div{grid-template-columns:1fr;gap:5px}
+ .duel-wizard-actions{align-items:stretch}
+ .duel-wizard-actions>.btn{min-height:46px}
+ .duel-wizard-actions>.primary{flex:1}
+}

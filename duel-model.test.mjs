@@ -1,5 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
+import {randomUUID} from 'node:crypto';
 import {emptyState,current,change,restore,duelsForProfile,duelReservedPoints,duelOpponent,findProfileByPlayerId,reviewDuelResult} from './model.mjs';
 
 const photo='data:image/jpeg;base64,cGxhY2Fy';
@@ -38,6 +39,67 @@ test('actual local profiles receive unique stable public IDs, including legacy m
   assert.equal(first.version,7);assert.deepEqual(first.duels,{});
   legacy.profiles[b].publicPlayerId=first.profiles[a].publicPlayerId;
   const recovered=restore(legacy);assert.notEqual(recovered.profiles[a].publicPlayerId,recovered.profiles[b].publicPlayerId);
+});
+
+test('duel platforms and independent invitation codes survive saving, including legacy challenges',()=>{
+  let {s,a,b}=profiles();
+  const codes=new Set();
+  for(const platform of ['pc','playstation','xbox','switch']){
+    s=change(s,'createDuel',{opponentId:b,stake:100,mode:'1v1',platform,operationId:`platform-${platform}`});
+    const d=duelsForProfile(s,a).find(duel=>duel.status==='invited'),id=d.id;
+    assert.equal(d.platform,platform);assert.match(d.publicDuelId,/^JOGO-[A-F0-9]{8}$/);
+    assert.equal(codes.has(d.publicDuelId),false);codes.add(d.publicDuelId);
+    const saved=restore(JSON.stringify(s));
+    assert.equal(saved.duels[id].id,id);assert.equal(saved.duels[id].platform,platform);
+    assert.equal(saved.duels[id].publicDuelId,d.publicDuelId);assert.equal(duelReservedPoints(saved,a),100);
+    assert.equal(saved.profiles[a].balance,900);
+    s=change(saved,'cancelDuel',{id});
+  }
+  s=change(s,'createDuel',{opponentId:b,stake:100,mode:'1v1',operationId:'legacy-platform'});
+  const id=duelsForProfile(s,a).find(d=>d.status==='invited').id;
+  assert.equal(s.duels[id].platform,'pc');
+  const legacy=JSON.parse(JSON.stringify(s));delete legacy.duels[id].platform;delete legacy.duels[id].publicDuelId;
+  const migrated=restore(legacy);assert.equal(migrated.duels[id].id,id);assert.equal(migrated.duels[id].platform,'pc');
+  assert.match(migrated.duels[id].publicDuelId,/^JOGO-[A-F0-9]{8}$/);
+  assert.equal(duelReservedPoints(migrated,a),100);assert.equal(migrated.profiles[a].balance,900);
+  const reloaded=restore(JSON.stringify(migrated));assert.equal(reloaded.duels[id].publicDuelId,migrated.duels[id].publicDuelId);
+});
+
+test('invalid duel platforms fail before reserving points and invalid stored platform is rejected',()=>{
+  const {s,a,b}=profiles(),before=JSON.stringify(s);
+  for(const platform of ['',null,'mobile','PC',{},0]){
+    assert.throws(()=>change(s,'createDuel',{opponentId:b,stake:100,mode:'1v1',platform}),/plataforma/);
+    assert.equal(JSON.stringify(s),before);assert.equal(s.profiles[a].balance,1000);assert.equal(duelReservedPoints(s,a),0);
+  }
+  const invited=invite(s,b),id=duelsForProfile(invited,a)[0].id,corrupted=JSON.parse(JSON.stringify(invited));
+  corrupted.duels[id].platform='unsupported';assert.equal(restore(corrupted).duels[id],undefined);
+  corrupted.duels[id].platform='pc';corrupted.duels[id].publicDuelId='internal-id';
+  const repaired=restore(corrupted);assert.match(repaired.duels[id].publicDuelId,/^JOGO-[A-F0-9]{8}$/);
+  assert.equal(repaired.duels[id].id,id);assert.equal(repaired.profiles[a].balance,900);assert.equal(duelReservedPoints(repaired,a),100);
+});
+
+test('invitation code collisions are resolved on creation and restoration without changing internal IDs',t=>{
+  if(globalThis.crypto?.getRandomValues)t.mock.method(globalThis.crypto,'getRandomValues',array=>{array[0]=0xABCDEF01;return array;});
+  else{
+    const descriptor=Object.getOwnPropertyDescriptor(globalThis,'crypto');
+    Object.defineProperty(globalThis,'crypto',{configurable:true,value:{randomUUID,getRandomValues(array){array[0]=0xABCDEF01;return array;}}});
+    t.after(()=>{if(descriptor)Object.defineProperty(globalThis,'crypto',descriptor);else delete globalThis.crypto;});
+  }
+  let {s,a,b}=profiles();s=invite(s,b);const first=duelsForProfile(s,a)[0];
+  s=change(s,'cancelDuel',{id:first.id});s=invite(s,b,100,'second-code');
+  const second=duelsForProfile(s,a).find(d=>d.status==='invited');
+  assert.notEqual(first.publicDuelId,second.publicDuelId);
+  assert.equal(second.publicDuelId,'JOGO-'+((parseInt(first.publicDuelId.slice(5),16)+1)>>>0).toString(16).toUpperCase().padStart(8,'0'));
+  const duplicated=JSON.parse(JSON.stringify(s));duplicated.duels[second.id].publicDuelId=first.publicDuelId;
+  const saved=restore(duplicated);assert.equal(saved.duels[first.id].publicDuelId,first.publicDuelId);
+  assert.notEqual(saved.duels[first.id].publicDuelId,saved.duels[second.id].publicDuelId);
+  assert.equal(saved.duels[first.id].id,first.id);assert.equal(saved.duels[second.id].id,second.id);
+  assert.equal(saved.profiles[a].balance,900);assert.equal(duelReservedPoints(saved,a),100);
+  const older=JSON.parse(JSON.stringify(s));delete older.duels[first.id].publicDuelId;
+  older.duels[second.id].publicDuelId=first.publicDuelId;
+  const migrated=restore(older);
+  assert.equal(migrated.duels[second.id].publicDuelId,first.publicDuelId,'migrating an older challenge must not steal a later saved code');
+  assert.notEqual(migrated.duels[first.id].publicDuelId,migrated.duels[second.id].publicDuelId);
 });
 
 test('invitation reserves sender points and only the actual invitee can accept, without fabricated people',()=>{

@@ -10,6 +10,7 @@ const files = new Map([
   ["/backend-client.mjs", ["backend-client.mjs", "text/javascript; charset=utf-8"]],
   ["/practical.css", ["practical.css", "text/css; charset=utf-8"]],
   ["/lobby.css", ["lobby.css", "text/css; charset=utf-8"]],
+  ["/wizard.css", ["wizard.css", "text/css; charset=utf-8"]],
   ["/app.js", ["app.js", "text/javascript; charset=utf-8"]],
   ["/model.mjs", ["model.mjs", "text/javascript; charset=utf-8"]],
   ["/styles.css", ["styles.css", "text/css; charset=utf-8"]],

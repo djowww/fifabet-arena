@@ -19,7 +19,11 @@ Os perfis e créditos da demonstração local são salvos por origem no navegado
 5. Uma conta autorizada da equipe revisa a evidência antes de distribuir pontos. Um participante não pode julgar o próprio desafio.
 6. Consulte rival, placar, situação e decisão no histórico dos dois jogadores.
 
-A página inicial tem dois cartões: **Entrar em uma partida** e **Criar minha partida**, com referências discretas de Haaland e Alexia Putellas. O formulário completo abre somente na criação. Na entrada, o jogador consulta os convites recebidos ou usa um link/código, confere a partida e aceita pelo próprio perfil.
+A página inicial usa a chamada **Joga aí com seus amigos**, mantendo a marca FifaBet, e tem dois cartões práticos: **Entrar em uma partida**, com campo direto para código ou link, e **Criar minha partida**, com uma referência discreta ao futebol. A criação tem três etapas: amigo/modo/plataforma, créditos/regras e resumo. Só a confirmação final cria o convite e reserva os créditos. Voltar para editar preserva o rascunho.
+
+Os convites recebidos aparecem primeiro na lista de partidas. Antes de aceitar, o jogador confere as regras e a reserva necessária. Códigos locais usam `JOGO-XXXXXXXX`, independente do ID interno; códigos antigos continuam aceitos. Links da versão conectada usam apenas um token, sem saldo, fotos ou resultados. A consulta exige autenticação e permissão, e informa convites expirados, cancelados ou já aceitos. A criação no servidor é idempotente e confere a conta que confirmou o resumo.
+
+Sem perfil, a página oferece começar com 1.000 créditos de teste; com perfil, mostra disponíveis e reservados separadamente. Todas as ações de recarga usam **Adicionar créditos de teste**. Saldo zero e créditos reservados têm instruções para o próximo passo. A página identifica a demonstração local e a referência ao EA SPORTS FC como compatibilidade, mantendo claro o caráter independente do FifaBet.
 
 A classificação usa resultados revisados; não há adversários nem resultados inventados no fluxo principal. O ID e o histórico são internos do FifaBet; não há consulta automática ao histórico da EA.
 
@@ -84,7 +88,7 @@ Fontes: [uniformes](docs/UNIFORMES_FONTES.md), [clubes](docs/CLUBES_FONTES.md), 
 
 ## Arquivos principais
 
-- `index.html`, `play.js`, `practical.css`, `lobby.css`: entrada, partidas, carteira, ID, histórico e revisão.
+- `index.html`, `play.js`, `practical.css`, `lobby.css`, `wizard.css`: entrada, criação em etapas, partidas, carteira, ID, histórico e revisão.
 - `model.mjs`: regras e persistência da demonstração local.
 - `backend-client.mjs`: comunicação autenticada com a API na mesma origem.
 - `backend/server.mjs`, `backend/accounts.mjs`: servidor, contas, fotos, decisões e consulta administrativa dos IDs.

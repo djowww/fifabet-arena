@@ -207,6 +207,17 @@ function changeDemoDeposit(p,action,data){
 }
 const DUEL_ACTIONS=['createDuel','acceptDuel','rejectDuel','cancelDuel','submitDuelResult','confirmDuelResult','disputeDuelResult','requestDuelCancel','confirmDuelCancel','withdrawDuelCancel'];
 const DUEL_OPEN=['invited','active','review','disputed'];
+function ensureDuelCode(s,d,preferred=''){
+  const used=new Set(Object.values(s.duels||{}).filter(value=>value.id!==d.id).map(value=>value.publicDuelId));
+  if(/^JOGO-[A-F0-9]{8}$/.test(preferred)&&!used.has(preferred)){d.publicDuelId=preferred;return;}
+  const random=new Uint32Array(1);
+  if(globalThis.crypto?.getRandomValues)globalThis.crypto.getRandomValues(random);
+  else random[0]=Math.floor(Math.random()*0x100000000);
+  // The public invitation code is generated independently from the internal ID.
+  // Incrementing on collision also guarantees progress in a small local arena.
+  let candidate=random[0];
+  do{d.publicDuelId=`JOGO-${candidate.toString(16).toUpperCase().padStart(8,'0')}`;candidate=(candidate+1)>>>0;}while(used.has(d.publicDuelId));
+}
 export function duelsForProfile(s,profileId=s.activeProfileId){
   return Object.values(s.duels||{}).filter(d=>d.creatorId===profileId||d.opponentId===profileId).sort((a,b)=>b.createdAt.localeCompare(a.createdAt));
 }
@@ -264,7 +275,9 @@ function changeDuel(s,p,action,data){
     const stake=Number(data.stake),error=validStake(data.stake,p.balance);if(error)throw Error(error);
     if(stake>5000)throw Error('O máximo por desafio é 5.000 pontos.');
     const mode=data.mode||'1v1';if(!DUEL_MODES.includes(mode))throw Error('Escolha um modo de jogo válido.');
-    const d={id:uid(),operationId,creatorId:p.id,opponentId:opponent.id,stake,mode,rules:text(data.rules,300).trim(),status:'invited',createdAt:stamp(),acceptedAt:'',reservedBy:[],report:null,reports:[],disputes:[],cancelRequestedBy:null,winnerId:null,settledAt:'',peerConfirmed:false,confirmedBy:null,moderation:null};
+    const platform=data.platform===undefined?'pc':data.platform;if(!GAME_PLATFORMS.some(item=>item.id===platform))throw Error('Escolha uma plataforma de jogo válida.');
+    const d={id:uid(),publicDuelId:'',operationId,creatorId:p.id,opponentId:opponent.id,stake,mode,platform,rules:text(data.rules,300).trim(),status:'invited',createdAt:stamp(),acceptedAt:'',reservedBy:[],report:null,reports:[],disputes:[],cancelRequestedBy:null,winnerId:null,settledAt:'',peerConfirmed:false,confirmedBy:null,moderation:null};
+    ensureDuelCode(s,d);
     reserveDuel(p,d);s.duels[d.id]=d;
     activity(p,`Convite para ${opponent.nickname}: ${points(stake)} pontos reservados.`,'gamepad');
     activity(opponent,`${p.nickname} convidou você para ${mode} valendo ${points(stake)} pontos.`,'gamepad');return;
@@ -518,7 +531,8 @@ function normalizeDuel(value,s){
   if(!Object.hasOwn(s.profiles,value.creatorId)||!Object.hasOwn(s.profiles,value.opponentId)||value.creatorId===value.opponentId)return null;
   if(!Number.isSafeInteger(value.stake)||value.stake<10||value.stake>5000||!DUEL_MODES.includes(value.mode))return null;
   if(![...DUEL_OPEN,'settled','rejected','cancelled'].includes(value.status))return null;
-  const d={id:value.id,operationId:text(value.operationId,80),creatorId:value.creatorId,opponentId:value.opponentId,stake:value.stake,mode:value.mode,rules:text(value.rules,300),status:value.status,createdAt:text(value.createdAt,40)||stamp(),acceptedAt:text(value.acceptedAt,40),reservedBy:[],report:null,reports:[],disputes:[],cancelRequestedBy:null,winnerId:null,settledAt:'',peerConfirmed:false,confirmedBy:null,moderation:null};
+  const platform=value.platform===undefined?'pc':value.platform;if(!GAME_PLATFORMS.some(item=>item.id===platform))return null;
+  const d={id:value.id,publicDuelId:'',operationId:text(value.operationId,80),creatorId:value.creatorId,opponentId:value.opponentId,stake:value.stake,mode:value.mode,platform,rules:text(value.rules,300),status:value.status,createdAt:text(value.createdAt,40)||stamp(),acceptedAt:text(value.acceptedAt,40),reservedBy:[],report:null,reports:[],disputes:[],cancelRequestedBy:null,winnerId:null,settledAt:'',peerConfirmed:false,confirmedBy:null,moderation:null};
   d.report=normalizeDuelReport(value.report,d);
   d.reports=array(value.reports).map(r=>normalizeDuelReport(r,d)).filter(Boolean).slice(-20);
   if(d.report&&!d.reports.some(r=>r.id===d.report.id))d.reports.push(d.report);
@@ -543,6 +557,8 @@ function normalizeDuel(value,s){
   }
   if(['cancelled','rejected'].includes(d.status))d.closedAt=text(value.closedAt,40);
   if(d.status==='cancelled')d.cancelledBy=array(value.cancelledBy).filter(id=>[d.creatorId,d.opponentId].includes(id));
+  const preferred=typeof value.publicDuelId==='string'?value.publicDuelId:'';
+  if(/^JOGO-[A-F0-9]{8}$/.test(preferred)&&!Object.values(s.duels).some(existing=>existing.publicDuelId===preferred))d.publicDuelId=preferred;
   return d;
 }
 export function restore(raw,oldProfile=null,oldBets=null){
@@ -583,6 +599,8 @@ export function restore(raw,oldProfile=null,oldBets=null){
     for(const value of Object.values(d.duels||{}).slice(0,500)){
       const duel=normalizeDuel(value,s);if(duel&&!Object.hasOwn(s.duels,duel.id))s.duels[duel.id]=duel;
     }
+    // Keep all saved codes before assigning codes to older or malformed records.
+    for(const duel of Object.values(s.duels))ensureDuelCode(s,duel,duel.publicDuelId);
     for(const m of MATCHES)if(['home','away'].includes(d.results?.[m.id]?.winner))s.results[m.id]={winner:d.results[m.id].winner,date:text(d.results[m.id].date,40)};
     s.legacyArchive=array(d.legacyArchive).map(normalizeBet).filter(Boolean);return s;
   }

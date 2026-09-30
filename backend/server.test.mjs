@@ -3,6 +3,7 @@ import assert from 'node:assert/strict';
 import {mkdtemp,readFile,rm} from 'node:fs/promises';
 import {tmpdir} from 'node:os';
 import {join} from 'node:path';
+import {randomUUID} from 'node:crypto';
 import {createArenaServer} from './server.mjs';
 
 const PNG=Buffer.from('iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mP8/x8AAusB9Y9Zl1sAAAAASUVORK5CYII=','base64');
@@ -77,6 +78,108 @@ test('only invited player accepts a direct challenge; point reserves cannot over
   assert.equal((await guest.api(`/players/${hostUser.publicPlayerId}`)).data.player.id,hostUser.id);
 });
 
+test('invite previews require authentication and expose only the authorized invitation terms',async t=>{
+  const h=await harness(t),host=h.client(),guest=h.client(),other=h.client(),visitor=h.client();
+  const hostUser=await host.register('Host'),guestUser=await guest.register('Guest');await other.register('Other');
+  const created=await host.api('/duels',{method:'POST',data:{stake:100,mode:'1v1',platform:'pc',opponentPlayerId:guestUser.publicPlayerId,rules:'Seis minutos, sem prorrogação.'}});
+  const path=`/invites/${created.data.inviteToken}`;
+  assert.equal((await visitor.api(path)).status,401);
+  const wrongRecipient=await other.api(path);
+  assert.equal(wrongRecipient.status,403);assert.equal(wrongRecipient.data.code,'invite_wrong_recipient');
+  assert.deepEqual(Object.keys(wrongRecipient.data).sort(),['code','error']);
+  const preview=await guest.api(path);
+  assert.equal(preview.status,200);
+  assert.deepEqual(Object.keys(preview.data),['invite']);
+  assert.deepEqual(Object.keys(preview.data.invite).sort(),['expiresAt','host','mode','platform','rules','stake','status']);
+  assert.deepEqual(preview.data.invite.host,{nickname:'Host'});
+  assert.equal(preview.data.invite.status,'invited');assert.equal(preview.data.invite.stake,100);
+  assert.ok(!JSON.stringify(preview.data).includes(hostUser.id));assert.ok(!JSON.stringify(preview.data).includes(hostUser.publicPlayerId));
+  assert.ok(!JSON.stringify(preview.data).includes(created.data.duel.id));
+  const own=await host.api(`${path}/accept`,{method:'POST',data:{}});
+  assert.equal(own.status,409);assert.equal(own.data.code,'invite_own');
+  const accepted=await guest.api(`${path}/accept`,{method:'POST',data:{}});
+  assert.equal(accepted.status,200);
+  const photo=await host.upload(created.data.duel.id);
+  assert.equal((await host.api(`/duels/${created.data.duel.id}/result`,{method:'POST',data:{homeScore:3,awayScore:1,evidenceId:photo.id}})).status,200);
+  for(const client of [host,guest]){
+    const consumed=await client.api(path);
+    assert.equal(consumed.status,409);assert.equal(consumed.data.code,'invite_already_accepted');
+    assert.deepEqual(Object.keys(consumed.data).sort(),['code','error']);
+  }
+});
+
+test('invalid, missing, consumed and cancelled invite codes have clear errors without exposing match data',async t=>{
+  const h=await harness(t),host=h.client(),guest=h.client(),other=h.client();
+  await host.register('Host');await guest.register('Guest');await other.register('Other');
+  for(const client of [host,guest]){
+    const invalid=await client.api('/invites/not-a-valid-code');
+    assert.equal(invalid.status,400);assert.equal(invalid.data.code,'invite_invalid');
+    const missing=await client.api(`/invites/${'Z'.repeat(43)}`);
+    assert.equal(missing.status,404);assert.equal(missing.data.code,'invite_not_found');
+  }
+  const created=await host.api('/duels',{method:'POST',data:{stake:100,mode:'1v1',platform:'pc'}});
+  const path=`/invites/${created.data.inviteToken}`;
+  assert.equal((await guest.api(path)).status,200);
+  assert.equal((await guest.api(`${path}/accept`,{method:'POST',data:{}})).status,200);
+  for(const method of ['GET','POST']){
+    const response=await other.api(`${path}${method==='POST'?'/accept':''}`,{method,...(method==='POST'?{data:{}}:{})});
+    assert.equal(response.status,409);assert.equal(response.data.code,'invite_already_accepted');
+    assert.deepEqual(Object.keys(response.data).sort(),['code','error']);
+  }
+  const second=await host.api('/duels',{method:'POST',data:{stake:100,mode:'1v1',platform:'pc'}});
+  await host.api(`/duels/${second.data.duel.id}/cancel`,{method:'POST',data:{}});
+  const cancelled=await guest.api(`/invites/${second.data.inviteToken}`);
+  assert.equal(cancelled.status,410);assert.equal(cancelled.data.code,'invite_cancelled');
+  assert.equal((await guest.api('/me')).data.user.balance,900);
+});
+
+test('expired invite links reject previews and acceptance and return the host reserve once',async t=>{
+  const h=await harness(t),host=h.client(),guest=h.client();await host.register('Host');await guest.register('Guest');
+  const created=await host.api('/duels',{method:'POST',data:{stake:100,mode:'1v1',platform:'pc'}});
+  const future=Date.now()+8*86_400_000;
+  t.mock.method(Date,'now',()=>future);
+  const path=`/invites/${created.data.inviteToken}`;
+  for(const method of ['GET','POST']){
+    const response=await guest.api(`${path}${method==='POST'?'/accept':''}`,{method,...(method==='POST'?{data:{}}:{})});
+    assert.equal(response.status,410);assert.equal(response.data.code,'invite_expired');
+    assert.deepEqual(Object.keys(response.data).sort(),['code','error']);
+  }
+  const arena=(await host.api('/me')).data;
+  assert.equal(arena.user.balance,1000);assert.equal(arena.stats.reserved,0);assert.equal(arena.history[0].status,'expired');
+  assert.equal((await host.api('/me')).data.user.balance,1000);
+  assert.equal(arena.user.transactions.filter(tx=>tx.reference===`expiry:${created.data.duel.id}`).length,1);
+  assert.equal((await guest.api('/me')).data.user.balance,1000);
+});
+
+test('a stable creation operation reserves credits once despite concurrent retries and rejects changed terms',async t=>{
+  const h=await harness(t),host=h.client(),guest=h.client();const hostUser=await host.register('Host'),guestUser=await guest.register('Guest');
+  const payload={operationId:randomUUID(),expectedHostId:hostUser.id,stake:250,mode:'1v1',platform:'pc',rules:'Seis minutos.',opponentPlayerId:guestUser.publicPlayerId};
+  const results=await Promise.all([host.api('/duels',{method:'POST',data:payload}),host.api('/duels',{method:'POST',data:payload})]);
+  for(const result of results){assert.equal(result.status,200);assert.equal(result.data.duel.operationId,payload.operationId);assert.ok(!Object.hasOwn(result.data.duel,'creationOperationId'));assert.ok(!Object.hasOwn(result.data.duel,'creationOperationSignature'));}
+  assert.equal(results[0].data.duel.id,results[1].data.duel.id);assert.equal(results[0].data.inviteToken,results[1].data.inviteToken);
+  const arena=(await host.api('/me')).data;
+  assert.equal(arena.user.balance,750);assert.equal(arena.stats.reserved,250);assert.equal(arena.duels.length,1);
+  assert.equal(arena.duels[0].operationId,payload.operationId);
+  assert.ok(!Object.hasOwn((await guest.api('/me')).data.duels[0],'operationId'));
+  assert.equal(arena.user.transactions.filter(tx=>tx.reference===`reserve:${results[0].data.duel.id}`).length,1);
+  const differentSession=await guest.api('/duels',{method:'POST',data:payload});
+  assert.equal(differentSession.status,409);assert.equal(differentSession.data.code,'account_changed');
+  const guestArena=(await guest.api('/me')).data;
+  assert.equal(guestArena.user.balance,1000);assert.equal(guestArena.stats.reserved,0);
+  assert.equal(guestArena.duels.filter(duel=>duel.hostId===guestUser.id).length,0);
+  assert.equal((await host.api('/me')).data.duels.length,1);
+  const conflict=await host.api('/duels',{method:'POST',data:{...payload,stake:100}});
+  assert.equal(conflict.status,409);assert.equal(conflict.data.code,'operation_conflict');
+  assert.equal((await host.api('/me')).data.user.balance,750);
+  const invalid=await host.api('/duels',{method:'POST',data:{...payload,operationId:'not-a-uuid'}});
+  assert.equal(invalid.status,400);assert.equal(invalid.data.code,'invalid_operation_id');
+  const accepted=await guest.api(`/invites/${results[0].data.inviteToken}/accept`,{method:'POST',data:{}});
+  assert.equal(accepted.status,200);assert.ok(!Object.hasOwn(accepted.data.duel,'operationId'));
+  const retryAfterAcceptance=await host.api('/duels',{method:'POST',data:payload});
+  assert.equal(retryAfterAcceptance.status,200);assert.equal(retryAfterAcceptance.data.duel.status,'in_progress');
+  assert.ok(!Object.hasOwn(retryAfterAcceptance.data,'inviteToken'));assert.equal((await host.api('/me')).data.user.balance,750);
+});
+
 test('a direct invite recipient may decline before accepting; only the host reserve is refunded once',async t=>{
   const h=await harness(t),host=h.client(),guest=h.client(),outsider=h.client();
   const hostUser=await host.register('Host'),guestUser=await guest.register('Guest');await outsider.register('Outsider');
@@ -91,7 +194,8 @@ test('a direct invite recipient may decline before accepting; only the host rese
   const declined=attempts.find(result=>result.status===200).data.duel;
   assert.equal(declined.status,'cancelled');assert.equal(declined.cancellationReason,'declined');assert.equal(declined.cancelledBy,guestUser.id);assert.equal(declined.guestId,null);
   assert.equal((await host.api(`/duels/${id}/cancel`,{method:'POST',data:{}})).status,409);
-  assert.equal((await guest.api(`/duels/${id}/accept`,{method:'POST',data:{}})).status,409);
+  const acceptDeclined=await guest.api(`/duels/${id}/accept`,{method:'POST',data:{}});
+  assert.equal(acceptDeclined.status,410);assert.equal(acceptDeclined.data.code,'invite_cancelled');
   const hostArena=(await host.api('/me')).data,guestArena=(await guest.api('/me')).data;
   assert.equal(hostArena.user.balance,1000);assert.equal(guestArena.user.balance,1000);
   assert.equal(hostArena.stats.reserved,0);assert.equal(guestArena.stats.reserved,0);
@@ -341,5 +445,7 @@ test('persistent accounts survive restart and private backend files never appear
   const wallet=await persistedWallet.json();assert.equal(wallet.deposits[0].id,deposit.id);assert.equal(wallet.deposits[0].status,'approved');assert.equal(wallet.transactions.filter(tx=>tx.reference===`deposit:${deposit.id}`).length,1);
   for(const path of ['/backend/server.mjs','/.env','/docs/SERVIDOR.md','/state.json'])assert.equal((await fetch(`${base}${path}`)).status,404);
   assert.equal((await fetch(`${base}/backend-client.mjs`)).status,200);
+  const wizardStyles=await fetch(`${base}/wizard.css?v=17`);
+  assert.equal(wizardStyles.status,200);assert.match(wizardStyles.headers.get('content-type'),/text\/css/);assert.match(await wizardStyles.text(),/duel-wizard-steps/);
   assert.equal((await fetch(`${base}/assets/kits/internacional.jpg`)).status,200);
 });

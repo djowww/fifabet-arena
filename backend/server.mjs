@@ -104,7 +104,14 @@ function expireInvites(state){
 function duelView(state,duel,user){
   const result={...duel,host:publicPlayer(state.users[duel.hostId]),guest:duel.guestId?publicPlayer(state.users[duel.guestId]):null,recipient:duel.recipientId?publicPlayer(state.users[duel.recipientId]):null};
   if(duel.hostId!==user.id||duel.status!=='invited')delete result.inviteToken;
+  if(duel.hostId===user.id&&duel.creationOperationId)result.operationId=duel.creationOperationId;
+  delete result.creationOperationId;delete result.creationOperationSignature;
   return result;
+}
+function requirePendingInvite(duel){
+  if(duel.status==='expired')fail(410,'Este convite expirou. Peça um novo convite ao seu amigo.','invite_expired');
+  if(duel.status==='cancelled')fail(410,'Este convite foi cancelado. Peça um novo convite ao seu amigo.','invite_cancelled');
+  if(duel.status!=='invited')fail(409,'Este convite já foi aceito. Confira a partida na sua arena.','invite_already_accepted');
 }
 function depositView(state,deposit){
   const {idempotencyKey,...visible}=deposit;
@@ -205,16 +212,16 @@ export async function createArenaServer(options={}){
     deposit.decision={outcome:'approved',kind,actorId,reason:text,date:deposit.updatedAt,provider:'fifabet-demo'};
   }
   function accept(draft,duel,user){
-    if(duel.status!=='invited')fail(409,'Este convite já foi aceito, cancelado ou expirou.');
-    if(duel.hostId===user.id)fail(409,'Envie o convite para outra pessoa.');
-    if(duel.recipientId&&duel.recipientId!==user.id)fail(403,'Este convite foi enviado para outro jogador.');
+    requirePendingInvite(duel);
+    if(duel.hostId===user.id)fail(409,'Este convite é seu. Compartilhe o link com seu amigo.','invite_own');
+    if(duel.recipientId&&duel.recipientId!==user.id)fail(403,'Este convite foi enviado para outro jogador.','invite_wrong_recipient');
     balanceChange(user,`reserve:${duel.id}`,-duel.stake,'Pontos reservados para desafio');
     duel.guestId=user.id;duel.status='in_progress';duel.acceptedAt=now();
     for(const [one,two]of [[user.id,duel.hostId],[duel.hostId,user.id]])if(!draft.users[one].friends.includes(two))draft.users[one].friends.push(two);
     return duelView(draft,duel,user);
   }
   const mimeTypes={'.html':'text/html; charset=utf-8','.js':'text/javascript; charset=utf-8','.mjs':'text/javascript; charset=utf-8','.css':'text/css; charset=utf-8','.png':'image/png','.jpg':'image/jpeg','.webp':'image/webp','.svg':'image/svg+xml'};
-  const publicFiles=new Set(['index.html','legacy.html','colecao.html','app.js','play.js','arena-app.js','backend-client.mjs','model.mjs','clubs.mjs','football-trophies.mjs','rivalry-section.mjs','styles.css','arena.css','shop.css','profile.css','achievements.css','rivalry.css','competitive-modes.css','practical.css','lobby.css','arena-app.css']);
+  const publicFiles=new Set(['index.html','legacy.html','colecao.html','app.js','play.js','arena-app.js','backend-client.mjs','model.mjs','clubs.mjs','football-trophies.mjs','rivalry-section.mjs','styles.css','arena.css','shop.css','profile.css','achievements.css','rivalry.css','competitive-modes.css','practical.css','lobby.css','wizard.css','arena-app.css']);
   async function route(draft,request,response,url){
     const path=url.pathname,method=request.method;
     if(method==='GET'&&path==='/api/v1/status')return {available:true,mode:'shared-prototype',paymentMode:'demo',realMoney:false,noRealMoney:true,apiVersion:1,reviewerConfigured:reviewerIds.size>0};
@@ -363,25 +370,43 @@ export async function createArenaServer(options={}){
       return {player:publicPlayer(player)};
     }
     if(method==='POST'&&path==='/api/v1/duels'){
-      const data=await jsonBody(request),stake=integer(data.stake,10,5000,'Quantidade de pontos');
+      const data=await jsonBody(request);
+      if(data.expectedHostId!==undefined&&data.expectedHostId!==user.id)fail(409,'A conta mudou. Confira quem está conectado e prepare a partida novamente.','account_changed');
+      const stake=integer(data.stake,10,5000,'Quantidade de pontos');
       if(!MODES.includes(data.mode)||!PLATFORMS.includes(data.platform))fail(400,'Escolha um modo e uma plataforma válidos.');
-      if(Object.values(draft.duels).filter(d=>d.hostId===user.id&&d.status==='invited').length>=20)fail(409,'Conclua ou cancele convites pendentes antes de criar mais.');
-      if(Object.values(draft.duels).filter(d=>member(d,user)&&['invited','in_progress','pending_review','disputed'].includes(d.status)).length>=50)fail(409,'Conclua desafios em andamento antes de criar mais.');
+      let operationId=null;
+      if(data.operationId!==undefined){
+        if(typeof data.operationId!=='string'||!/^[a-f0-9]{8}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{12}$/i.test(data.operationId))fail(400,'Atualize o formulário antes de criar a partida.','invalid_operation_id');
+        operationId=data.operationId.toLowerCase();
+      }
       let recipient=null;
-      if(data.opponentPlayerId){recipient=Object.values(draft.users).find(u=>u.publicPlayerId===String(data.opponentPlayerId).toUpperCase());if(!recipient)fail(404,'ID do adversário não encontrado.');if(recipient.id===user.id)fail(400,'Escolha outro jogador.');}
+      if(data.opponentPlayerId){recipient=Object.values(draft.users).find(u=>u.publicPlayerId===String(data.opponentPlayerId).trim().toUpperCase());if(!recipient)fail(404,'ID do adversário não encontrado.');if(recipient.id===user.id)fail(400,'Escolha outro jogador.');}
       const rules=typeof data.rules==='string'?data.rules.trim():'';
       if(rules.length>500)fail(400,'As regras podem ter até 500 caracteres.');
+      const operationSignature=operationId?sha(JSON.stringify({stake,mode:data.mode,platform:data.platform,recipientId:recipient?.id||null,rules})):null;
+      if(operationId){
+        const existing=Object.values(draft.duels).find(duel=>duel.hostId===user.id&&duel.creationOperationId===operationId);
+        if(existing){
+          if(existing.creationOperationSignature!==operationSignature)fail(409,'Este envio já criou uma partida com outros dados. Atualize o formulário.','operation_conflict');
+          return {duel:duelView(draft,existing,user),...(existing.status==='invited'?{inviteToken:existing.inviteToken}:{})};
+        }
+      }
+      if(Object.values(draft.duels).filter(d=>d.hostId===user.id&&d.status==='invited').length>=20)fail(409,'Conclua ou cancele convites pendentes antes de criar mais.');
+      if(Object.values(draft.duels).filter(d=>member(d,user)&&['invited','in_progress','pending_review','disputed'].includes(d.status)).length>=50)fail(409,'Conclua desafios em andamento antes de criar mais.');
       const duel={id:randomUUID(),hostId:user.id,guestId:null,recipientId:recipient?.id||null,stake,mode:data.mode,platform:data.platform,rules,status:'invited',inviteToken:token(),createdAt:now(),expiresAt:new Date(Date.now()+7*DAY).toISOString(),reports:[],disputes:[],result:null,cancellationRequestedBy:[]};
+      if(operationId){duel.creationOperationId=operationId;duel.creationOperationSignature=operationSignature;}
       balanceChange(user,`reserve:${duel.id}`,-stake,'Pontos reservados para desafio');
       draft.duels[duel.id]=duel;
       return {duel:duelView(draft,duel,user),inviteToken:duel.inviteToken};
     }
-    const inviteMatch=/^\/api\/v1\/invites\/([A-Za-z0-9_-]{43})(\/accept)?$/.exec(path);
+    const inviteMatch=/^\/api\/v1\/invites\/([^/]*)(\/accept)?$/.exec(path);
     if(inviteMatch){
+      if(!/^[A-Za-z0-9_-]{43}$/.test(inviteMatch[1]))fail(400,'Código de convite inválido. Copie o código ou link completo.','invite_invalid');
       const duel=Object.values(draft.duels).find(d=>safeEqual(d.inviteToken,inviteMatch[1]));
-      if(!duel)fail(404,'Convite não encontrado.','not_found');
-      if(duel.recipientId&&duel.recipientId!==user.id&&duel.hostId!==user.id)fail(403,'Este convite foi enviado para outro jogador.');
-      if(method==='GET'&&!inviteMatch[2])return {invite:{id:duel.id,host:publicPlayer(draft.users[duel.hostId]),stake:duel.stake,mode:duel.mode,platform:duel.platform,rules:duel.rules,status:duel.status,expiresAt:duel.expiresAt}};
+      if(!duel)fail(404,'Convite não encontrado. Confira o código ou peça um novo link.','invite_not_found');
+      if(duel.recipientId&&duel.recipientId!==user.id&&duel.hostId!==user.id)fail(403,'Este convite foi enviado para outro jogador.','invite_wrong_recipient');
+      requirePendingInvite(duel);
+      if(method==='GET'&&!inviteMatch[2])return {invite:{host:{nickname:draft.users[duel.hostId].nickname},stake:duel.stake,mode:duel.mode,platform:duel.platform,rules:duel.rules,status:duel.status,expiresAt:duel.expiresAt}};
       if(method==='POST'&&inviteMatch[2])return {duel:accept(draft,duel,user)};
     }
     const duelMatch=/^\/api\/v1\/duels\/([a-f0-9-]{36})\/(accept|cancel|cancel-withdraw|result|confirm|dispute)$/.exec(path);

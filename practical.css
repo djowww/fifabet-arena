@@ -15,6 +15,8 @@ body.practical-app {
   color: var(--text);
   font-size: 14px;
 }
+html:has(body.practical-app) { scroll-padding-top: 85px; scroll-padding-bottom: 90px; }
+body.practical-app :is(button, input, select, textarea, a) { scroll-margin-block: 85px 90px; }
 .practical-app .footer-links { display: flex; align-items: center; flex-wrap: wrap; gap: 12px; }
 .practical-app .footer-links .text-button { font-size: 11px; }
 .practical-app .evidence-history { margin: 16px 0; }
@@ -243,6 +245,7 @@ p.score-pair { display: block; padding: 12px; border: 1px solid #3f5747; border-
   .summary-grid span, .summary-grid small, .summary-grid p { font-size: 11px; }
 }
 @media (max-width: 480px) {
+  .practical-app :is(input, select, textarea) { font-size: 16px; }
   .practical-app #screen { padding: 17px 12px 24px; }
   .practical-app .topbar { padding-inline: 12px; }
   .practical-app .header-actions { gap: 3px; }

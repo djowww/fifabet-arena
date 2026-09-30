@@ -191,3 +191,57 @@
 @media (prefers-reduced-motion: reduce) {
   .lobby-choice { transition: none; }
 }
+
+/* Practical entry: the invite field and creation action stay in view. */
+.game-compatibility { flex: none; padding: 7px 11px; border: 1px solid var(--line); border-radius: 6px; color: var(--muted); font-size: 12px; }
+.local-demo-note { display: flex; align-items: center; gap: 12px; margin-bottom: 18px; padding: 12px 15px; border-left: 3px solid #6d947b; background: #1d2520; color: #c3d1c8; font-size: 12px; line-height: 1.6; }
+.local-demo-note > span { flex: 1; }
+.local-demo-note strong { color: var(--text); margin-right: 6px; }
+.local-demo-note .text-button { flex: none; min-height: 44px; }
+.lobby-choice { cursor: default; min-height: 275px; justify-content: flex-start; }
+.lobby-choice.join:hover { background: #18261e; border-color: #3e7752; }
+.lobby-choice.create:hover { background: #202623; border-color: #53685c; }
+.lobby-choice.join .choice-content { max-width: 100%; }
+.lobby-choice .choice-title { font-size: 23px; }
+.lobby-choice.join .choice-description { max-width: 100%; }
+.join-form { display: grid; grid-template-columns: minmax(0, 1fr) auto; gap: 10px; margin-top: 17px; }
+.join-form .form-label { grid-column: 1 / -1; margin: 0; font-size: 12px; }
+.join-form .form-input { width: 100%; min-width: 0; }
+.join-form .btn { padding-inline: 14px; }
+.join-form .error-message { grid-column: 1 / -1; line-height: 1.6; font-size: 13px; }
+.received-link { margin-top: 10px; min-height: 44px; font-size: 12px; }
+.lobby-choice.create .btn { margin-top: 23px; gap: 13px; }
+.lobby-choice.create .btn svg { width: 18px; height: 18px; }
+.choice-footnote { display: block; margin-top: 13px; color: var(--muted); font-size: 12px; }
+.lobby-choice.create .choice-art { width: 112px; height: 190px; opacity: .55; }
+.lobby-balance .form-label { margin-top: 0; }
+.lobby-balance .balance-help { flex: 1 1 100%; margin: 0; font-size: 12px; line-height: 1.65; color: var(--muted); }
+.lobby-balance .guest-start { flex: 1; }
+.lobby-balance .guest-start strong { font-size: 17px; }
+.queue-nudge { margin: -3px 0 15px; font-size: 13px; color: #b5e8c6; }
+.invite-summary { margin: 16px 0; }
+.invite-summary > div { display: grid; grid-template-columns: 1fr 1.5fr; gap: 12px; padding: 10px 0; border-bottom: 1px solid var(--line); }
+.invite-summary dt { color: var(--muted); }
+.invite-summary dd { margin: 0; overflow-wrap: anywhere; }
+.invite-privacy { margin-top: 16px; }
+@media (min-width: 761px) and (max-width: 1150px) {
+  .join-form { grid-template-columns: minmax(0, 1fr); }
+  .lobby-choice { padding: 22px; }
+}
+@media (max-width: 760px) {
+  .game-compatibility { display: none; }
+  .lobby-choice { min-height: 240px; padding: 23px; }
+  .lobby-choice.create { min-height: 223px; }
+  .local-demo-note { align-items: flex-start; padding: 11px 12px; }
+  .local-demo-note strong { display: block; }
+}
+@media (max-width: 480px) {
+  .join-form { grid-template-columns: minmax(0, 1fr); }
+  .lobby-choice { padding: 20px; }
+  .lobby-choice.join .choice-content { max-width: 100%; }
+  .lobby-choice.create .choice-content { max-width: calc(100% - 42px); }
+  .lobby-choice.create .choice-art { width: 80px; height: 155px; opacity: .4; }
+  .lobby-choice .choice-title { font-size: 22px; }
+  .invite-summary > div { grid-template-columns: 1fr; gap: 4px; }
+  .lobby-meta .text-button { min-height: 44px; }
+}

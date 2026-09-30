@@ -31,6 +31,21 @@
   <dialog id="modal" aria-labelledby="dialogTitle"><div id="modalContent"></div></dialog>
   <div id="toast" class="toast" role="status" aria-live="polite"></div>
   <noscript><p class="noscript">Ative o JavaScript para explorar a demonstração da FifaBet.</p></noscript>
-  <script type="module" src="app.js?v=2"></script>
+  <script>
+    if (location.protocol === "file:") {
+      document.getElementById("screen").innerHTML =
+        '<section class="file-start-card" role="status">' +
+        '<p class="eyebrow">EXECUÇÃO LOCAL</p>' +
+        '<h1>Abra a arena por um servidor local.</h1>' +
+        '<p>O navegador bloqueia os módulos JavaScript quando este HTML é aberto diretamente.</p>' +
+        '<ol><li>Abra o terminal nesta pasta.</li><li>Execute <code>node serve.mjs</code>.</li><li>Acesse <a href="http://127.0.0.1:4173">http://127.0.0.1:4173</a>.</li></ol>' +
+        '</section>';
+    } else {
+      const appScript = document.createElement("script");
+      appScript.type = "module";
+      appScript.src = "app.js?v=2";
+      document.body.append(appScript);
+    }
+  </script>
 </body>
 </html>

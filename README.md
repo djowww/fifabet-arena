@@ -23,11 +23,11 @@ O próximo passo de produto é validar o ciclo **adicionar amigo → enviar desa
 Com Node.js 18 ou superior, sem dependências externas:
 
 ```bash
-npm test
-python3 -m http.server 4173
+node --test
+node serve.mjs
 ```
 
-Depois, acesse http://localhost:4173.
+Depois, acesse http://127.0.0.1:4173. Mantenha o terminal aberto enquanto usa a arena. Não abra `index.html` diretamente: o navegador bloqueia os módulos JavaScript em páginas `file://`.
 
 ## Arquivos
 

@@ -5,7 +5,8 @@
   "description": "Protótipo front-end da FifaBet Arena",
   "type": "module",
   "scripts": {
-    "test": "node --test *.test.mjs"
+    "test": "node --test *.test.mjs",
+    "dev": "node serve.mjs"
   },
   "engines": {
     "node": ">=18"

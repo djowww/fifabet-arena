@@ -108,18 +108,32 @@ test('profile themes and sticker purchases persist safely and spend demo points 
  assert.throws(()=>change(s,'avatarSticker',{id:'tito-rocha'}),/Compre/);
  const saved=restore(JSON.stringify(s));assert.equal(current(saved).balance,150);assert.deepEqual(current(saved).ownedStickers,[first.id,second.id]);assert.equal(current(saved).avatarSticker,null);assert.equal(current(saved).teamName,'Meu Clube');assert.equal(current(saved).teamFlag,'blue');
 });
-test('caricature catalog has display tiers and signature references without invented ratings',()=>{
+test('player catalog has display tiers, country flags and documented signature availability without invented ratings',()=>{
  const catalog=STICKERS.filter(item=>!item.retired);
  assert.deepEqual(catalog.map(({id,tier,price})=>({id,tier,price})),[
   {id:'cristiano-ronaldo',tier:'gold',price:700},
   {id:'bruno-fernandes',tier:'silver',price:450},
-  {id:'senne-lammens',tier:'bronze',price:250}
+  {id:'senne-lammens',tier:'bronze',price:250},
+  {id:'neymar',tier:'gold',price:700},
+  {id:'vinicius-junior',tier:'gold',price:700},
+  {id:'erling-haaland',tier:'gold',price:700},
+  {id:'lionel-messi',tier:'gold',price:700},
+  {id:'kylian-mbappe',tier:'gold',price:700},
+  {id:'mohamed-salah',tier:'gold',price:700},
+  {id:'jude-bellingham',tier:'silver',price:450},
+  {id:'robert-lewandowski',tier:'gold',price:700},
+  {id:'luka-modric',tier:'gold',price:700},
+  {id:'kevin-de-bruyne',tier:'silver',price:450}
  ]);
  for(const sticker of catalog){
-  assert.equal(sticker.kind,'player-caricature');assert.equal(sticker.rating,undefined);
-  assert.equal(sticker.art,`assets/avatars/${sticker.id}.png`);
-  assert.match(sticker.signatureAsset,/^assets\/signatures\/[a-z-]+\.svg$/);
-  assert.match(sticker.signatureSource,/^https:\/\//);assert.match(sticker.signatureReference,/^https:\/\/commons\.wikimedia\.org\/wiki\/File:/);
+  const photograph=sticker.id==='lionel-messi';
+  assert.equal(sticker.kind,photograph?'player-photo':'player-caricature');assert.equal(sticker.rating,undefined);
+  assert.equal(sticker.art,`assets/avatars/${sticker.id}.${photograph?'jpg':'png'}`);
+  assert.match(sticker.countryCode,/^(?:[a-z]{2}|gb-eng)$/);
+  if(['cristiano-ronaldo','bruno-fernandes','senne-lammens'].includes(sticker.id)){
+   assert.match(sticker.signatureAsset,/^assets\/signatures\/[a-z-]+\.svg$/);
+   assert.match(sticker.signatureSource,/^https:\/\//);assert.match(sticker.signatureReference,/^https:\/\/commons\.wikimedia\.org\/wiki\/File:/);
+  }else assert.equal(sticker.signatureAsset,null);
   assert.equal(sticker.club,sticker.nationality);assert.ok(sticker.recognition);
  }
  assert.equal(STICKERS.filter(item=>item.kind==='fictional-demo'&&item.retired).length,4);

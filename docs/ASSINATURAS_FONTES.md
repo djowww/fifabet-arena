@@ -1,6 +1,6 @@
 # Fontes das assinaturas e da referência de ilustração
 
-Consulta: 29 de setembro de 2026.
+Fontes existentes consultadas em 29 de setembro de 2026; pesquisa da expansão em 30 de setembro de 2026.
 
 ## Critério de seleção
 
@@ -30,7 +30,26 @@ As categorias Bronze, Prata e Ouro são uma escolha editorial subjetiva da cole�
 
 As caricaturas de `assets/avatars/` são geradas por IA. Os SVGs de `assets/signatures/` são ativos separados, sobrepostos pela interface; não foram criados ou completados por IA. Essa composição não transforma a ilustração em foto autografada oficial ou mercadoria personalizada pelo atleta. [Procedência das caricaturas](../assets/avatars/credits.json).
 
-## Candidatos não incluídos
+## Expansão: dez assinaturas em curadoria
+
+A expansão adiciona os avatares de dez atletas, mas não importa novos autógrafos. Todos são apresentados como **“Assinatura em curadoria”**. A pesquisa não encontrou um arquivo gráfico que atingisse o critério de procedência usado nas três reproduções anteriores; essa conclusão descreve a consulta realizada, não a inexistência de outros arquivos na internet.
+
+| Atleta | Resultado da pesquisa |
+| --- | --- |
+| Neymar | SVG e PNG do Commons com origem “Own work”, sem documento externo identificado. |
+| Vini Jr. | Não localizado gráfico adequado; descartadas assinaturas de outras pessoas com o nome Vinícius. |
+| Erling Haaland | Não localizado gráfico adequado. A notícia oficial de camisa autografada não oferece arquivo isolado rastreável. |
+| Lionel Messi | SVG com origem genérica; JPEGs relacionados declarados como obra própria. |
+| Kylian Mbappé | SVG cuja origem é anúncio no eBay, sem cadeia oficial estabelecida. |
+| Mohamed Salah | Não localizado gráfico adequado. Leilões oficiais de camisas não fornecem arquivo isolado do autógrafo. |
+| Jude Bellingham | Não localizado gráfico adequado. Há documentação de memorabilia física, sem arquivo digital importável. |
+| Robert Lewandowski | SVG baseado em WEBP do Commons; a fonte do WEBP é apenas o texto “Robert Lewandowski”, sem link externo. |
+| Luka Modrić | SVG declarado como obra própria, sem origem externa documentada. |
+| Kevin De Bruyne | Não localizado gráfico adequado. O ensaio autoral consultado não apresentou um recurso identificado como assinatura. |
+
+O [registro estruturado da pesquisa](../assets/signatures/expansion-research.json) contém títulos, URLs dos candidatos, referências oficiais consultadas e limites de verificação. Os dez registros mantêm `file: null` e `authenticatedByAthlete: false`. Páginas de produtos físicos assinados não foram usadas para certificar ou atribuir origem a SVGs sem vínculo demonstrado. Nenhuma assinatura foi desenhada, imitada ou gerada por IA.
+
+## Assinaturas candidatas não importadas
 
 - **Kylian Mbappé:** o [SVG encontrado](https://commons.wikimedia.org/wiki/File:Kylian_Mbapp%C3%A9_sig.svg) remete a anúncio no eBay, sem autenticação independente verificada. Não foi incluído no conjunto selecionado.
 - **Lionel Messi e Neymar:** os arquivos localizados têm fonte genérica ou “obra própria”, insuficiente para a rastreabilidade desejada nesta seleção.

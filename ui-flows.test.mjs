@@ -113,12 +113,13 @@ test('EA ID dialog saves, displays and removes an unverified account without cla
 });
 const storeCardNames=html=>[...html.matchAll(/<article class='card (?:collectible-card[^']*|sticker-card)'>([\s\S]*?)<\/article>/g)].map(([,card])=>card.match(/<h2>([^<]+)<\/h2>/)?.[1]);
 
-test('shop initially shows three current cards; tier and owned filters preserve only owned legacy items',()=>{
+test('shop initially shows thirteen current cards; tier and owned filters preserve only owned legacy items',()=>{
+ const catalog=model.STICKERS.filter(item=>!item.retired),catalogNames=catalog.map(item=>item.player);
  const h=harness();h.api.getUI().view='store';h.api.render();
- assert.deepEqual(storeCardNames(h.nodes.screen.innerHTML),['Cristiano Ronaldo','Bruno Fernandes','Senne Lammens']);
+ assert.deepEqual(storeCardNames(h.nodes.screen.innerHTML),catalogNames);
  assert.doesNotMatch(h.nodes.screen.innerHTML,/Nilo Raio|Maya Luz|Tito Rocha|Breno Vale/);
- for(const [value,name] of [['gold','Cristiano Ronaldo'],['silver','Bruno Fernandes'],['bronze','Senne Lammens']]){
-  h.click('storeFilter',{value});assert.deepEqual(storeCardNames(h.nodes.screen.innerHTML),[name]);
+ for(const value of ['gold','silver','bronze']){
+  h.click('storeFilter',{value});assert.deepEqual(storeCardNames(h.nodes.screen.innerHTML),catalog.filter(item=>item.tier===value).map(item=>item.player));
   assert.ok(h.nodes.screen.innerHTML.includes(`data-value='${value}' aria-pressed='true'`));
  }
  h.click('storeFilter',{value:'owned'});assert.deepEqual(storeCardNames(h.nodes.screen.innerHTML),[]);
@@ -130,20 +131,31 @@ test('shop initially shows three current cards; tier and owned filters preserve 
  assert.match(h.nodes.screen.innerHTML,/Sua coleção original/);
  assert.match(h.nodes.screen.innerHTML,/data-action='equipSticker' data-id='nilo-raio'/);
  for(const item of model.STICKERS.filter(item=>item.retired))assert.ok(!h.nodes.screen.innerHTML.includes(`data-action='buySticker' data-id='${item.id}'`));
- h.click('storeFilter',{value:'gold'});assert.deepEqual(storeCardNames(h.nodes.screen.innerHTML),['Cristiano Ronaldo']);
- h.click('storeFilter',{value:'all'});assert.deepEqual(storeCardNames(h.nodes.screen.innerHTML),['Cristiano Ronaldo','Bruno Fernandes','Senne Lammens','Nilo Raio']);
+ h.click('storeFilter',{value:'gold'});assert.deepEqual(storeCardNames(h.nodes.screen.innerHTML),catalog.filter(item=>item.tier==='gold').map(item=>item.player));
+ h.click('storeFilter',{value:'all'});assert.deepEqual(storeCardNames(h.nodes.screen.innerHTML),[...catalogNames,'Nilo Raio']);
  assert.doesNotMatch(h.nodes.screen.innerHTML,/Maya Luz|Tito Rocha|Breno Vale/);
 });
 
-test('caricature details expose original signature sources and explicitly disclaim athlete certification',()=>{
+test('player details expose original signature sources or curation status and accurately identify artwork',()=>{
  const h=harness();
- for(const item of model.STICKERS.filter(item=>item.kind==='player-caricature')){
+ for(const item of model.STICKERS.filter(item=>['player-caricature','player-photo'].includes(item.kind))){
   h.click('stickerDetails',{id:item.id});const html=h.nodes.modalContent.innerHTML;
-  assert.ok(h.nodes.modal.open);assert.ok(html.includes(`src='${item.art}'`));assert.ok(html.includes(`src='${item.signatureAsset}'`));
-  assert.ok(html.includes(`href='${item.signatureSource}'`));assert.ok(html.includes(`href='${item.signatureReference}'`));
-  assert.match(html,/Reprodução da assinatura atribuída a/);
+  assert.ok(h.nodes.modal.open);assert.ok(html.includes(`src='${item.art}'`));
+  assert.ok(html.includes(`src='assets/flags/${item.countryCode}.svg'`));
+  if(item.signatureAsset){
+   assert.ok(html.includes(`src='${item.signatureAsset}'`));
+   assert.ok(html.includes(`href='${item.signatureSource}'`));assert.ok(html.includes(`href='${item.signatureReference}'`));
+   assert.match(html,/Reprodução da assinatura atribuída a/);
+   assert.match(html,/sem certificação do atleta ou autógrafo personalizado/);
+  }else{
+   assert.match(html,/Assinatura em curadoria/);
+   assert.doesNotMatch(html,/src='assets\/signatures\//);
+  }
   assert.match(html,/Categoria editorial de reconhecimento/);
-  assert.match(html,/sem certificação do atleta ou autógrafo personalizado/);
+  if(item.kind==='player-photo'){
+   assert.match(html,/Esta edição usa uma fotografia licenciada/);
+   assert.match(html,/Kirill Venediktov \/ soccer.ru/);assert.match(html,/CC BY-SA 3\.0/);
+  }else assert.match(html,/A arte foi criada com IA/);
   assert.doesNotMatch(html,/autógrafo oficial|autenticidade garantida|certificado de autenticidade/i);
   if(item.id==='senne-lammens'){
    assert.match(html,/acesso direto ao post não pôde ser confirmado/);

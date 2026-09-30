@@ -1,6 +1,6 @@
 # Créditos de terceiros
 
-Verificação das fontes de atletas e assinaturas: 29 de setembro de 2026. Fontes dos clubes: 30 de setembro de 2026.
+Fontes anteriores de atletas e assinaturas: 29 de setembro de 2026. Expansão de avatares, pesquisa de assinaturas, bandeiras e fontes dos clubes: 30 de setembro de 2026.
 
 ## Fotografias de atletas
 
@@ -18,17 +18,40 @@ O registro estruturado de origem, dimensões, links e alterações está em [`as
 
 ## Caricaturas da loja
 
-As três ilustrações são geradas por IA e identificadas como caricaturas. As compras usam somente pontos fictícios. Ouro, Prata e Bronze são categorias editoriais subjetivas da coleção e não representam notas oficiais, ranking medido de fama ou qualidade técnica.
+As 12 ilustrações são geradas por IA e identificadas como caricaturas. A fotografia licenciada de Messi é documentada separadamente abaixo. As compras usam somente pontos fictícios. Ouro, Prata e Bronze são categorias editoriais subjetivas da coleção e não representam notas oficiais, ranking medido de fama ou qualidade técnica.
 
 | Arquivo | Origem da ilustração | Condições |
 | --- | --- | --- |
 | `assets/avatars/cristiano-ronaldo.png` | Caricatura de Cristiano Ronaldo gerada com a ferramenta de imagens por descrição, sem fotografia de atleta como referência. | Contribuições originais do projeto sujeitas à [LICENSE](LICENSE), na extensão dos direitos detidos pelo titular. Sem autorização ou endosso do atleta. |
 | `assets/avatars/bruno-fernandes.png` | Caricatura de Bruno Fernandes gerada por descrição, seguida de edição de estilo sobre a imagem gerada. Sem fotografia de atleta como referência. | Contribuições originais do projeto sujeitas à [LICENSE](LICENSE), na extensão dos direitos detidos pelo titular. Sem autorização ou endosso do atleta. |
 | `assets/avatars/senne-lammens.png` | Caricatura gerada por IA usando como referência a fotografia de Bryan Berlin / WikiPortraits descrita abaixo. A transformação altera estilo, proporções, cores, enquadramento e vestuário para a ilustração da coleção. | Adaptação disponibilizada sob [CC BY-SA 4.0](https://creativecommons.org/licenses/by-sa/4.0/), independentemente da licença proprietária do código. |
+| `assets/avatars/neymar.png` | Neymar, gerado por descrição com a ferramenta integrada, sem fotografia de referência. | Contribuições originais do projeto sujeitas à [LICENSE](LICENSE), na extensão dos direitos detidos pelo titular. |
+| `assets/avatars/vinicius-junior.png` | Vini Jr., gerado por descrição com a ferramenta integrada, sem fotografia de referência. | Contribuições originais do projeto sujeitas à [LICENSE](LICENSE), na extensão dos direitos detidos pelo titular. |
+| `assets/avatars/erling-haaland.png` | Erling Haaland, gerado por descrição com a ferramenta integrada, sem fotografia de referência. | Contribuições originais do projeto sujeitas à [LICENSE](LICENSE), na extensão dos direitos detidos pelo titular. |
+| `assets/avatars/kylian-mbappe.png` | Kylian Mbappé, gerado por descrição com a ferramenta integrada, sem fotografia de referência. | Contribuições originais do projeto sujeitas à [LICENSE](LICENSE), na extensão dos direitos detidos pelo titular. |
+| `assets/avatars/mohamed-salah.png` | Mohamed Salah, gerado por descrição com a ferramenta integrada, sem fotografia de referência. | Contribuições originais do projeto sujeitas à [LICENSE](LICENSE), na extensão dos direitos detidos pelo titular. |
+| `assets/avatars/jude-bellingham.png` | Jude Bellingham, gerado por descrição com a ferramenta integrada, sem fotografia de referência. | Contribuições originais do projeto sujeitas à [LICENSE](LICENSE), na extensão dos direitos detidos pelo titular. |
+| `assets/avatars/robert-lewandowski.png` | Robert Lewandowski, gerado por descrição com a ferramenta integrada, sem fotografia de referência. | Contribuições originais do projeto sujeitas à [LICENSE](LICENSE), na extensão dos direitos detidos pelo titular. |
+| `assets/avatars/luka-modric.png` | Luka Modrić, gerado por descrição com a ferramenta integrada, sem fotografia de referência. | Contribuições originais do projeto sujeitas à [LICENSE](LICENSE), na extensão dos direitos detidos pelo titular. |
+| `assets/avatars/kevin-de-bruyne.png` | Kevin De Bruyne, gerado por descrição com a ferramenta integrada, sem fotografia de referência. | Contribuições originais do projeto sujeitas à [LICENSE](LICENSE), na extensão dos direitos detidos pelo titular. |
 
 **Referência de Lammens:** [Senne Lammens USMNT v Belgium Mar 28 2026-98 (cropped)](https://commons.wikimedia.org/wiki/File:Senne_Lammens_USMNT_v_Belgium_Mar_28_2026-98_(cropped).jpg), fotografia de **Bryan Berlin / WikiPortraits**, sob [CC BY-SA 4.0](https://creativecommons.org/licenses/by-sa/4.0/). A referência local está em `assets/reference/senne-lammens.jpg`: miniatura de 960 × 1279 pixels do recorte publicado na fonte. As contribuições à adaptação em `assets/avatars/senne-lammens.png` são atribuídas a Ricardo Zordan (Djow) / FifaBet Arena, com geração assistida por IA, e mantêm a mesma licença. Não há endosso do fotógrafo ou do atleta.
 
 Registros estruturados: [caricaturas](assets/avatars/credits.json) e [fotografia de referência](assets/reference/credits.json). A licença da fotografia e de sua adaptação não concede direitos de merchandising, marca ou imagem pessoal do atleta.
+
+Os prompts e manifestos das nove artes novas estão em [docs/AVATARES_PROMPTS.md](docs/AVATARES_PROMPTS.md). Os retratos foram gerados sem assinaturas, bandeiras, emblemas ou textos; esses elementos pertencem à interface e a ativos separados. Os novos itens não têm assinatura disponível: o estado de curadoria e as fontes pesquisadas estão em [assets/signatures/expansion-research.json](assets/signatures/expansion-research.json).
+
+## Fotografia de Messi na coleção
+
+`assets/avatars/lionel-messi.jpg` é **Lionel Messi 20180626 (cropped)**, fotografia de **Кирилл Венедиктов (Kirill Venediktov) / soccer.ru**, sob [CC BY-SA 3.0 Unported](https://creativecommons.org/licenses/by-sa/3.0/). [Página do arquivo](https://commons.wikimedia.org/wiki/File:Lionel_Messi_20180626_(cropped).jpg) e [fotografia de origem](https://commons.wikimedia.org/wiki/File:Lionel_Messi_20180626.jpg).
+
+O arquivo de 530 × 790 pixels foi baixado intacto; o recorte já publicado foi feito por FMSky em 08/08/2024. Não houve geração, transformação em caricatura ou edição local dos bytes. A interface aplica enquadramento e gradiente; as contribuições a essas adaptações fotográficas são disponibilizadas sob **CC BY-SA 3.0**, com os mesmos créditos. A página Commons informa permissão do titular arquivada em VRTS **#2008100510027116**. Messi deve ser identificado como fotografia, com atribuição e link de licença. A fotografia permanece sob CC BY-SA 3.0, independente da licença do código; não constitui autógrafo ou endosso do atleta. [Créditos, origem e SHA-256](assets/avatars/messi-photo-credit.json).
+
+## Bandeiras das seleções
+
+Os dez SVGs de `assets/flags/` vêm de [flag-icons](https://github.com/lipis/flag-icons), de **Panayiotis Lipiridis**, sob **MIT**, no commit `086f7e97d657358203916dbe84f61c2bccaa81eb`. São os arquivos 4:3 preservados, sem redesenho: Portugal, Bélgica, Brasil, Noruega, Argentina, França, Egito, Inglaterra, Polônia e Croácia.
+
+O copyright e a licença integral foram preservados em [assets/flags/LICENSE](assets/flags/LICENSE). URLs de cada arquivo e hashes estão em [assets/flags/credits.json](assets/flags/credits.json). A Inglaterra utiliza `gb-eng.svg`, a bandeira da seleção inglesa de futebol.
 
 ## Reproduções de assinaturas
 
@@ -43,6 +66,8 @@ As assinaturas são SVGs publicados no Wikimedia Commons e sanitizados, preserva
 As fontes classificam esses traços como domínio público por [PD-signature](https://commons.wikimedia.org/wiki/Template:PD-signature). Essa classificação é informada pelo Commons; não é certificação do atleta ou autorização comercial de imagem. Os SVGs tiveram metadados e elementos não gráficos removidos. Não houve perícia gráfica ou autenticação independente. Para Lammens, a publicação de origem não pôde ser conferida diretamente; o vínculo foi documentado pela página do Commons.
 
 Consulte a [cadeia de fontes e verificação](docs/ASSINATURAS_FONTES.md) e os [créditos de cada SVG](assets/signatures/credits.json). A reprodução exibida não constitui autógrafo personalizado para uma compra, item físico assinado ou certificado de autenticidade.
+
+As assinaturas de Neymar, Vini Jr., Haaland, Messi, Mbappé, Salah, Bellingham, Lewandowski, Modrić e De Bruyne estão em curadoria. Nenhum dos candidatos consultados atingiu o critério de procedência nesta expansão; nenhum novo autógrafo foi importado, imitado ou gerado. O [registro da pesquisa](assets/signatures/expansion-research.json) distingue arquivos Commons de origem insuficiente e jogadores para os quais não foi localizado um gráfico adequado.
 
 ## Coleção anterior
 

@@ -1,0 +1,54 @@
+{
+  "schemaVersion": 1,
+  "createdAt": "2026-09-30",
+  "tool": "builtin image_gen.imagegen",
+  "mode": "generate",
+  "transparentBackground": true,
+  "photoReference": false,
+  "visualStyleReviewedFrom": "assets/avatars/cristiano-ronaldo.png (view only; no image provided to generation)",
+  "images": [
+    {
+      "id": "neymar",
+      "status": "generated",
+      "prompt": "Use case: stylized-concept\nAsset type: transparent portrait PNG for a premium football collectible avatar store.\nPrimary request: A recognizable Neymar Jr. premium semi-realistic 3D caricature portrait, with mild exaggeration, a slightly larger head and expressive eyes while preserving his authentic distinctive facial features. Neymar has Brazilian medium tan skin, short dark curly hair, a neat short beard and mustache, and a relaxed confident small smile.\nComposition/framing: One player only, head and shoulders centered, slight three-quarter angle facing the viewer, full head visible with a small margin above the hair and shoulders ending at the bottom edge. Portrait crop consistent with a luxury sports collectible.\nClothing: Black textured football jersey with thin neon green #07F468 piping, no club or sponsor logos.\nLighting/mood: Warm studio key light with subtle green rim light. High-detail hair, skin and fabric, polished AAA sports collectible style.\nScene/backdrop: Isolated subject on a genuinely transparent background, preserve alpha channel.\nAvoid: No lettering, numbers, text, signatures, autographs, flags, card frame, badges, objects, watermarks or extra people.",
+      "generatedPath": "C:/Users/Usuário/.codex/generated_images/01a0f07b-0d33-7430-ab21-57f804a04629/exec-c8cae708-af9e-422f-b4b2-df0ce095e63c.png",
+      "finalPath": "assets/avatars/neymar.png",
+      "visualInspection": "Recognizable likeness, isolated head-and-shoulders portrait, black/green jersey, no generated autograph or card decoration."
+    },
+    {
+      "id": "vinicius-junior",
+      "status": "generated",
+      "prompt": "Use case: stylized-concept\nAsset type: transparent portrait PNG for a premium football collectible avatar store.\nPrimary request: A recognizable Vinícius Júnior (Vini Jr.) premium semi-realistic 3D caricature portrait, with mild exaggeration, a slightly larger head and expressive eyes while preserving his authentic distinctive facial features. Vinícius has dark brown Brazilian skin, short tight black curls with clean tapered sides, strong cheekbones and a broad cheerful smile with his characteristic teeth, minimal facial hair.\nComposition/framing: One player only, head and shoulders centered, slight three-quarter angle facing the viewer, full head visible with a small margin above the hair and shoulders ending at the bottom edge. Portrait crop consistent with a luxury sports collectible.\nClothing: Black textured football jersey with thin neon green #07F468 piping, no club or sponsor logos.\nLighting/mood: Warm studio key light with subtle green rim light. High-detail hair, skin and fabric, polished AAA sports collectible style.\nScene/backdrop: Isolated subject on a genuinely transparent background, preserve alpha channel.\nAvoid: No lettering, numbers, text, signatures, autographs, flags, card frame, badges, objects, watermarks or extra people.",
+      "generatedPath": "C:/Users/Usuário/.codex/generated_images/01a0f07b-0d33-7430-ab21-57f804a04629/exec-70cbf6f4-3105-4ad1-a08c-1f49f5a9f49b.png",
+      "finalPath": "assets/avatars/vinicius-junior.png",
+      "visualInspection": "Recognizable likeness, isolated head-and-shoulders portrait, black/green jersey, no generated autograph or card decoration."
+    },
+    {
+      "id": "erling-haaland",
+      "status": "generated",
+      "prompt": "Use case: stylized-concept\nAsset type: transparent portrait PNG for a premium football collectible avatar store.\nPrimary request: A recognizable Erling Haaland premium semi-realistic 3D caricature portrait, with mild exaggeration, a slightly larger head and expressive eyes while preserving his authentic distinctive facial features. Haaland has very pale Norwegian skin, long blond hair slicked back into a small ponytail, light eyebrows, blue eyes, broad powerful jaw and a clean-shaven face with a confident subtle smile.\nComposition/framing: One player only, head and shoulders centered, slight three-quarter angle facing the viewer, full head visible with a small margin above the hair and shoulders ending at the bottom edge. Portrait crop consistent with a luxury sports collectible.\nClothing: Black textured football jersey with thin neon green #07F468 piping, no club or sponsor logos.\nLighting/mood: Warm studio key light with subtle green rim light. High-detail hair, skin and fabric, polished AAA sports collectible style.\nScene/backdrop: Isolated subject on a genuinely transparent background, preserve alpha channel.\nAvoid: No lettering, numbers, text, signatures, autographs, flags, card frame, badges, objects, watermarks or extra people.",
+      "generatedPath": "C:/Users/Usuário/.codex/generated_images/01a0f07b-0d33-7430-ab21-57f804a04629/exec-867d6bb9-9758-496c-a544-22ecf7982116.png",
+      "finalPath": "assets/avatars/erling-haaland.png",
+      "visualInspection": "Recognizable likeness, isolated head-and-shoulders portrait, black/green jersey, no generated autograph or card decoration."
+    },
+    {
+      "id": "kylian-mbappe",
+      "status": "generated",
+      "prompt": "Use case: stylized-concept\nAsset type: transparent portrait PNG for a premium football collectible avatar store.\nPrimary request: A recognizable Kylian Mbappé premium semi-realistic 3D caricature portrait, with mild exaggeration, a slightly larger head and expressive eyes while preserving his authentic distinctive facial features. Mbappé has medium-dark brown French skin, very close-cropped black hair, dark brown eyes, rounded cheeks, his characteristic broad youthful smile and very slight facial hair.\nComposition/framing: One player only, head and shoulders centered, slight three-quarter angle facing the viewer, full head visible with a small margin above the hair and shoulders ending at the bottom edge. Portrait crop consistent with a luxury sports collectible.\nClothing: Black textured football jersey with thin neon green #07F468 piping, no club or sponsor logos.\nLighting/mood: Warm studio key light with subtle green rim light. High-detail hair, skin and fabric, polished AAA sports collectible style.\nScene/backdrop: Isolated subject on a genuinely transparent background, preserve alpha channel.\nAvoid: No lettering, numbers, text, signatures, autographs, flags, card frame, badges, objects, watermarks or extra people.",
+      "generatedPath": "C:/Users/Usuário/.codex/generated_images/01a0f07b-0d33-7430-ab21-57f804a04629/exec-5a4b7596-08d7-4d16-9cab-fb835092072a.png",
+      "finalPath": "assets/avatars/kylian-mbappe.png",
+      "visualInspection": "Recognizable likeness, isolated head-and-shoulders portrait, black/green jersey, no generated autograph or card decoration."
+    }
+  ],
+  "blocked": [
+    {
+      "id": "lionel-messi",
+      "status": "moderation_blocked",
+      "prompt": "Use case: stylized-concept\nAsset type: transparent portrait PNG for a premium football collectible avatar store.\nPrimary request: A recognizable Lionel Messi premium semi-realistic 3D caricature portrait, with mild exaggeration, a slightly larger head and expressive eyes while preserving his authentic distinctive facial features. Messi has fair-to-medium Argentinian skin, short brown hair combed naturally to the side, a neatly trimmed full brown beard, brown eyes, his distinctive nose and a warm modest smile.\nComposition/framing: One player only, head and shoulders centered, slight three-quarter angle facing the viewer, full head visible with a small margin above the hair and shoulders ending at the bottom edge. Portrait crop consistent with a luxury sports collectible.\nClothing: Black textured football jersey with thin neon green #07F468 piping, no club or sponsor logos.\nLighting/mood: Warm studio key light with subtle green rim light. High-detail hair, skin and fabric, polished AAA sports collectible style.\nScene/backdrop: Isolated subject on a genuinely transparent background, preserve alpha channel.\nAvoid: No lettering, numbers, text, signatures, autographs, flags, card frame, badges, objects, watermarks or extra people.",
+      "errorCategory": "public-figure",
+      "requestId": "7d73ef54-4ed5-4bd5-9947-5d14ad344ec5",
+      "finalPath": null,
+      "action": "No retries or CLI fallback attempted."
+    }
+  ]
+}

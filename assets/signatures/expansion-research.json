@@ -1,0 +1,189 @@
+{
+  "checkedAt": "2026-09-30",
+  "purpose": "Pesquisa de autógrafos publicados para ampliar a coleção Arena; resultados sem arquivo importado não são reproduções disponíveis.",
+  "selectionCriteria": "Arquivo gráfico público com atribuição e origem externa documentada; sem desenho, imitação, geração por IA ou certificação inventada.",
+  "result": "Nenhum dos dez candidatos alcançou o critério de procedência adotado nesta consulta. Ausência nesta pesquisa não afirma inexistência do arquivo em outras fontes.",
+  "records": [
+    {
+      "id": "neymar",
+      "athlete": "Neymar Jr.",
+      "title": "Neymar da Silva Santos Júnior signature.svg",
+      "sourceUrl": "https://commons.wikimedia.org/wiki/File:Neymar_da_Silva_Santos_J%C3%BAnior_signature.svg",
+      "originalSourceUrl": null,
+      "license": "PD-ineligible (classificação informada pelo Wikimedia Commons)",
+      "vectorAuthor": "Cookieman1.1.1",
+      "verificationLevel": "insufficient-provenance",
+      "verificationDetails": "A página Commons declara “Own work”, sem documento, publicação ou sessão oficial que permita rastrear o gráfico ao atleta. O PNG alternativo Assinatura de Neymar.png também informa obra própria. Não importado.",
+      "referenceUrls": [
+        "https://www.icons.com/players/neymar-jr.html"
+      ],
+      "file": null,
+      "sha256": null,
+      "changes": null,
+      "authenticatedByAthlete": false
+    },
+    {
+      "id": "vinicius-junior",
+      "athlete": "Vini Jr.",
+      "title": null,
+      "sourceUrl": null,
+      "originalSourceUrl": null,
+      "license": null,
+      "vectorAuthor": null,
+      "verificationLevel": "not-located",
+      "verificationDetails": "Busca na web e na API Commons pelos nomes Vinícius Júnior/Vinicius Junior e assinatura/signature não localizou gráfico adequado. Resultados de Vinícius de Moraes e Vinícius Siman pertencem a outras pessoas e foram descartados. Há notícia oficial de sessão de autógrafos, mas ela não fornece um SVG digital do autógrafo.",
+      "referenceUrls": [
+        "https://www.realmadrid.com/fr-FR/actualites/football/equipe-premiere/latest-news/x-y-x-protagonistas-en-la-sesion-de-firmas-en-vigo-06-03-2026"
+      ],
+      "file": null,
+      "sha256": null,
+      "changes": null,
+      "authenticatedByAthlete": false
+    },
+    {
+      "id": "erling-haaland",
+      "athlete": "Erling Haaland",
+      "title": null,
+      "sourceUrl": null,
+      "originalSourceUrl": null,
+      "license": null,
+      "vectorAuthor": null,
+      "verificationLevel": "not-located",
+      "verificationDetails": "Busca na web e na API Commons não localizou gráfico de assinatura com cadeia externa documentada. O Manchester City publicou sorteio de uma camisa autografada pelo atacante, porém essa publicação não fornece arquivo isolado aberto da assinatura.",
+      "referenceUrls": [
+        "https://www.mancity.com/news/mens/erling-haaland-signed-shirt-competition-63872876?height=640&mode=crop&width=1136"
+      ],
+      "file": null,
+      "sha256": null,
+      "changes": null,
+      "authenticatedByAthlete": false
+    },
+    {
+      "id": "lionel-messi",
+      "athlete": "Lionel Messi",
+      "title": "Firma de Lionel Messi.svg",
+      "sourceUrl": "https://commons.wikimedia.org/wiki/File:Firma_de_Lionel_Messi.svg",
+      "originalSourceUrl": null,
+      "license": "PD-signature (classificação informada pelo Wikimedia Commons)",
+      "vectorAuthor": "Hurfer (envio do SVG; autoria descrita como Lionel Messi, extracto de su firma)",
+      "verificationLevel": "insufficient-provenance",
+      "verificationDetails": "A origem do SVG é apenas “Firma de Lionel Messi”, sem endereço ou documento original. Os JPEGs relacionados são apresentados como obra própria. A Icons declara ser parceira exclusiva de memorabilia autografada, mas sua coleção física não demonstra a origem desse SVG. Não importado.",
+      "referenceUrls": [
+        "https://commons.wikimedia.org/wiki/File:Signature_of_Lionel_Messi.jpg",
+        "https://commons.wikimedia.org/wiki/File:FirmadeLionelMessijugadorprofesional.jpg",
+        "https://www.icons.com/players/lionel-messi.html"
+      ],
+      "file": null,
+      "sha256": null,
+      "changes": null,
+      "authenticatedByAthlete": false
+    },
+    {
+      "id": "kylian-mbappe",
+      "athlete": "Kylian Mbappé",
+      "title": "Kylian Mbappé sig.svg",
+      "sourceUrl": "https://commons.wikimedia.org/wiki/File:Kylian_Mbapp%C3%A9_sig.svg",
+      "originalSourceUrl": "https://www.ebay.com/itm/204500680194",
+      "license": "PD-signature (classificação informada pelo Wikimedia Commons)",
+      "vectorAuthor": "Dwarfroe (uploader; página atribui assinatura a Kylian Mbappé)",
+      "verificationLevel": "insufficient-provenance",
+      "verificationDetails": "A página Commons informa anúncio do eBay como origem. Não foi estabelecida uma cadeia oficial de autoria/autenticação desse exemplar. Mantido o critério anterior do projeto; não importado.",
+      "referenceUrls": [],
+      "file": null,
+      "sha256": null,
+      "changes": null,
+      "authenticatedByAthlete": false
+    },
+    {
+      "id": "mohamed-salah",
+      "athlete": "Mohamed Salah",
+      "title": null,
+      "sourceUrl": null,
+      "originalSourceUrl": null,
+      "license": null,
+      "vectorAuthor": null,
+      "verificationLevel": "not-located",
+      "verificationDetails": "Busca na web e na API Commons não localizou gráfico adequado da assinatura do jogador. O Liverpool documenta camisas autografadas e certificados para seus leilões, mas não disponibiliza nesse material arquivo digital isolado rastreável do autógrafo.",
+      "referenceUrls": [
+        "https://auction.liverpoolfc.com/us/signed/mohamed-salah",
+        "https://www.liverpoolfc.com/legal/win-signed-shirt-mo-salah"
+      ],
+      "file": null,
+      "sha256": null,
+      "changes": null,
+      "authenticatedByAthlete": false
+    },
+    {
+      "id": "jude-bellingham",
+      "athlete": "Jude Bellingham",
+      "title": null,
+      "sourceUrl": null,
+      "originalSourceUrl": null,
+      "license": null,
+      "vectorAuthor": null,
+      "verificationLevel": "not-located",
+      "verificationDetails": "Busca na web e na API Commons não localizou gráfico adequado. A Icons documenta sessão de assinatura privada e parceria de memorabilia física, sem fornecer no material consultado arquivo digital de assinatura reutilizável para a coleção.",
+      "referenceUrls": [
+        "https://www.icons.com/players/current-stars/a-k/jude-bellingham.html",
+        "https://www.icons.com/news/2026/09/23/icons-and-jude-inside-bellinghams-first-exclusive-signing/"
+      ],
+      "file": null,
+      "sha256": null,
+      "changes": null,
+      "authenticatedByAthlete": false
+    },
+    {
+      "id": "robert-lewandowski",
+      "athlete": "Robert Lewandowski",
+      "title": "Robert Lewandowski Signature.svg",
+      "sourceUrl": "https://commons.wikimedia.org/wiki/File:Robert_Lewandowski_Signature.svg",
+      "originalSourceUrl": "https://commons.wikimedia.org/wiki/File:Signature_lewandowski_small.webp",
+      "license": "PD-signature (classificação informada pelo Wikimedia Commons)",
+      "vectorAuthor": "Bastruk",
+      "verificationLevel": "insufficient-provenance",
+      "verificationDetails": "O SVG de Bastruk é baseado no WEBP Signature lewandowski small.webp. O WEBP informa fonte textual “Robert Lewandowski”, sem link ao original; a verificação do HTML confirmou a ausência desse link. A cadeia termina no Commons e não foi vinculada a documento ou publicação oficial. Não importado.",
+      "referenceUrls": [],
+      "file": null,
+      "sha256": null,
+      "changes": null,
+      "authenticatedByAthlete": false
+    },
+    {
+      "id": "luka-modric",
+      "athlete": "Luka Modrić",
+      "title": "Luka Modrić signature.svg",
+      "sourceUrl": "https://commons.wikimedia.org/wiki/File:Luka_Modri%C4%87_signature.svg",
+      "originalSourceUrl": null,
+      "license": "PD-ineligible (classificação informada pelo Wikimedia Commons)",
+      "vectorAuthor": "Cookieman1.1.1; transparência por Ocdp",
+      "verificationLevel": "insufficient-provenance",
+      "verificationDetails": "A página Commons informa obra própria, sem origem externa. Há documentos oficiais da federação croata com blocos de assinatura, mas não foi estabelecido vínculo entre o SVG candidato e um documento original. Não importado.",
+      "referenceUrls": [
+        "https://hns.family/files/documents/18551/Glasnik_57-2019.pdf"
+      ],
+      "file": null,
+      "sha256": null,
+      "changes": null,
+      "authenticatedByAthlete": false
+    },
+    {
+      "id": "kevin-de-bruyne",
+      "athlete": "Kevin De Bruyne",
+      "title": null,
+      "sourceUrl": null,
+      "originalSourceUrl": null,
+      "license": null,
+      "vectorAuthor": null,
+      "verificationLevel": "not-located",
+      "verificationDetails": "Busca na web e na API Commons não localizou gráfico adequado. O ensaio autoral Let Me Talk foi consultado e seu HTML não apresentou recurso identificado como assinatura. Publicações do Manchester City citam camisas autografadas, mas sem arquivo digital isolado rastreável para importação.",
+      "referenceUrls": [
+        "https://www.theplayerstribune.com/articles/kevin-de-bruyne-man-city-let-me-talk",
+        "https://www.mancity.com/news/mens/kevin-de-bruyne-newcastle-fa-cup-reaction-63728971"
+      ],
+      "file": null,
+      "sha256": null,
+      "changes": null,
+      "authenticatedByAthlete": false
+    }
+  ]
+}

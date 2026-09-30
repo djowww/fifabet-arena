@@ -1,4 +1,10 @@
 /* EA SPORTS FC palette with original collectible frames and editorial tiers. */
+.collectible-country{position:absolute;right:21px;top:46px;z-index:3;display:flex;flex-direction:column;align-items:center;gap:6px;max-width:92px;padding:7px 9px;background:#101514b8;border:1px solid #ffffff24;border-radius:5px;box-shadow:0 3px 12px #0003}
+.collectible-country>img{display:block;width:32px;height:24px;object-fit:cover;border-radius:2px;border:1px solid #ffffff38}
+.collectible-country>span{color:#fafafa;font-size:7px;letter-spacing:.7px;text-transform:uppercase;line-height:1.2;text-align:center}
+.collectible-autograph.autograph-pending{bottom:17px}.signature-pending{padding:6px 9px;border:1px solid #a6bbb733;border-radius:20px;background:#101716b8;color:#bdc9c3!important;font-size:6px!important;letter-spacing:1.2px!important}
+.photograph-art .player-photograph{inset:40px 16px auto;width:calc(100% - 32px);height:278px;object-fit:cover;object-position:center 23%;border-radius:3px}
+.photograph-label{position:absolute;left:25px;bottom:46px;z-index:3;font-size:6px;letter-spacing:1.1px;color:#c8d0cc}.signature-curation{padding:12px;border:1px solid #3b4540;border-radius:6px;background:#18201b}
 .tier-gold{--metal:#e9c575;--metal-dark:#8a692a;--metal-light:#fff0bb;--metal-glow:#e9c57520}
 .tier-silver{--metal:#c3ced6;--metal-dark:#687682;--metal-light:#f3f8fd;--metal-glow:#c3ced620}
 .tier-bronze{--metal:#cc946f;--metal-dark:#74513c;--metal-light:#f2cfb7;--metal-glow:#cc946f20}

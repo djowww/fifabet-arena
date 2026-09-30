@@ -37,12 +37,13 @@ const server = createServer(async (request, response) => {
   }
 
   const playerAsset = /^\/assets\/players\/[a-z0-9-]+\.jpg$/.test(pathname);
-  const avatarAsset = /^\/assets\/avatars\/[a-z0-9-]+\.png$/.test(pathname);
+  const avatarAsset = /^\/assets\/avatars\/[a-z0-9-]+\.(png|jpg)$/.exec(pathname);
   const signatureAsset = /^\/assets\/signatures\/[a-z0-9-]+\.svg$/.test(pathname);
   const clubAsset = /^\/assets\/clubs\/[a-z0-9-]+\.(svg|png|webp)$/.exec(pathname);
   const trophyAsset = /^\/assets\/trophies\/[a-z0-9-]+\.svg$/.test(pathname);
+  const flagAsset = /^\/assets\/flags\/[a-z0-9-]+\.svg$/.test(pathname);
   const clubMime = clubAsset ? ({svg:"image/svg+xml",png:"image/png",webp:"image/webp"}[clubAsset[1]]) : null;
-  const mime = playerAsset ? "image/jpeg" : avatarAsset ? "image/png" : signatureAsset||trophyAsset ? "image/svg+xml" : clubMime;
+  const mime = playerAsset ? "image/jpeg" : avatarAsset ? (avatarAsset[1]==='jpg' ? 'image/jpeg' : 'image/png') : signatureAsset||trophyAsset||flagAsset ? "image/svg+xml" : clubMime;
   const file = files.get(pathname) || (mime ? [pathname.slice(1), mime] : null);
   if (!file) {
     response.writeHead(404, { "Cache-Control": "no-store" });

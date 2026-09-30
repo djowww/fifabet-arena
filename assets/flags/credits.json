@@ -1,0 +1,81 @@
+{
+  "downloadedAt": "2026-09-30",
+  "project": "flag-icons",
+  "repository": "https://github.com/lipis/flag-icons",
+  "commit": "086f7e97d657358203916dbe84f61c2bccaa81eb",
+  "license": "MIT",
+  "licenseSource": "https://raw.githubusercontent.com/lipis/flag-icons/086f7e97d657358203916dbe84f61c2bccaa81eb/LICENSE",
+  "description": "Bandeiras de nacionalidade dos atletas. Inglaterra usa St George (gb-eng), a seleção de futebol, em vez de Reino Unido.",
+  "assets": [
+    {
+      "id": "pt",
+      "file": "assets/flags/pt.svg",
+      "sourceUrl": "https://raw.githubusercontent.com/lipis/flag-icons/086f7e97d657358203916dbe84f61c2bccaa81eb/flags/4x3/pt.svg",
+      "sha256": "a7a2cf0b44aaaaf4f3bdc0ee0fa308ec7085bdfedd3f72da1473d43fd2a569fb",
+      "changes": "Arquivo SVG 4:3 preservado, sem redesenho."
+    },
+    {
+      "id": "be",
+      "file": "assets/flags/be.svg",
+      "sourceUrl": "https://raw.githubusercontent.com/lipis/flag-icons/086f7e97d657358203916dbe84f61c2bccaa81eb/flags/4x3/be.svg",
+      "sha256": "d6aff6fa4c913404eafd53f91c0a9b240fcecaddc8f0ac2160d362e38469342c",
+      "changes": "Arquivo SVG 4:3 preservado, sem redesenho."
+    },
+    {
+      "id": "br",
+      "file": "assets/flags/br.svg",
+      "sourceUrl": "https://raw.githubusercontent.com/lipis/flag-icons/086f7e97d657358203916dbe84f61c2bccaa81eb/flags/4x3/br.svg",
+      "sha256": "b0a912826c3ffd7287435ebed66e18fe058e992309c00dc10b430dd41a29ba91",
+      "changes": "Arquivo SVG 4:3 preservado, sem redesenho."
+    },
+    {
+      "id": "no",
+      "file": "assets/flags/no.svg",
+      "sourceUrl": "https://raw.githubusercontent.com/lipis/flag-icons/086f7e97d657358203916dbe84f61c2bccaa81eb/flags/4x3/no.svg",
+      "sha256": "ceea17af051dceefd5759a824213eb40ac8a8095aa88a6874a7bbc8de637357a",
+      "changes": "Arquivo SVG 4:3 preservado, sem redesenho."
+    },
+    {
+      "id": "ar",
+      "file": "assets/flags/ar.svg",
+      "sourceUrl": "https://raw.githubusercontent.com/lipis/flag-icons/086f7e97d657358203916dbe84f61c2bccaa81eb/flags/4x3/ar.svg",
+      "sha256": "da39bfbe83fd35fae781f605c4a297b632f03ccf72d4cb0499e86dac8370663d",
+      "changes": "Arquivo SVG 4:3 preservado, sem redesenho."
+    },
+    {
+      "id": "fr",
+      "file": "assets/flags/fr.svg",
+      "sourceUrl": "https://raw.githubusercontent.com/lipis/flag-icons/086f7e97d657358203916dbe84f61c2bccaa81eb/flags/4x3/fr.svg",
+      "sha256": "a526851c372e3372b1596be71af355ea72b1650bbc4c06e6e2c226900d3de6cc",
+      "changes": "Arquivo SVG 4:3 preservado, sem redesenho."
+    },
+    {
+      "id": "eg",
+      "file": "assets/flags/eg.svg",
+      "sourceUrl": "https://raw.githubusercontent.com/lipis/flag-icons/086f7e97d657358203916dbe84f61c2bccaa81eb/flags/4x3/eg.svg",
+      "sha256": "3f85d1d2bdb03692ad68f84efff36be2f5b1b5b7438b7b7be50def3837bf532f",
+      "changes": "Arquivo SVG 4:3 preservado, sem redesenho."
+    },
+    {
+      "id": "gb-eng",
+      "file": "assets/flags/gb-eng.svg",
+      "sourceUrl": "https://raw.githubusercontent.com/lipis/flag-icons/086f7e97d657358203916dbe84f61c2bccaa81eb/flags/4x3/gb-eng.svg",
+      "sha256": "53797ba9e2dd9b18cd5344255f4e9ae9fad743ecb628fc9feb98abea4f48f90e",
+      "changes": "Arquivo SVG 4:3 preservado, sem redesenho."
+    },
+    {
+      "id": "pl",
+      "file": "assets/flags/pl.svg",
+      "sourceUrl": "https://raw.githubusercontent.com/lipis/flag-icons/086f7e97d657358203916dbe84f61c2bccaa81eb/flags/4x3/pl.svg",
+      "sha256": "06687a4b90fc00195d0795aea1c26a9f73f1b6ea6a76e358724b2f1f32b7c8f4",
+      "changes": "Arquivo SVG 4:3 preservado, sem redesenho."
+    },
+    {
+      "id": "hr",
+      "file": "assets/flags/hr.svg",
+      "sourceUrl": "https://raw.githubusercontent.com/lipis/flag-icons/086f7e97d657358203916dbe84f61c2bccaa81eb/flags/4x3/hr.svg",
+      "sha256": "3c98eae5ee93f0d75e10170beb96e26908830e2e6f7f7af2a4b281a097aeb946",
+      "changes": "Arquivo SVG 4:3 preservado, sem redesenho."
+    }
+  ]
+}

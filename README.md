@@ -8,8 +8,8 @@ Protótipo front-end de uma arena para desafiar amigos no EA SPORTS FC, combinar
 
 - Criar um perfil local com apelido e avatar.
 - Personalizar o perfil escolhendo entre 23 clubes brasileiros e europeus, com busca, prévia do brasão e fundo nas cores do time.
-- Comprar com pontos fictícios caricaturas de Cristiano Ronaldo, Bruno Fernandes e Senne Lammens, montar uma coleção e usar uma delas como avatar.
-- Explorar as categorias Ouro, Prata e Bronze e consultar as fontes das reproduções de assinaturas que acompanham as figurinhas.
+- Comprar com pontos fictícios 13 avatares de jogadores: 12 caricaturas e uma fotografia licenciada de Messi, montar uma coleção e equipar o avatar no perfil.
+- Ver a bandeira da seleção de cada atleta, explorar as categorias Ouro, Prata e Bronze e consultar os créditos das artes e assinaturas disponíveis.
 - Descobrir jogadores de exemplo, aceitar convites e montar uma lista de amigos.
 - Enviar um desafio de demonstração escolhendo modo de jogo e pontos simbólicos.
 - Simular o aceite do desafio e enviar uma foto do placar para deixar o resultado pendente de revisão.
@@ -58,11 +58,19 @@ Os identificadores e as regras das seis conquistas foram mantidos, assim como os
 
 ## Loja e coleção
 
-O catálogo atual tem três caricaturas geradas por IA: **Cristiano Ronaldo — Ouro**, **Bruno Fernandes — Prata** e **Senne Lammens — Bronze**. As categorias são uma escolha editorial subjetiva de reconhecimento público; não são OVR, notas da EA ou uma medição de popularidade ou desempenho. Todas as compras usam pontos de demonstração, sem pagamento real.
+O catálogo tem **13 avatares ativos: 12 caricaturas geradas por IA e uma fotografia licenciada de Lionel Messi**. Além de Cristiano Ronaldo, Bruno Fernandes e Senne Lammens, a expansão inclui Neymar, Vini Jr., Erling Haaland, Lionel Messi, Kylian Mbappé, Mohamed Salah, Jude Bellingham, Robert Lewandowski, Luka Modrić e Kevin De Bruyne.
+
+As bandeiras identificam a seleção representada por cada atleta. Inglaterra usa a cruz de São Jorge, não a bandeira do Reino Unido. Os arquivos são do projeto **flag-icons**, sob MIT, com fontes em [assets/flags/credits.json](assets/flags/credits.json) e aviso preservado em [assets/flags/LICENSE](assets/flags/LICENSE).
+
+Ouro, Prata e Bronze são escolhas editoriais subjetivas de reconhecimento público; não são OVR, notas da EA ou uma medição de popularidade ou desempenho. Todas as compras usam pontos de demonstração, sem pagamento real.
 
 As ilustrações de Cristiano e Bruno foram geradas sem fotografias de atletas como referência; a de Bruno passou por uma edição de estilo sobre a própria imagem gerada. A ilustração de Lammens adapta uma fotografia de Bryan Berlin / WikiPortraits e mantém **CC BY-SA 4.0**, com atribuição e indicação da transformação. Os arquivos e a procedência estão em [assets/avatars/credits.json](assets/avatars/credits.json).
 
+As nove novas caricaturas foram geradas por descrição, sem fotografia de referência, com prompts e manifestos em [docs/AVATARES_PROMPTS.md](docs/AVATARES_PROMPTS.md). Messi aparece como **fotografia de 2018**, por Kirill Venediktov / soccer.ru, sob **CC BY-SA 3.0**, baixada intacta; os créditos estão em [assets/avatars/messi-photo-credit.json](assets/avatars/messi-photo-credit.json).
+
 As assinaturas são reproduções de SVGs publicados, preservadas e sanitizadas separadamente das ilustrações. A documentação identifica sua origem e o que foi possível conferir. Não são autógrafos personalizados, certificados de autenticidade ou produtos endossados pelos atletas. Consulte [fontes das assinaturas](docs/ASSINATURAS_FONTES.md) e [créditos estruturados](assets/signatures/credits.json).
+
+As três reproduções existentes foram mantidas. As assinaturas dos dez jogadores novos estão **em curadoria**: nesta pesquisa não foi encontrado um arquivo que atingisse o critério de procedência do projeto. Nenhuma assinatura foi desenhada ou gerada para preencher essa ausência. [Registro da pesquisa](assets/signatures/expansion-research.json).
 
 As quatro figurinhas fictícias anteriores — Nilo Raio, Maya Luz, Tito Rocha e Breno Vale — saíram do catálogo de compras. Quem já as possui mantém sua coleção e pode continuar usando esses avatares.
 
@@ -95,7 +103,8 @@ Depois, acesse http://127.0.0.1:4173. Mantenha o terminal aberto enquanto usa a 
 - `rivalry-section.mjs` e `rivalry.css` — apresentação dos desafios entre amigos e do conceito de valor combinado.
 - `competitive-modes.css` — cartões de rivalidade e apresentação da prévia de torneio.
 - `assets/brand/` — símbolo EA SPORTS FC e registro de procedência.
-- `assets/avatars/`, `assets/signatures/` e `assets/players/` — caricaturas, reproduções de assinaturas e fotografias editoriais, com créditos separados.
+- `assets/avatars/`, `assets/signatures/` e `assets/players/` — caricaturas, fotografia de Messi, reproduções de assinaturas e fotografias editoriais, com créditos separados.
+- `assets/flags/` — bandeiras SVG de flag-icons e sua licença MIT.
 - `assets/clubs/` — brasões com manifesto de fontes; `assets/trophies/` — seis ilustrações SVG originais da arena.
 - `model.test.mjs` e `ui-flows.test.mjs` — testes das regras e dos fluxos da demonstração.
 - `package.json` — comandos do projeto, sem dependências externas.

@@ -34,26 +34,36 @@ export const TEAM_FLAGS = [
 ];
 export const STICKERS = [
   {
-    id:'cristiano-ronaldo',player:'Cristiano Ronaldo',club:'Portugal',nationality:'Portugal',position:'ATACANTE',
+    id:'cristiano-ronaldo',player:'Cristiano Ronaldo',club:'Portugal',nationality:'Portugal',countryCode:'pt',position:'ATACANTE',
     price:700,tier:'gold',theme:'gold',recognition:'Ícone global',kind:'player-caricature',
     art:'assets/avatars/cristiano-ronaldo.png',signatureAsset:'assets/signatures/ronaldo.svg',
     signatureSource:'https://www.theplayerstribune.com/cristiano-ronaldo-madrid-english/',
     signatureReference:'https://commons.wikimedia.org/wiki/File:Cristiano_Ronaldo_Signature.svg'
   },
   {
-    id:'bruno-fernandes',player:'Bruno Fernandes',club:'Portugal',nationality:'Portugal',position:'MEIA',
+    id:'bruno-fernandes',player:'Bruno Fernandes',club:'Portugal',nationality:'Portugal',countryCode:'pt',position:'MEIA',
     price:450,tier:'silver',theme:'silver',recognition:'Reconhecimento internacional',kind:'player-caricature',
     art:'assets/avatars/bruno-fernandes.png',signatureAsset:'assets/signatures/bruno-fernandes.svg',
     signatureSource:'https://www.manutd.com/en/news/detail/win-special-bruno-fernandes-print-and-shirt-to-celebrate-his-100th-man-utd-goal',
     signatureReference:'https://commons.wikimedia.org/wiki/File:Bruno_Fernandes_Signature.svg'
   },
   {
-    id:'senne-lammens',player:'Senne Lammens',club:'Bélgica',nationality:'Bélgica',position:'GOLEIRO',
+    id:'senne-lammens',player:'Senne Lammens',club:'Bélgica',nationality:'Bélgica',countryCode:'be',position:'GOLEIRO',
     price:250,tier:'bronze',theme:'bronze',recognition:'Em ascensão',kind:'player-caricature',
     art:'assets/avatars/senne-lammens.png',signatureAsset:'assets/signatures/lammens.svg',
     signatureSource:'https://x.com/manutd/status/2041557866130112966',
     signatureReference:'https://commons.wikimedia.org/wiki/File:Senne_Lammens_Signature.svg'
   },
+  {id:'neymar',player:'Neymar',club:'Brasil',nationality:'Brasil',countryCode:'br',position:'ATACANTE',price:700,tier:'gold',theme:'gold',recognition:'Ícone global',kind:'player-caricature',art:'assets/avatars/neymar.png',signatureAsset:null},
+  {id:'vinicius-junior',player:'Vini Jr.',club:'Brasil',nationality:'Brasil',countryCode:'br',position:'ATACANTE',price:700,tier:'gold',theme:'gold',recognition:'Ícone global',kind:'player-caricature',art:'assets/avatars/vinicius-junior.png',signatureAsset:null},
+  {id:'erling-haaland',player:'Erling Haaland',club:'Noruega',nationality:'Noruega',countryCode:'no',position:'ATACANTE',price:700,tier:'gold',theme:'gold',recognition:'Ícone global',kind:'player-caricature',art:'assets/avatars/erling-haaland.png',signatureAsset:null},
+  {id:'lionel-messi',player:'Lionel Messi',club:'Argentina',nationality:'Argentina',countryCode:'ar',position:'ATACANTE',price:700,tier:'gold',theme:'gold',recognition:'Ícone global',kind:'player-photo',art:'assets/avatars/lionel-messi.jpg',signatureAsset:null},
+  {id:'kylian-mbappe',player:'Kylian Mbappé',club:'França',nationality:'França',countryCode:'fr',position:'ATACANTE',price:700,tier:'gold',theme:'gold',recognition:'Ícone global',kind:'player-caricature',art:'assets/avatars/kylian-mbappe.png',signatureAsset:null},
+  {id:'mohamed-salah',player:'Mohamed Salah',club:'Egito',nationality:'Egito',countryCode:'eg',position:'ATACANTE',price:700,tier:'gold',theme:'gold',recognition:'Ícone global',kind:'player-caricature',art:'assets/avatars/mohamed-salah.png',signatureAsset:null},
+  {id:'jude-bellingham',player:'Jude Bellingham',club:'Inglaterra',nationality:'Inglaterra',countryCode:'gb-eng',position:'MEIA',price:450,tier:'silver',theme:'silver',recognition:'Reconhecimento internacional',kind:'player-caricature',art:'assets/avatars/jude-bellingham.png',signatureAsset:null},
+  {id:'robert-lewandowski',player:'Robert Lewandowski',club:'Polônia',nationality:'Polônia',countryCode:'pl',position:'ATACANTE',price:700,tier:'gold',theme:'gold',recognition:'Ícone global',kind:'player-caricature',art:'assets/avatars/robert-lewandowski.png',signatureAsset:null},
+  {id:'luka-modric',player:'Luka Modrić',club:'Croácia',nationality:'Croácia',countryCode:'hr',position:'MEIA',price:700,tier:'gold',theme:'gold',recognition:'Ícone global',kind:'player-caricature',art:'assets/avatars/luka-modric.png',signatureAsset:null},
+  {id:'kevin-de-bruyne',player:'Kevin De Bruyne',club:'Bélgica',nationality:'Bélgica',countryCode:'be',position:'MEIA',price:450,tier:'silver',theme:'silver',recognition:'Reconhecimento internacional',kind:'player-caricature',art:'assets/avatars/kevin-de-bruyne.png',signatureAsset:null},
   {id:'nilo-raio',player:'Nilo Raio',club:'Aurora City FC',position:'PONTA',rating:91,price:350,theme:'aurora',signature:'N. Raio',kind:'fictional-demo',retired:true},
   {id:'maya-luz',player:'Maya Luz',club:'Luar United',position:'MEIA',rating:89,price:450,theme:'lunar',signature:'Maya L.',kind:'fictional-demo',retired:true},
   {id:'tito-rocha',player:'Tito Rocha',club:'Horizonte AC',position:'ZAGUEIRO',rating:87,price:300,theme:'horizon',signature:'T. Rocha',kind:'fictional-demo',retired:true},

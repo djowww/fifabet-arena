@@ -6,9 +6,11 @@ Partidas entre amigos no EA SPORTS FC, com ID próprio do Fifa GO, carteira de c
 
 **Repositório:** https://github.com/djowww/fifabet-arena
 
-A interface e a API estão instaladas no VPS, com HTTPS para `betfifa.com.br`. A zona exclusiva do domínio está configurada na Cloudflare e os novos nameservers foram salvos no registro da Hostinger; a disponibilidade pública aguarda propagação e conferência pelo domínio. O Fifa GO usa usuário, serviço, runtime Node.js, pasta de código e dados próprios. O Nginx encaminha somente o host `betfifa.com.br` à porta interna `127.0.0.1:4174`. Os serviços, arquivos, domínios e regras de firewall do Tibia permanecem preservados.
+A interface e a API estão publicadas com HTTPS em `betfifa.com.br`, pelo VPS e pelo proxy da zona exclusiva do domínio na Cloudflare. Os nameservers foram salvos no registro da Hostinger e a rota pública foi conferida por DNS, API e navegador. O Fifa GO usa usuário, serviço, runtime Node.js, pasta de código e dados próprios. O Nginx encaminha somente o host `betfifa.com.br` à porta interna `127.0.0.1:4174`. Os serviços, arquivos, domínios e regras de firewall do Tibia permanecem preservados.
 
-Contas, convites, histórico e créditos de teste da versão conectada ficam no servidor e poderão ser acessados de outro dispositivo quando a rota pública estiver confirmada. Perfis da demonstração local continuam separados: dados salvos no navegador não são migrados automaticamente para contas do servidor. O GitHub mantém o código e uma publicação estática; voltar a entregar essa versão pelo domínio exige alterar os registros DNS. Se a API não estiver disponível, a interface identifica somente a demonstração local, sem tornar as contas do VPS acessíveis. **Um push no GitHub não instala uma atualização no VPS**.
+Alguns resolvedores podem manter o destino anterior do GitHub Pages em cache durante a propagação. Nesse caso, a API pode retornar 404 e a página identificar a demonstração local até o DNS atualizar; não alterar os nameservers novamente para contornar esse cache.
+
+Contas, convites, histórico e créditos de teste da versão conectada ficam no servidor e podem ser acessados de outro dispositivo. Perfis da demonstração local continuam separados: dados salvos no navegador não são migrados automaticamente para contas do servidor. O GitHub mantém o código e uma publicação estática; voltar a entregar essa versão pelo domínio exige alterar os registros DNS. Se a API não estiver disponível, a interface identifica somente a demonstração local, sem tornar as contas do VPS acessíveis. **Um push no GitHub não instala uma atualização no VPS**.
 
 **Revisão pendente de configuração:** ainda não há conta da equipe habilitada no VPS. Resultados enviados e comprovantes de transferência ficam em análise; os pontos dessas operações só serão liberados após uma decisão de revisor autorizado. Todos os créditos continuam fictícios, sem pagamentos reais.
 
@@ -45,7 +47,7 @@ Esta carteira é uma simulação própria do Fifa GO, sem integração com proce
 | Modalidade | Como funciona |
 | --- | --- |
 | GitHub Pages / `node serve.mjs` | Perfis e desafios somente no navegador. Permite alternar dois perfis e experimentar convite, reserva, placar, contestação e histórico. Não envia fotos à equipe e não libera pontos por revisão real. |
-| VPS / `node backend/server.mjs` | Contas com senha, partidas compartilhadas e fotos privadas. Instalado com HTTPS para `betfifa.com.br`; nameservers salvos, aguardando propagação e confirmação pública. A revisão exige uma conta da equipe configurada. |
+| VPS / `node backend/server.mjs` | Contas com senha, partidas compartilhadas e fotos privadas. Publicado e conferido com HTTPS em `betfifa.com.br`. A revisão exige uma conta da equipe configurada. |
 
 A publicação no VPS é manual e separada do GitHub Pages. O servidor usa JSON com gravação atômica e uma única instância; é um protótipo funcional, ainda sem a infraestrutura de banco e operação de um lançamento comercial. Os modos locais e compartilhados têm cadastros separados, sem migração automática.
 

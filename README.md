@@ -6,9 +6,11 @@ Partidas entre amigos no EA SPORTS FC, com ID próprio do Fifa GO, carteira de c
 
 **Repositório:** https://github.com/djowww/fifabet-arena
 
-O frontend usa GitHub Pages. O domínio é administrado na Hostinger e aponta para essa publicação; não usa o VPS do Tibia. O endereço `djowww.github.io/fifabet-arena/` passa a redirecionar para o domínio personalizado.
+A interface e a API estão instaladas no VPS, com HTTPS para `betfifa.com.br`. A zona exclusiva do domínio está configurada na Cloudflare e os novos nameservers foram salvos no registro da Hostinger; a disponibilidade pública aguarda propagação e conferência pelo domínio. O Fifa GO usa usuário, serviço, runtime Node.js, pasta de código e dados próprios. O Nginx encaminha somente o host `betfifa.com.br` à porta interna `127.0.0.1:4174`. Os serviços, arquivos, domínios e regras de firewall do Tibia permanecem preservados.
 
-Os perfis e créditos da demonstração local são salvos por origem no navegador. Os dados do endereço antigo não migram automaticamente para o domínio novo. A API de contas compartilhadas continua dependendo da hospedagem do servidor descrita abaixo.
+Contas, convites, histórico e créditos de teste da versão conectada ficam no servidor e poderão ser acessados de outro dispositivo quando a rota pública estiver confirmada. Perfis da demonstração local continuam separados: dados salvos no navegador não são migrados automaticamente para contas do servidor. O GitHub mantém o código e uma publicação estática; voltar a entregar essa versão pelo domínio exige alterar os registros DNS. Se a API não estiver disponível, a interface identifica somente a demonstração local, sem tornar as contas do VPS acessíveis. **Um push no GitHub não instala uma atualização no VPS**.
+
+**Revisão pendente de configuração:** ainda não há conta da equipe habilitada no VPS. Resultados enviados e comprovantes de transferência ficam em análise; os pontos dessas operações só serão liberados após uma decisão de revisor autorizado. Todos os créditos continuam fictícios, sem pagamentos reais.
 
 ## Fluxo principal
 
@@ -43,9 +45,9 @@ Esta carteira é uma simulação própria do Fifa GO, sem integração com proce
 | Modalidade | Como funciona |
 | --- | --- |
 | GitHub Pages / `node serve.mjs` | Perfis e desafios somente no navegador. Permite alternar dois perfis e experimentar convite, reserva, placar, contestação e histórico. Não envia fotos à equipe e não libera pontos por revisão real. |
-| `node backend/server.mjs` | Contas com senha, partidas compartilhadas, fotos privadas e painel da equipe. Os dados ficam no servidor. Para celulares fora da rede local, é necessário hospedar o servidor com HTTPS e armazenamento persistente. |
+| VPS / `node backend/server.mjs` | Contas com senha, partidas compartilhadas e fotos privadas. Instalado com HTTPS para `betfifa.com.br`; nameservers salvos, aguardando propagação e confirmação pública. A revisão exige uma conta da equipe configurada. |
 
-Publicar no GitHub não publica a API. O servidor incluído usa JSON com gravação atômica e uma única instância; é um protótipo funcional, ainda sem a infraestrutura de banco e operação de um lançamento comercial. Os modos locais e compartilhados têm cadastros separados, sem migração automática.
+A publicação no VPS é manual e separada do GitHub Pages. O servidor usa JSON com gravação atômica e uma única instância; é um protótipo funcional, ainda sem a infraestrutura de banco e operação de um lançamento comercial. Os modos locais e compartilhados têm cadastros separados, sem migração automática.
 
 Todas as operações usam **créditos fictícios, sem valor financeiro**. Os métodos de recarga são demonstrativos: não há pagamento real, saque ou integração automática com resultados da EA. O modo de pagamento do servidor está fixado em `demo`.
 
@@ -59,7 +61,7 @@ node backend/server.mjs
 # Abra http://127.0.0.1:4174
 ```
 
-Os dados privados ficam fora da pasta publicada, em `%USERPROFILE%\.fifabet-arena` no Windows. Consulte [configuração do servidor e revisão](docs/SERVIDOR.md) para habilitar a equipe, testar dois dispositivos e preparar hospedagem separada.
+Os dados privados ficam fora da pasta publicada, em `%USERPROFILE%\.fifabet-arena` no Windows. No VPS, ficam em `/var/lib/fifago`. Consulte [configuração do servidor e revisão](docs/SERVIDOR.md) para habilitar a equipe, operar a publicação e consultar o procedimento de retorno ao GitHub Pages.
 
 Para a demonstração estática:
 
@@ -92,7 +94,8 @@ Fontes: [uniformes](docs/UNIFORMES_FONTES.md), [clubes](docs/CLUBES_FONTES.md), 
 - `model.mjs`: regras e persistência da demonstração local.
 - `backend-client.mjs`: comunicação autenticada com a API na mesma origem.
 - `backend/server.mjs`, `backend/accounts.mjs`: servidor, contas, fotos, decisões e consulta administrativa dos IDs.
+- `deploy/fifago.service`, `deploy/nginx-fifago.conf`: modelos do serviço isolado e do novo host Nginx, sem substituição da configuração dos demais sites.
 - `colecao.html`, `app.js`: coleção e personalização da demonstração anterior.
 - [Fluxo de desafios](docs/FLUXO_AMIGOS.md) e [servidor](docs/SERVIDOR.md): funcionamento, limites e publicação.
 
-O código original segue a [licença proprietária de Ricardo Zordan (Djow)](LICENSE). Consulte o [guia de publicação](docs/LICENCA_E_PUBLICACAO.md) antes de lançar nas lojas. Nenhuma hospedagem foi contratada e nenhuma infraestrutura de Tibia foi alterada.
+O código original segue a [licença proprietária de Ricardo Zordan (Djow)](LICENSE). Consulte o [guia de publicação](docs/LICENCA_E_PUBLICACAO.md) antes de lançar nas lojas. A publicação reaproveita o VPS existente com limites próprios de recursos; não altera o serviço do Tibia.

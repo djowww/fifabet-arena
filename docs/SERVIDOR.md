@@ -2,13 +2,19 @@
 
 O servidor `backend/server.mjs` transforma os desafios de pontos fictícios em dados compartilhados: cada pessoa entra com apelido ou ID e senha, os dois lados usam o mesmo desafio, a foto fica privada e o saldo é controlado pelo servidor. A carteira oferece pedidos de créditos demonstrativos por cartão, Pix e transferência. Nenhuma dessas ações cobra dinheiro, movimenta uma conta bancária ou consulta um gateway. O servidor também entrega os arquivos da interface pela mesma origem. Saques e consulta a partidas da EA não estão integrados.
 
-O GitHub Pages continua sendo hospedagem estática, com domínio personalizado `betfifa.com.br` administrado na Hostinger. Ele não executa este servidor e não cria contas compartilhadas: a interface detecta a API e identifica a demonstração local quando ela não está disponível. Publicar os arquivos no GitHub ou apontar o domínio não publica um banco de dados nem uma API. Nenhum serviço de hospedagem foi contratado nesta etapa e nenhuma infraestrutura de Tibia foi alterada.
+A interface e esta API estão instaladas no VPS com HTTPS para `betfifa.com.br`. A zona exclusiva do domínio já está configurada na Cloudflare e os nameservers foram salvos no registro da Hostinger; a disponibilidade externa aguarda propagação e conferência pelo domínio. O serviço Fifa GO tem usuário, runtime, código e dados próprios, preservando os serviços, arquivos, bancos, domínios e regras de firewall do Tibia. O GitHub Pages mantém uma publicação estática que não executa a API; retornar essa versão ao domínio exige reapontar os registros DNS.
 
-## Domínio do frontend
+## Domínio e HTTPS
 
-O arquivo `CNAME` na raiz mantém `betfifa.com.br` como domínio do GitHub Pages. A zona DNS desse domínio na Hostinger utiliza quatro registros A em `@`: `185.199.108.153`, `185.199.109.153`, `185.199.110.153` e `185.199.111.153`. O CNAME `www` aponta para `djowww.github.io`, sem nome do repositório. Os nameservers continuam `aster.dns-parking.com` e `helios.dns-parking.com`.
+A zona própria de `betfifa.com.br` foi criada no plano Free da Cloudflare. O registro A de `@` aponta para o VPS com proxy habilitado, e o modo SSL/TLS está em **Full (strict)**. Os nameservers `meilani.ns.cloudflare.com` e `salvador.ns.cloudflare.com` foram salvos na Hostinger somente para esse domínio. A Cloudflare ainda aguarda propagação da alteração no registro. O CNAME de `www` permanece como `djowww.github.io`, em modo somente DNS, usando o redirecionamento do domínio personalizado do Pages.
 
-Antes do apontamento, a zona continha apenas A `@` → `2.57.91.91` (TTL 50) e CNAME `www` → `betfifa.com.br` (TTL 300), usados pela página padrão da Hostinger. A publicação troca somente os destinos web desse domínio. O certificado HTTPS é administrado pelo GitHub Pages; não é necessário instalar SSL no VPS.
+O firewall existente do VPS permite HTTP/HTTPS pelas redes da Cloudflare e permanece preservado. Acessar diretamente o IP público do VPS de outra rede pode ser bloqueado por essa regra; isso não autoriza abrir portas para toda a internet.
+
+O novo host Nginx `betfifa.com.br` atende HTTP/HTTPS, redireciona HTTP para HTTPS e encaminha a aplicação à porta local `127.0.0.1:4174`. Essa porta não precisa de acesso público. O certificado fica em `/etc/letsencrypt/live/betfifa.com.br/`; o diretório dos desafios ACME é `/var/lib/fifago-acme`, separado dos dados privados. A disponibilidade pública deve ser confirmada pelo domínio com DNS e HTTPS, além da conferência local do host Nginx.
+
+O certificado próprio já foi emitido por DNS-01 manual. A configuração atual de renovação ainda usa esse método; um hook próprio valida a configuração do Nginx antes de recarregá-lo na publicação do certificado. A mudança para renovação por webroot está pendente e deve atuar somente no certificado do Fifa GO. Os certificados e a renovação do Tibia não devem ser alterados.
+
+Não editar os registros DNS dos domínios do Tibia para publicar ou atualizar o Fifa GO. O arquivo `CNAME` no repositório preserva a configuração do domínio no GitHub Pages para contingência; ele não aponta o DNS de volta nem instala a API.
 
 Referências: [domínio personalizado no GitHub Pages](https://docs.github.com/en/pages/configuring-a-custom-domain-for-your-github-pages-site/managing-a-custom-domain-for-your-github-pages-site) e [registros DNS da Hostinger](https://www.hostinger.com/support/1583249-how-to-manage-dns-records-at-hostinger/).
 
@@ -86,26 +92,65 @@ node backend/server.mjs
 
 Abra `http://192.168.1.20:4174` nos dois dispositivos. O firewall do computador pode exigir liberação da porta para a rede privada. Use apenas contas de teste nessa rede: HTTP não criptografa o tráfego. Não configure encaminhamento dessa porta no roteador como solução de publicação.
 
-## Publicação futura
+## Publicação no VPS
 
-Para colocar a API online, será necessário um serviço Node.js com HTTPS, armazenamento persistente e uma origem própria. A interface e a API devem ser entregues na mesma origem porque as sessões usam cookies `HttpOnly` e o cliente não aceita uma URL de API arbitrária. Configure `FIFABET_PUBLIC_ORIGIN` com a origem HTTPS exata; o cookie recebe `Secure` nessa configuração. A aplicação pode escutar uma porta interna via `FIFABET_PORT`.
+O servidor está instalado com Node.js 24.21.0 portátil próprio, sem alterar o runtime global do VPS. A interface e a API usam a mesma origem porque as sessões usam cookies `HttpOnly` e o cliente não aceita uma URL de API arbitrária. `FIFABET_PUBLIC_ORIGIN=https://betfifa.com.br` define a origem HTTPS exata e habilita o cookie `Secure`.
 
-Ao usar Nginx no mesmo servidor, mantenha a aplicação somente em `127.0.0.1:4174` e configure estas variáveis no serviço:
+Estrutura da instalação:
+
+- Usuário e grupo exclusivos: `fifago`.
+- Serviço: `fifago.service`; somente esse serviço deve ser parado ou reiniciado durante manutenção da aplicação.
+- Código ativo: `/opt/fifago/current`, apontando para uma versão instalada.
+- Runtime: `/opt/fifago/runtime/bin/node`.
+- Pasta de trabalho do serviço: `/opt/fifago/current`; comando de início: `/opt/fifago/runtime/bin/node backend/server.mjs`.
+- Configuração privada: `/etc/fifago/fifago.env`.
+- Dados e imagens privados: `/var/lib/fifago`, fora do código publicado.
+- Host Nginx próprio: `betfifa.com.br`; modelo em `deploy/nginx-fifago.conf`.
+
+Variáveis do serviço:
 
 ```text
 FIFABET_HOST=127.0.0.1
 FIFABET_PORT=4174
 FIFABET_PUBLIC_ORIGIN=https://betfifa.com.br
 FIFABET_TRUST_PROXY_LOOPBACK=1
+FIFABET_DATA_DIR=/var/lib/fifago
+FIFABET_PAYMENT_MODE=demo
 ```
 
-O Nginx deve sobrescrever o cabeçalho com `proxy_set_header X-Real-IP $remote_addr;`. A opção de confiança fica desligada por padrão. Quando habilitada (também por `options.trustProxyLoopback === true`), os limites de requisições usam `X-Real-IP` somente se a conexão vier de `127.0.0.1`, `::1` ou `::ffff:127.0.0.1` e o valor for um único IP válido. Cabeçalhos inválidos, arrays e conexões externas usam o endereço do socket. Autenticação, CSRF e limites permanecem iguais.
+O Nginx sobrescreve o cabeçalho com `proxy_set_header X-Real-IP $remote_addr;`. A opção de confiança fica desligada por padrão no código. Quando habilitada (também por `options.trustProxyLoopback === true`), os limites de requisições usam `X-Real-IP` somente se a conexão vier de `127.0.0.1`, `::1` ou `::ffff:127.0.0.1` e o valor for um único IP válido. Cabeçalhos inválidos, arrays e conexões externas usam o endereço do socket. Autenticação, CSRF e limites permanecem iguais.
+
+A configuração existente de IP real do Nginx usa `CF-Connecting-IP` e `real_ip_recursive on` para reconhecer visitantes pelo proxy da Cloudflare antes de encaminhar `$remote_addr` à aplicação. Ela foi preservada. Em outra instalação, configurar somente as faixas confiáveis da Cloudflare: sem reconhecimento do IP real, os limites ficam compartilhados pelos visitantes da mesma saída do proxy. Não confiar em cabeçalhos enviados diretamente pelo cliente nem em toda a internet.
 
 O healthcheck `GET /api/v1/status` é somente leitura: retorna os mesmos metadados de disponibilidade, versão, ambiente de teste e configuração da revisão, sem entrar na fila de operações, expirar convites/sessões nem gravar dados. Continua sujeito ao limite geral de requisições e aos cabeçalhos de resposta da aplicação.
 
+### Limites e revisão
+
+O serviço usa `CPUQuota=20%`, `MemoryHigh=384M`, `MemoryMax=512M`, `TasksMax=32`, `IOWeight=10` e `Nice=10`. Código e runtime são somente leitura para o processo; a escrita fica limitada à pasta privada de dados. A unidade configura redução de privilégios, pasta temporária privada e limite de frequência dos logs. Esses limites reduzem o consumo da aplicação; CPU, disco e rede do VPS continuam compartilhados e precisam de acompanhamento.
+
+**Ainda não há revisor configurado na instalação.** Cadastro público não concede esse papel. Até configurar uma conta independente da equipe em `FIFABET_REVIEWER_IDS`, resultados e comprovantes de transferência permanecem em análise, sem liberação dos créditos correspondentes. Cartão e Pix continuam simulados; nenhuma operação recebe dinheiro real. Para habilitar a equipe no VPS, obter o UUID interno da conta com `backend/accounts.mjs` usando a pasta `/var/lib/fifago`, atualizar o arquivo privado de ambiente e reiniciar somente `fifago.service`.
+
+### Atualizações e dados
+
+**O deploy é manual.** Um commit ou push no GitHub atualiza o repositório e eventualmente a publicação estática, mas não substitui a versão instalada no VPS. Instalar uma nova versão em pasta própria, preservar `/var/lib/fifago` e o arquivo de ambiente, trocar a versão ativa e reiniciar somente `fifago.service`. Conferir `/api/v1/status` e a página HTTPS após cada publicação. Não instalar pacotes globais, substituir a configuração principal do Nginx ou reiniciar serviços do Tibia para atualizar a aplicação.
+
+Após a propagação dos nameservers, conferir `https://betfifa.com.br/api/v1/status` e a interface em `https://betfifa.com.br/#arena`. O status deve identificar a API compartilhada, `paymentMode:'demo'` e `realMoney:false`; a interface deve oferecer contas do servidor. O teste local do host Nginx não substitui essa conferência pública. Uma interface em modo local quando a API estiver indisponível não recupera automaticamente os dados das contas do VPS.
+
 Este protótipo grava JSON atomicamente e serializa as operações. Ele só pode ter uma instância por pasta de dados: `instance.lock` impede processos concorrentes. Se houver encerramento inesperado, confirme que o processo parou antes de remover o lock. Para múltiplas instâncias, escala maior ou lançamento comercial, migre para um banco com transações, backup automatizado, monitoramento, política de retenção de imagens e recuperação de conta. Não anuncie este armazenamento como infraestrutura final.
 
-Faça backup da pasta de dados completa com o servidor parado para manter JSON e fotos consistentes. As imagens não são removidas automaticamente neste protótipo. Nunca publique backups, logs com credenciais ou arquivos de dados como arquivos estáticos.
+Faça backup da pasta de dados completa com apenas `fifago.service` parado para manter JSON e fotos consistentes; depois inicie esse mesmo serviço. As imagens não são removidas automaticamente neste protótipo. Nunca publique backups, logs com credenciais ou arquivos de dados como arquivos estáticos. Perfis da demonstração no navegador não migram automaticamente para contas dessa instalação.
+
+### Retorno ao GitHub Pages
+
+Para devolver somente o site Fifa GO à hospedagem estática:
+
+1. Preservar os dados privados do VPS e a versão instalada. Não copiar contas, sessões ou fotos para o GitHub.
+2. Na zona **betfifa.com.br** da Cloudflare, restaurar os quatro registros A de `@`: `185.199.108.153`, `185.199.109.153`, `185.199.110.153` e `185.199.111.153`, em modo somente DNS, removendo o destino anterior desse mesmo registro. Manter os nameservers dessa zona na Cloudflare. Conferir também registros AAAA de `@` para não manter uma rota concorrente para o VPS.
+3. Se o endereço `www` for usado no GitHub Pages, definir seu CNAME como `djowww.github.io`, sem o nome do repositório, também em modo somente DNS, e conferir o domínio personalizado e HTTPS nas configurações do Pages.
+4. Aguardar a propagação e conferir a página. No Pages, a API não existe: a interface deve identificar a demonstração local. Contas e partidas compartilhadas do VPS ficam preservadas, mas indisponíveis nessa hospedagem estática.
+5. Se quiser interromper o consumo da aplicação no VPS após a mudança, executar apenas `sudo systemctl stop fifago.service`. Não parar Nginx nem qualquer serviço do Tibia. A configuração do novo host pode permanecer instalada enquanto o DNS aponta para o Pages.
+
+O retorno por DNS não desfaz dados da API nem altera a zona, os nameservers, o firewall ou os serviços do Tibia. Para reativar a versão conectada, conferir o serviço e o certificado próprios antes de apontar novamente apenas esse domínio ao VPS pelo proxy da Cloudflare.
 
 ## Proteções funcionais incluídas
 

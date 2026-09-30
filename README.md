@@ -17,6 +17,8 @@ Protótipo front-end de uma arena para desafiar amigos no EA SPORTS FC, combinar
 - Cadastrar EA ID e plataforma como referência **não verificada**, editar ou remover o cadastro.
 - Consultar partidas locais pelo histórico ou painel de EA ID.
 - Explorar a direção visual com fotos reais de Haaland, Alexia Putellas e Mbappé, com créditos acessíveis.
+- Selecionar 1 contra 1, Ultimate Team ou Clubes na arena para abrir um desafio com o modo escolhido.
+- Acessar classificações, estatísticas de atletas e FC Pro nos canais oficiais da EA.
 
 Os jogadores, convites e números do ranking são demonstrativos. Os dados ficam no navegador; ainda não há contas compartilhadas, sincronização entre dispositivos, servidor de partidas ou apostas e pagamentos reais. Os pontos simbólicos não são descontados, transferidos nem convertidos em dinheiro.
 
@@ -52,3 +54,7 @@ Depois, acesse http://127.0.0.1:4173. Mantenha o terminal aberto enquanto usa a 
 O cadastro manual do EA ID não autentica a conta. A API oficial exige acesso aprovado e não há integração de histórico de partidas disponível neste app. Nenhuma senha ou token EA é solicitado. Consulte [PLANO_INTEGRACAO_EAFC.md](PLANO_INTEGRACAO_EAFC.md) para o caminho de banco próprio, autenticação e integração autorizada.
 
 O código original segue a [licença proprietária](LICENSE) de Ricardo Zordan (Djow). As fotos mantêm suas licenças separadas. O [guia de publicação](docs/LICENCA_E_PUBLICACAO.md) descreve o que ainda falta para as lojas Android e iOS.
+
+## Referência visual EA SPORTS FC
+
+A interface usa como referência o site do jogo EA SPORTS FC: verde `#07F468`, carvão `#151616`, branco `#FAFAFA`, botões arredondados e composição editorial com fotografia e texto. As cores foram conferidas na página oficial em 29/09/2026. Grafismos e componentes da arena permanecem originais. Fonte: https://www.ea.com/pt-br/games/ea-sports-fc.

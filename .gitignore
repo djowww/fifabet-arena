@@ -6,3 +6,5 @@ node_modules/
 npm-debug.log*
 site-package*.tar.gz
 fifabet-hostinger.zip
+.fifabet-arena/
+backend/data/

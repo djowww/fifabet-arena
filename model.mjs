@@ -19,6 +19,7 @@ export const PEOPLE = [
   {id:'nina',name:'NinaFut',initials:'NF',color:'pink',online:true,level:6,tag:'Futebol até no controle',wins:15,trophies:4}
 ];
 export const COLORS = ['mint','violet','blue','amber','pink'];
+export const DUEL_MODES = ['1v1','Ultimate Team','Clubes'];
 export const GAME_PLATFORMS = [
   {id:'playstation',label:'PlayStation'},
   {id:'xbox',label:'Xbox'},
@@ -80,7 +81,7 @@ export const TROPHIES = [
 const stamp=()=>new Date().toISOString();
 const uid=()=>globalThis.crypto?.randomUUID?.() || `demo-${Date.now()}-${Math.random().toString(36).slice(2,9)}`;
 const copy=x=>JSON.parse(JSON.stringify(x));
-export const emptyState=()=>({version:6,activeProfileId:null,profiles:{},results:{},legacyArchive:[]});
+export const emptyState=()=>({version:7,activeProfileId:null,profiles:{},results:{},duels:{},legacyArchive:[]});
 export const current=s=>Object.hasOwn(s.profiles,s.activeProfileId)?s.profiles[s.activeProfileId]:null;
 export const points=n=>Number(n||0).toLocaleString('pt-BR');
 export const payout=(stake,odd)=>Math.round(stake*odd);
@@ -112,7 +113,20 @@ function gameAccount(value){
 }
 function profile(name,color='mint'){
   const date=stamp();
-  return {id:uid(),nickname:name,color:COLORS.includes(color)?color:'mint',clubId:null,teamName:'',teamFlag:'green',avatarSticker:null,ownedStickers:[],gameAccount:null,createdAt:date,balance:1000,bets:[],transactions:[{id:uid(),ref:'welcome',kind:'bonus',label:'Boas-vindas à arena',amount:1000,date}],friends:[],requests:[{personId:'bia',direction:'in'}],challenges:[],favorites:[],reminders:[],achievements:{},visited:[],activity:[],unread:0};
+  return {id:uid(),publicPlayerId:'',nickname:name,color:COLORS.includes(color)?color:'mint',clubId:null,teamName:'',teamFlag:'green',avatarSticker:null,ownedStickers:[],gameAccount:null,createdAt:date,balance:1000,bets:[],transactions:[{id:uid(),ref:'welcome',kind:'bonus',label:'Boas-vindas à arena',amount:1000,date}],friends:[],requests:[{personId:'bia',direction:'in'}],challenges:[],favorites:[],reminders:[],achievements:{},visited:[],activity:[],unread:0};
+}
+function playerCode(id,salt=0){
+  let hash=2166136261;for(const c of `${id}:${salt}`)hash=Math.imul(hash^c.charCodeAt(0),16777619)>>>0;
+  return `FBA-${hash.toString(16).toUpperCase().padStart(8,'0')}`;
+}
+function ensurePlayerCode(s,p,preferred=''){
+  const used=new Set(Object.values(s.profiles).filter(v=>v.id!==p.id).map(v=>v.publicPlayerId));
+  if(/^FBA-[A-F0-9]{8}$/.test(preferred)&&!used.has(preferred)){p.publicPlayerId=preferred;return;}
+  let salt=0;while(used.has(playerCode(p.id,salt)))salt++;p.publicPlayerId=playerCode(p.id,salt);
+}
+export function findProfileByPlayerId(s,value){
+  const code=typeof value==='string'?value.trim().toUpperCase():'';
+  return /^FBA-[A-F0-9]{8}$/.test(code)?Object.values(s.profiles).find(p=>p.publicPlayerId===code)||null:null;
 }
 function activity(p,text,icon='bell'){
   p.activity.unshift({id:uid(),text,icon,date:stamp()});
@@ -124,24 +138,171 @@ function transaction(p,ref,kind,label,amount){
   p.balance+=amount;
   p.transactions.unshift({id:uid(),ref,kind,label,amount,date:stamp()});return true;
 }
-function awards(p){
-  const ready={welcome:true,favorite:p.favorites.length>0,firstbet:p.bets.length>0,winner:p.bets.some(b=>b.status==='won'),friend:p.friends.length>0,explorer:VIEWS.every(v=>p.visited.includes(v))};
+function awards(p,s=null){
+  const ownDuels=s?duelsForProfile(s,p.id):[];
+  const ready={welcome:true,favorite:p.favorites.length>0,firstbet:p.bets.length>0||ownDuels.length>0,winner:p.bets.some(b=>b.status==='won')||ownDuels.some(d=>d.status==='settled'&&d.winnerId===p.id),friend:p.friends.length>0||ownDuels.some(d=>d.acceptedAt),explorer:VIEWS.every(v=>p.visited.includes(v))};
   for(const t of TROPHIES)if(ready[t.id]&&!p.achievements[t.id]){p.achievements[t.id]=stamp();activity(p,`Troféu desbloqueado: ${t.name}`,'trophy');}
 }
 function requireProfile(s){const p=current(s);if(!p)throw Error('Entre em um perfil demo para continuar.');return p;}
 function person(id){if(!PEOPLE.some(p=>p.id===id))throw Error('Jogador não encontrado.');return PEOPLE.find(p=>p.id===id);}
+const DUEL_ACTIONS=['createDuel','acceptDuel','rejectDuel','cancelDuel','submitDuelResult','confirmDuelResult','disputeDuelResult','requestDuelCancel','confirmDuelCancel','withdrawDuelCancel'];
+const DUEL_OPEN=['invited','active','review','disputed'];
+export function duelsForProfile(s,profileId=s.activeProfileId){
+  return Object.values(s.duels||{}).filter(d=>d.creatorId===profileId||d.opponentId===profileId).sort((a,b)=>b.createdAt.localeCompare(a.createdAt));
+}
+export function duelOpponent(s,duel,profileId=s.activeProfileId){
+  if(!duel||![duel.creatorId,duel.opponentId].includes(profileId))return null;
+  return s.profiles[duel.creatorId===profileId?duel.opponentId:duel.creatorId]||null;
+}
+export function duelReservedPoints(s,profileId=s.activeProfileId){
+  return duelsForProfile(s,profileId).reduce((sum,d)=>sum+(DUEL_OPEN.includes(d.status)&&d.reservedBy.includes(profileId)?d.stake:0),0);
+}
+function requireDuel(s,p,id){
+  const d=Object.hasOwn(s.duels||{},id)?s.duels[id]:null;
+  if(!d||![d.creatorId,d.opponentId].includes(p.id))throw Error('Desafio não encontrado para este perfil.');
+  if(!Object.hasOwn(s.profiles,d.creatorId)||!Object.hasOwn(s.profiles,d.opponentId))throw Error('Os dois perfis precisam existir neste navegador.');
+  return d;
+}
+function duelAmount(d){
+  if(!Number.isSafeInteger(d.stake)||d.stake<10||d.stake>5000)throw Error('Quantidade de pontos do desafio inválida.');
+}
+function reserveDuel(p,d){
+  duelAmount(d);
+  const error=validStake(d.stake,p.balance);if(error)throw Error(error);
+  if(!transaction(p,`duel:${d.id}:reserve`,'duel-reserve',`Pontos reservados · ${d.mode}`,-d.stake))throw Error('Os pontos deste desafio já foram reservados.');
+  d.reservedBy.push(p.id);
+}
+function ensureDuelFunds(s,d){
+  duelAmount(d);
+  for(const id of d.reservedBy){
+    const p=s.profiles[id];
+    if(!p||!p.transactions.some(t=>t.ref===`duel:${d.id}:reserve`&&t.amount===-d.stake))throw Error('A reserva de pontos deste desafio não está íntegra.');
+    if(p.transactions.some(t=>[`duel:${d.id}:refund`,`duel:${d.id}:payout`].includes(t.ref)))throw Error('Os pontos deste desafio já foram devolvidos ou distribuídos.');
+  }
+}
+function releaseDuel(s,d,status){
+  ensureDuelFunds(s,d);
+  for(const id of d.reservedBy){
+    const p=s.profiles[id];transaction(p,`duel:${d.id}:refund`,'duel-refund',`Devolução · ${d.mode}`,d.stake);
+    activity(p,`Desafio ${status==='rejected'?'recusado':'cancelado'}: ${points(d.stake)} pontos devolvidos.`,'gamepad');
+  }
+  d.reservedBy=[];d.status=status;d.closedAt=stamp();d.cancelRequestedBy=null;
+}
+function resultScore(value){
+  if(!['number','string'].includes(typeof value)||value===''||(typeof value==='string'&&!/^\d{1,2}$/.test(value))||!Number.isSafeInteger(Number(value))||Number(value)<0||Number(value)>99)throw Error('Informe o placar dos dois jogadores com números de 0 a 99.');
+  return Number(value);
+}
+function changeDuel(s,p,action,data){
+  s.duels||={};
+  if(action==='createDuel'){
+    const operationId=text(data.operationId,80);
+    if(operationId&&Object.values(s.duels).some(d=>d.creatorId===p.id&&d.operationId===operationId))return;
+    if(!Object.hasOwn(s.profiles,data.opponentId)||data.opponentId===p.id)throw Error('Escolha outro perfil real cadastrado neste navegador.');
+    const opponent=s.profiles[data.opponentId];
+    if(Object.values(s.duels).some(d=>DUEL_OPEN.includes(d.status)&&[d.creatorId,d.opponentId].includes(p.id)&&[d.creatorId,d.opponentId].includes(opponent.id)))throw Error('Já existe um desafio pendente entre esses dois perfis.');
+    if(Object.values(s.duels).length>=500)throw Error('Este navegador atingiu o limite de 500 desafios.');
+    const stake=Number(data.stake),error=validStake(data.stake,p.balance);if(error)throw Error(error);
+    if(stake>5000)throw Error('O máximo por desafio é 5.000 pontos.');
+    const mode=data.mode||'1v1';if(!DUEL_MODES.includes(mode))throw Error('Escolha um modo de jogo válido.');
+    const d={id:uid(),operationId,creatorId:p.id,opponentId:opponent.id,stake,mode,rules:text(data.rules,300).trim(),status:'invited',createdAt:stamp(),acceptedAt:'',reservedBy:[],report:null,reports:[],disputes:[],cancelRequestedBy:null,winnerId:null,settledAt:'',peerConfirmed:false,confirmedBy:null,moderation:null};
+    reserveDuel(p,d);s.duels[d.id]=d;
+    activity(p,`Convite para ${opponent.nickname}: ${points(stake)} pontos reservados.`,'gamepad');
+    activity(opponent,`${p.nickname} convidou você para ${mode} valendo ${points(stake)} pontos.`,'gamepad');return;
+  }
+  const d=requireDuel(s,p,data.id),other=duelOpponent(s,d,p.id);
+  if(action==='acceptDuel'){
+    if(p.id!==d.opponentId)throw Error('Somente o perfil convidado pode aceitar.');
+    if(d.status==='active')return;
+    if(d.status!=='invited')throw Error('Este convite não está mais pendente.');
+    ensureDuelFunds(s,d);reserveDuel(p,d);d.status='active';d.acceptedAt=stamp();
+    for(const member of [p,other]){activity(member,`Desafio aceito. ${points(d.stake*2)} pontos ficam reservados até a revisão da equipe.`,'gamepad');awards(member,s);}
+  }else if(action==='rejectDuel'||action==='cancelDuel'){
+    const expected=action==='rejectDuel'?d.opponentId:d.creatorId;
+    if(p.id!==expected)throw Error(action==='rejectDuel'?'Somente o perfil convidado pode recusar.':'Somente quem criou o convite pode cancelá-lo.');
+    const status=action==='rejectDuel'?'rejected':'cancelled';if(d.status===status)return;
+    if(d.status!=='invited')throw Error('Depois do aceite, o cancelamento precisa da concordância dos dois.');
+    releaseDuel(s,d,status);activity(p,action==='rejectDuel'?'Você recusou o desafio.':'Você cancelou o convite.','gamepad');
+  }else if(action==='submitDuelResult'){
+    if(!['active','disputed'].includes(d.status))throw Error('Envie um resultado de um desafio aceito ou em disputa.');
+    if(d.cancelRequestedBy)throw Error('Responda ao pedido de cancelamento antes de enviar o placar.');
+    const homeScore=resultScore(data.homeScore),awayScore=resultScore(data.awayScore);
+    if(!validEvidence(data.evidenceDataUrl))throw Error('Anexe uma foto válida do placar.');
+    if(d.reports.length>=20)throw Error('Limite de propostas atingido. Os dois perfis podem cancelar o desafio para recuperar os pontos.');
+    const report={id:uid(),submittedBy:p.id,homeScore,awayScore,winnerId:homeScore===awayScore?null:homeScore>awayScore?d.creatorId:d.opponentId,evidenceDataUrl:data.evidenceDataUrl,evidenceName:text(data.evidenceName,100)||'Foto do resultado',date:stamp()};
+    d.report=report;d.reports.push(report);d.status='review';d.confirmedBy=null;d.peerConfirmed=false;d.moderation=null;
+    activity(other,`${p.nickname} enviou o placar ${homeScore} × ${awayScore}. Confira a foto e confirme ou conteste.`,'shield');
+    activity(p,'Placar enviado. O rival pode conferir a foto; os pontos aguardam a revisão da equipe.','shield');
+  }else if(action==='confirmDuelResult'){
+    if(!d.report||data.reportId!==d.report.id)throw Error('O resultado mudou. Abra a proposta atual antes de confirmar.');
+    if(p.id===d.report.submittedBy)throw Error('O outro perfil precisa confirmar o placar. Você não pode aprovar sua própria proposta.');
+    if(['review','settled'].includes(d.status)&&d.peerConfirmed&&d.confirmedBy===p.id)return;
+    if(d.status!=='review')throw Error('Não há um resultado aguardando confirmação.');
+    if(d.cancelRequestedBy)throw Error('Responda ao pedido de cancelamento antes de confirmar o placar.');
+    if(d.reservedBy.length!==2||![d.creatorId,d.opponentId].every(id=>d.reservedBy.includes(id)))throw Error('Os dois perfis precisam ter reservado seus pontos.');
+    ensureDuelFunds(s,d);
+    d.peerConfirmed=true;d.confirmedBy=p.id;
+    for(const member of [p,other])activity(member,'Os dois perfis concordaram com o placar. Os pontos continuam reservados: este modo local não tem uma equipe de revisão conectada.','shield');
+  }else if(action==='disputeDuelResult'){
+    if(d.status!=='review'||!d.report||data.reportId!==d.report.id)throw Error('Abra o resultado atual antes de contestar.');
+    if(p.id===d.report.submittedBy)throw Error('Somente o outro perfil pode contestar esta proposta.');
+    const reason=text(data.reason,300).trim();if(reason.length<8)throw Error('Explique a divergência em pelo menos 8 caracteres.');
+    if(!validEvidence(data.evidenceDataUrl))throw Error('Anexe uma foto válida para contestar o resultado.');
+    d.disputes.push({id:uid(),reportId:d.report.id,by:p.id,reason,evidenceDataUrl:data.evidenceDataUrl,evidenceName:text(data.evidenceName,100)||'Foto da contestação',date:stamp()});
+    d.status='disputed';d.peerConfirmed=false;d.confirmedBy=null;activity(p,'Resultado contestado. Os pontos continuam reservados até revisão ou cancelamento pelos dois.','shield');
+    activity(other,`${p.nickname} contestou o placar. Confira a foto e envie uma nova proposta ou combine o cancelamento.`,'shield');
+  }else if(action==='requestDuelCancel'){
+    if(!['active','review','disputed'].includes(d.status))throw Error('Este desafio não está disponível para cancelamento em acordo.');
+    if(d.cancelRequestedBy===p.id)return;
+    if(d.cancelRequestedBy)throw Error('O outro perfil já pediu o cancelamento. Confirme ou recuse esse pedido.');
+    d.cancelRequestedBy=p.id;activity(other,`${p.nickname} pediu o cancelamento. Confirme para devolver os pontos aos dois.`,'gamepad');
+  }else if(action==='confirmDuelCancel'){
+    if(d.status==='cancelled'&&d.cancelledBy?.includes(p.id))return;
+    if(!['active','review','disputed'].includes(d.status)||!d.cancelRequestedBy)throw Error('Não há um pedido de cancelamento pendente.');
+    if(d.cancelRequestedBy===p.id)throw Error('O outro perfil precisa confirmar o cancelamento.');
+    const requester=d.cancelRequestedBy;releaseDuel(s,d,'cancelled');d.cancelledBy=[requester,p.id];
+  }else if(action==='withdrawDuelCancel'){
+    if(!d.cancelRequestedBy||!['active','review','disputed'].includes(d.status))throw Error('Não há um pedido de cancelamento pendente.');
+    d.cancelRequestedBy=null;activity(other,`${p.nickname} retirou ou recusou o pedido de cancelamento. O desafio continua.`,'gamepad');
+  }
+}
+// Developer-only simulation. This is deliberately outside regular profile actions:
+// a static browser cannot authenticate a reviewer or authorize real payments.
+export function reviewDuelResult(input,data={},reviewContext={}){
+  if(reviewContext.demo!==true||reviewContext.reviewerId!=='demo-reviewer')throw Error('A revisão exige um contexto explícito de simulação. Use o backend para uma equipe autenticada.');
+  const s=copy(input),d=Object.hasOwn(s.duels||{},data.id)?s.duels[data.id]:null;
+  if(!d||!d.report||data.reportId!==d.report.id)throw Error('Resultado atual não encontrado para revisão.');
+  if(![null,d.creatorId,d.opponentId].includes(data.winnerId))throw Error('Informe um vencedor participante ou empate.');
+  if(d.status==='settled'){
+    if(d.winnerId!==data.winnerId)throw Error('Este desafio já foi liquidado com outro resultado.');
+    return s;
+  }
+  if(d.status!=='review'||!d.peerConfirmed)throw Error('Os dois perfis precisam concordar com o placar antes desta simulação de revisão.');
+  const reason=text(data.reason,300).trim();if(reason.length<8)throw Error('Registre o motivo da revisão em pelo menos 8 caracteres.');
+  if(d.reservedBy.length!==2||![d.creatorId,d.opponentId].every(id=>d.reservedBy.includes(id)))throw Error('As reservas dos dois participantes precisam estar íntegras.');
+  ensureDuelFunds(s,d);
+  if(data.winnerId){
+    const winner=s.profiles[data.winnerId];transaction(winner,`duel:${d.id}:payout`,'duel-payout',`Vitória revisada em simulação · ${d.mode}`,d.stake*2);
+  }else for(const id of d.reservedBy)transaction(s.profiles[id],`duel:${d.id}:refund`,'duel-refund',`Empate revisado em simulação · ${d.mode}`,d.stake);
+  d.status='settled';d.winnerId=data.winnerId;d.settledAt=stamp();d.reservedBy=[];
+  d.moderation={source:'local-demo',reviewerId:'demo-reviewer',reportId:d.report.id,reason,date:d.settledAt};
+  for(const id of [d.creatorId,d.opponentId]){
+    const member=s.profiles[id];activity(member,d.winnerId?`Simulação de revisão: ${s.profiles[d.winnerId].nickname} recebeu ${points(d.stake*2)} pontos.`:'Simulação de revisão: empate, pontos devolvidos aos dois.','flag');awards(member,s);
+  }
+  return s;
+}
 export function change(input,action,data={}){
   const s=copy(input);let p=current(s);
   if(action==='create'){
     const name=nickname(data.nickname);
     if(Object.values(s.profiles).some(x=>x.nickname.toLocaleLowerCase()===name.toLocaleLowerCase()))throw Error('Esse apelido já existe neste navegador. Use a aba Entrar para continuar.');
-    p=profile(name,data.color);s.profiles[p.id]=p;s.activeProfileId=p.id;activity(p,'Seu perfil demo está pronto. Você recebeu 1.000 pontos.','user');
+    p=profile(name,data.color);ensurePlayerCode(s,p);s.profiles[p.id]=p;s.activeProfileId=p.id;activity(p,'Seu perfil demo está pronto. Você recebeu 1.000 pontos.','user');
   }else if(action==='login'){
     if(!Object.hasOwn(s.profiles,data.id))throw Error('Perfil não encontrado.');s.activeProfileId=data.id;p=current(s);
   }else if(action==='logout'){s.activeProfileId=null;return s;}
   else {
     p=requireProfile(s);
     if(action==='visit'){if(VIEWS.includes(data.view)&&!p.visited.includes(data.view))p.visited.push(data.view);}
+    else if(DUEL_ACTIONS.includes(action)){changeDuel(s,p,action,data);}
     else if(action==='profile'){
       const name=nickname(data.nickname);
       if(Object.values(s.profiles).some(x=>x.id!==p.id&&x.nickname.toLocaleLowerCase()===name.toLocaleLowerCase()))throw Error('Esse apelido já está em uso neste navegador.');
@@ -246,7 +407,7 @@ export function change(input,action,data={}){
     else if(action==='readActivity'){p.unread=0;}
     else throw Error('Ação desconhecida.');
   }
-  if(p)awards(p);return s;
+  if(p)awards(p,s);return s;
 }
 const array=x=>Array.isArray(x)?x:[];
 const finite=(x,fallback=0)=>Number.isFinite(Number(x))?Number(x):fallback;
@@ -261,9 +422,46 @@ function normalizeBet(b){
   if(!b||!Number.isSafeInteger(b.stake)||b.stake<10||b.stake>1e9||!Number.isFinite(b.odd)||b.odd<=1||!Number.isSafeInteger(payout(b.stake,b.odd)))return null;
   return {id:text(String(b.id),80)||uid(),matchId:text(b.matchId,20),home:text(b.home,30),away:text(b.away,30),league:text(b.league),side:b.side==='away'?'away':'home',selection:text(b.selection,30),stake:b.stake,odd:b.odd,potential:payout(b.stake,b.odd),status:['pending','won','lost'].includes(b.status)?b.status:'pending',date:text(b.date,40)||stamp(),settledAt:text(b.settledAt,40)};
 }
+function normalizeDuelReport(r,d){
+  if(!r||!r.id||![d.creatorId,d.opponentId].includes(r.submittedBy)||!validEvidence(r.evidenceDataUrl))return null;
+  if(!Number.isSafeInteger(r.homeScore)||!Number.isSafeInteger(r.awayScore)||Math.min(r.homeScore,r.awayScore)<0||Math.max(r.homeScore,r.awayScore)>99)return null;
+  return {id:text(r.id,80),submittedBy:r.submittedBy,homeScore:r.homeScore,awayScore:r.awayScore,winnerId:r.homeScore===r.awayScore?null:r.homeScore>r.awayScore?d.creatorId:d.opponentId,evidenceDataUrl:r.evidenceDataUrl,evidenceName:text(r.evidenceName,100)||'Foto do resultado',date:text(r.date,40)};
+}
+function normalizeDuel(value,s){
+  if(!value||typeof value.id!=='string'||!value.id||['__proto__','constructor','prototype'].includes(value.id)||value.id.length>80)return null;
+  if(!Object.hasOwn(s.profiles,value.creatorId)||!Object.hasOwn(s.profiles,value.opponentId)||value.creatorId===value.opponentId)return null;
+  if(!Number.isSafeInteger(value.stake)||value.stake<10||value.stake>5000||!DUEL_MODES.includes(value.mode))return null;
+  if(![...DUEL_OPEN,'settled','rejected','cancelled'].includes(value.status))return null;
+  const d={id:value.id,operationId:text(value.operationId,80),creatorId:value.creatorId,opponentId:value.opponentId,stake:value.stake,mode:value.mode,rules:text(value.rules,300),status:value.status,createdAt:text(value.createdAt,40)||stamp(),acceptedAt:text(value.acceptedAt,40),reservedBy:[],report:null,reports:[],disputes:[],cancelRequestedBy:null,winnerId:null,settledAt:'',peerConfirmed:false,confirmedBy:null,moderation:null};
+  d.report=normalizeDuelReport(value.report,d);
+  d.reports=array(value.reports).map(r=>normalizeDuelReport(r,d)).filter(Boolean).slice(-20);
+  if(d.report&&!d.reports.some(r=>r.id===d.report.id))d.reports.push(d.report);
+  d.disputes=array(value.disputes).filter(r=>r&&[d.creatorId,d.opponentId].includes(r.by)&&validEvidence(r.evidenceDataUrl)).slice(-20).map(r=>({id:text(r.id,80),reportId:text(r.reportId,80),by:r.by,reason:text(r.reason,300),evidenceDataUrl:r.evidenceDataUrl,evidenceName:text(r.evidenceName,100),date:text(r.date,40)}));
+  if(['review','disputed'].includes(d.status)&&!d.report)d.status='active';
+  d.peerConfirmed=!!(d.report&&value.peerConfirmed&&[d.creatorId,d.opponentId].includes(value.confirmedBy)&&value.confirmedBy!==d.report.submittedBy);
+  d.confirmedBy=d.peerConfirmed?value.confirmedBy:null;
+  if(['active','review','disputed'].includes(d.status)&&[d.creatorId,d.opponentId].includes(value.cancelRequestedBy))d.cancelRequestedBy=value.cancelRequestedBy;
+  if(DUEL_OPEN.includes(d.status)){
+    const expected=d.status==='invited'?[d.creatorId]:[d.creatorId,d.opponentId];
+    // A stale active record with a payout or refund cannot distribute points twice.
+    for(const id of expected){
+      const p=s.profiles[id];
+      if(!p.transactions.some(t=>t.ref===`duel:${d.id}:reserve`&&t.amount===-d.stake)||p.transactions.some(t=>[`duel:${d.id}:refund`,`duel:${d.id}:payout`].includes(t.ref)))return null;
+    }
+    d.reservedBy=expected;
+  }
+  if(d.status==='settled'){
+    if(!d.report||!d.peerConfirmed||value.moderation?.source!=='local-demo'||value.moderation?.reviewerId!=='demo-reviewer'||value.moderation?.reportId!==d.report.id||![null,d.creatorId,d.opponentId].includes(value.winnerId))return null;
+    d.winnerId=value.winnerId;d.settledAt=text(value.settledAt,40);
+    d.moderation={source:'local-demo',reviewerId:'demo-reviewer',reportId:d.report.id,reason:text(value.moderation.reason,300),date:text(value.moderation.date,40)};
+  }
+  if(['cancelled','rejected'].includes(d.status))d.closedAt=text(value.closedAt,40);
+  if(d.status==='cancelled')d.cancelledBy=array(value.cancelledBy).filter(id=>[d.creatorId,d.opponentId].includes(id));
+  return d;
+}
 export function restore(raw,oldProfile=null,oldBets=null){
   const s=emptyState();let d;try{d=typeof raw==='string'?JSON.parse(raw):raw;}catch{}
-  if([2,3,4,5,6].includes(d?.version)&&d.profiles&&typeof d.profiles==='object'){
+  if([2,3,4,5,6,7].includes(d?.version)&&d.profiles&&typeof d.profiles==='object'){
     for(const value of Object.values(d.profiles).slice(0,50)){
       if(!value||typeof value.id!=='string'||!value.id||['__proto__','constructor','prototype'].includes(value.id)||typeof value.nickname!=='string'||!value.nickname.trim())continue;
       const p=profile(text(value.nickname,20),value.color);p.id=text(value.id,80);p.createdAt=text(value.createdAt,40)||stamp();p.balance=safeBalance(value.balance);
@@ -291,9 +489,12 @@ export function restore(raw,oldProfile=null,oldBets=null){
       p.visited=[...new Set(array(value.visited).filter(v=>VIEWS.includes(v)))];p.achievements={};
       for(const t of TROPHIES)if(typeof value.achievements?.[t.id]==='string')p.achievements[t.id]=text(value.achievements[t.id],40);
       p.activity=array(value.activity).filter(a=>a&&typeof a.text==='string').slice(0,100).map(a=>({id:text(a.id,80),text:text(a.text,220),icon:text(a.icon,20),date:text(a.date,40)}));p.unread=Math.max(0,Math.min(99,finite(value.unread)));
-      s.profiles[p.id]=p;
+      ensurePlayerCode(s,p,text(value.publicPlayerId,12));s.profiles[p.id]=p;
     }
-    s.version=6;s.activeProfileId=Object.hasOwn(s.profiles,d.activeProfileId)?d.activeProfileId:null;
+    s.version=7;s.activeProfileId=Object.hasOwn(s.profiles,d.activeProfileId)?d.activeProfileId:null;
+    for(const value of Object.values(d.duels||{}).slice(0,500)){
+      const duel=normalizeDuel(value,s);if(duel&&!Object.hasOwn(s.duels,duel.id))s.duels[duel.id]=duel;
+    }
     for(const m of MATCHES)if(['home','away'].includes(d.results?.[m.id]?.winner))s.results[m.id]={winner:d.results[m.id].winner,date:text(d.results[m.id].date,40)};
     s.legacyArchive=array(d.legacyArchive).map(normalizeBet).filter(Boolean);return s;
   }
@@ -305,7 +506,7 @@ export function restore(raw,oldProfile=null,oldBets=null){
     return normalizeBet({...b,id:`legacy-${b.id}`,matchId:m?.id||'',league:b.event,side:b.selection===b.away?'away':'home',odd:b.odds,date:stamp(),status:'pending'});
   }).filter(Boolean);
   if(old&&typeof old.nickname==='string'&&old.nickname.trim()){
-    const p=profile(text(old.nickname,20));p.id='legacy-profile';p.balance=safeBalance(old.balance);p.bets=bets;p.transactions=[{id:uid(),ref:'migration',kind:'migration',label:'Saldo do protótipo anterior',amount:p.balance,date:stamp()}];awards(p);s.profiles[p.id]=p;s.activeProfileId=p.id;
+    const p=profile(text(old.nickname,20));p.id='legacy-profile';ensurePlayerCode(s,p);p.balance=safeBalance(old.balance);p.bets=bets;p.transactions=[{id:uid(),ref:'migration',kind:'migration',label:'Saldo do protótipo anterior',amount:p.balance,date:stamp()}];awards(p);s.profiles[p.id]=p;s.activeProfileId=p.id;
   }else s.legacyArchive=bets;
   return s;
 }

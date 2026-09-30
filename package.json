@@ -2,11 +2,12 @@
   "name": "fifabet-arena",
   "version": "1.0.0",
   "private": true,
-  "description": "Protótipo front-end da FifaBet Arena",
+  "description": "FifaBet Arena: desafios entre amigos com contas, evidências e revisão de resultados",
   "type": "module",
   "scripts": {
-    "test": "node --test *.test.mjs",
-    "dev": "node serve.mjs"
+    "test": "node --test *.test.mjs backend/*.test.mjs",
+    "dev": "node serve.mjs",
+    "server": "node backend/server.mjs"
   },
   "engines": {
     "node": ">=18"

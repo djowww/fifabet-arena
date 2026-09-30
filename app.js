@@ -1,4 +1,4 @@
-import {STORAGE_KEY,VIEWS,MATCHES,PEOPLE,COLORS,TEAM_FLAGS,STICKERS,TROPHIES,GAME_PLATFORMS,CLUBS,clubById,findClub,emptyState,current,points,payout,validStake,change,restore} from './model.mjs?v=14';
+import {STORAGE_KEY,VIEWS,MATCHES,PEOPLE,COLORS,TEAM_FLAGS,STICKERS,TROPHIES,GAME_PLATFORMS,CLUBS,clubById,findClub,emptyState,current,points,payout,validStake,change,restore} from './model.mjs?v=15';
 import {renderFootballTrophies} from './football-trophies.mjs?v=10';
 import {renderRivalrySection} from './rivalry-section.mjs?v=11';
 const ATHLETES=[

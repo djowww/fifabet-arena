@@ -10,6 +10,10 @@ const files = new Map([
   ["/styles.css", ["styles.css", "text/css; charset=utf-8"]],
   ["/arena.css", ["arena.css", "text/css; charset=utf-8"]],
   ["/shop.css", ["shop.css", "text/css; charset=utf-8"]],
+  ["/profile.css", ["profile.css", "text/css; charset=utf-8"]],
+  ["/achievements.css", ["achievements.css", "text/css; charset=utf-8"]],
+  ["/clubs.mjs", ["clubs.mjs", "text/javascript; charset=utf-8"]],
+  ["/football-trophies.mjs", ["football-trophies.mjs", "text/javascript; charset=utf-8"]],
 ]);
 
 const server = createServer(async (request, response) => {
@@ -31,7 +35,10 @@ const server = createServer(async (request, response) => {
   const playerAsset = /^\/assets\/players\/[a-z0-9-]+\.jpg$/.test(pathname);
   const avatarAsset = /^\/assets\/avatars\/[a-z0-9-]+\.png$/.test(pathname);
   const signatureAsset = /^\/assets\/signatures\/[a-z0-9-]+\.svg$/.test(pathname);
-  const mime = playerAsset ? "image/jpeg" : avatarAsset ? "image/png" : signatureAsset ? "image/svg+xml" : null;
+  const clubAsset = /^\/assets\/clubs\/[a-z0-9-]+\.(svg|png|webp)$/.exec(pathname);
+  const trophyAsset = /^\/assets\/trophies\/[a-z0-9-]+\.svg$/.test(pathname);
+  const clubMime = clubAsset ? ({svg:"image/svg+xml",png:"image/png",webp:"image/webp"}[clubAsset[1]]) : null;
+  const mime = playerAsset ? "image/jpeg" : avatarAsset ? "image/png" : signatureAsset||trophyAsset ? "image/svg+xml" : clubMime;
   const file = files.get(pathname) || (mime ? [pathname.slice(1), mime] : null);
   if (!file) {
     response.writeHead(404, { "Cache-Control": "no-store" });

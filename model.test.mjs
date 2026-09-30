@@ -1,6 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import {emptyState,current,change,restore,validStake,payout,VIEWS,STICKERS} from './model.mjs';
+import {emptyState,current,change,restore,validStake,payout,VIEWS,STICKERS,CLUBS,clubById,findClub} from './model.mjs';
 const create=(name='Ricardo')=>change(emptyState(),'create',{nickname:name});
 const bet=(s,opts={})=>change(s,'bet',{matchId:'m1',side:'home',stake:100,operationId:'b1',...opts});
 
@@ -161,4 +161,61 @@ test('legacy migration preserves balance and history, orphan history is unassign
  let s=restore(null,old,bets);assert.equal(current(s).balance,720);assert.equal(current(s).bets[0].matchId,'m1');assert.equal(current(s).bets[0].side,'away');assert.equal(current(s).bets[0].potential,220);
  s=change(s,'settle',{matchId:'m1',winner:'away'});assert.equal(current(s).balance,940);
  for(const bad of [null,'null','{broken']){const archive=restore(null,bad,bets);assert.equal(current(archive),null);assert.equal(archive.legacyArchive.length,1);const later=change(archive,'create',{nickname:'New'});assert.equal(current(later).bets.length,0);assert.equal(later.legacyArchive.length,1);}
+});
+
+test('favorite club saves canonical identity, survives restore and can be explicitly cleared',()=>{
+ let s=create();const club=clubById('internacional');assert.ok(CLUBS.includes(club));
+ s=change(s,'profile',{nickname:'Ricardo',clubId:club.id,teamName:'Nome que não corresponde ao clube'});
+ assert.equal(current(s).clubId,club.id);assert.equal(current(s).teamName,club.name);
+ s=restore(JSON.stringify(s));assert.equal(current(s).clubId,club.id);assert.equal(current(s).teamName,club.name);
+ s=change(s,'profile',{nickname:'RicoFC'});assert.equal(current(s).clubId,club.id);
+ for(const clear of [null,'']){
+  s=change(s,'profile',{nickname:'RicoFC',clubId:'gremio'});
+  s=change(s,'profile',{nickname:'RicoFC',clubId:clear});s=restore(JSON.stringify(s));
+  assert.equal(current(s).clubId,null);assert.equal(current(s).teamName,'');
+ }
+ s=change(s,'profile',{nickname:'RicoFC',teamName:'  SAO PAULO FC  '});
+ assert.equal(current(s).clubId,'sao-paulo');assert.equal(current(s).teamName,'São Paulo');
+ assert.equal(findClub('bArCa')?.id,'barcelona');assert.equal(findClub('  GREMIO  ')?.id,'gremio');
+ assert.equal(findClub('Meu clube desconhecido'),null);
+});
+
+test('invalid club selections fail atomically and cannot inject untrusted catalog metadata',()=>{
+ let s=create();s=change(s,'profile',{nickname:'Ricardo',clubId:'internacional'});
+ const before=JSON.stringify(s);
+ for(const clubId of ['not-a-club','constructor','../crest.svg',123,{},undefined]){
+  assert.throws(()=>change(s,'profile',{nickname:'Renomeado',color:'pink',clubId,teamName:'Outro nome'}),/clube/i);
+  assert.equal(JSON.stringify(s),before);
+ }
+ s=change(s,'profile',{nickname:'Ricardo',clubId:'gremio',crest:'https://invalid.example/x.svg',colors:['unsafe'],source:'javascript:alert(1)'});
+ assert.equal(current(s).clubId,'gremio');assert.equal(current(s).teamName,'Grêmio');
+ for(const field of ['crest','colors','source'])assert.equal(current(s)[field],undefined);
+});
+
+test('club migration resolves legacy aliases and preserves custom names, financials and profile achievements',()=>{
+ let s=create();const first=s.activeProfileId;
+ s=bet(s);s=change(s,'settle',{matchId:'m1',winner:'home'});
+ s=change(s,'purchaseSticker',{id:'cristiano-ronaldo'});s=change(s,'favorite',{id:'m2'});s=change(s,'accept',{id:'bia'});
+ s=change(s,'saveGameAccount',{eaId:'RicardoFC',platform:'pc'});
+ for(const view of ['arena','friends','store'])s=change(s,'visit',{view});
+ s=change(s,'create',{nickname:'OutroPerfil'});const second=s.activeProfileId;
+ s=change(s,'purchaseSticker',{id:'nilo-raio'});
+ s=restore(JSON.stringify(s));
+ s.profiles[first].achievements.welcome='2026-09-01T12:00:00.000Z';
+ s.profiles[second].achievements.welcome='2026-09-02T12:00:00.000Z';
+ delete s.profiles[first].clubId;delete s.profiles[second].clubId;
+ s.profiles[first].teamName='  sAo   pAuLo FC  ';s.profiles[second].teamName='Minha Turma FC';
+ const retained=p=>({id:p.id,createdAt:p.createdAt,balance:p.balance,bets:p.bets,transactions:p.transactions,achievements:p.achievements,visited:p.visited,avatarSticker:p.avatarSticker,ownedStickers:p.ownedStickers,gameAccount:p.gameAccount,friends:p.friends,favorites:p.favorites});
+ const firstBefore=retained(s.profiles[first]),secondBefore=retained(s.profiles[second]);
+ for(const version of [2,3,4,5,6]){
+  const migrated=restore(JSON.stringify({...s,version}));
+  assert.equal(migrated.activeProfileId,second);assert.equal(migrated.profiles[first].clubId,'sao-paulo');assert.equal(migrated.profiles[first].teamName,'São Paulo');
+  assert.equal(migrated.profiles[second].clubId,null);assert.equal(migrated.profiles[second].teamName,'Minha Turma FC');
+  assert.deepEqual(retained(migrated.profiles[first]),firstBefore);assert.deepEqual(retained(migrated.profiles[second]),secondBefore);
+  const changed=change(migrated,'profile',{nickname:'OutroPerfil',clubId:'flamengo'});
+  assert.equal(changed.profiles[second].clubId,'flamengo');assert.equal(changed.profiles[first].clubId,'sao-paulo');
+  assert.deepEqual(retained(changed.profiles[first]),firstBefore);
+ }
+ const corrupt=JSON.parse(JSON.stringify(s));corrupt.profiles[second].clubId='unknown';
+ const recovered=restore(corrupt);assert.equal(recovered.profiles[second].clubId,null);assert.equal(recovered.profiles[second].teamName,'Minha Turma FC');
 });

@@ -1,0 +1,26 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 600 600" fill="none" role="img" aria-labelledby="title desc">
+  <title id="title">Taça Noites europeias</title><desc id="desc">Taça original de prata com alças altas, esfera facetada e pedestal escuro, inspirada no clima das grandes noites de copa do futebol europeu.</desc>
+  <defs>
+    <linearGradient id="silver" x1="184" y1="143" x2="411" y2="351" gradientUnits="userSpaceOnUse"><stop stop-color="#899799"/><stop offset=".17" stop-color="#F7FDFB"/><stop offset=".34" stop-color="#8E9FA0"/><stop offset=".5" stop-color="#EEF6F1"/><stop offset=".68" stop-color="#62797A"/><stop offset=".85" stop-color="#E3ECE8"/><stop offset="1" stop-color="#8A9C9A"/></linearGradient>
+    <linearGradient id="handles" x1="145" y1="107" x2="455" y2="281" gradientUnits="userSpaceOnUse"><stop stop-color="#9AAEB0"/><stop offset=".22" stop-color="#EBF4F2"/><stop offset=".54" stop-color="#819B9D"/><stop offset=".78" stop-color="#F3F9F3"/><stop offset="1" stop-color="#738B8D"/></linearGradient>
+    <linearGradient id="base" x1="207" y1="445" x2="397" y2="518" gradientUnits="userSpaceOnUse"><stop stop-color="#415051"/><stop offset=".43" stop-color="#151E1E"/><stop offset="1" stop-color="#485958"/></linearGradient>
+    <radialGradient id="ball" cx="0" cy="0" r="1" gradientTransform="translate(282 132) rotate(55) scale(92)"><stop stop-color="#F8FFFA"/><stop offset=".68" stop-color="#A2B7B5"/><stop offset="1" stop-color="#657D7C"/></radialGradient>
+    <filter id="shadow" x="-.3" y="-.2" width="1.6" height="1.5"><feDropShadow dx="0" dy="14" stdDeviation="13" flood-color="#000" flood-opacity=".36"/></filter>
+  </defs>
+  <ellipse cx="300" cy="541" rx="140" ry="17" fill="#000" opacity=".27"/>
+  <g filter="url(#shadow)">
+    <path d="M219 162C185 112 130 109 131 163C132 211 180 237 206 276M381 162C415 112 470 109 469 163C468 211 420 237 394 276" stroke="url(#handles)" stroke-width="19" stroke-linecap="round"/>
+    <path d="M211 155C183 120 146 119 143 146M389 155C417 120 454 119 457 146" stroke="#FAFFFA" stroke-width="3" stroke-linecap="round" opacity=".72"/>
+    <path d="M199 174H401L388 296C384 336 343 370 300 370C257 370 216 336 212 296Z" fill="url(#silver)" stroke="#D2E0DB" stroke-width="2"/>
+    <ellipse cx="300" cy="173" rx="101" ry="13" fill="#A3B7B4" stroke="#F5FFF7" stroke-width="3"/><ellipse cx="300" cy="171" rx="88" ry="7" fill="#5E7675"/>
+    <path d="M222 192L233 290C237 320 259 345 280 352" stroke="#FAFFF9" stroke-width="8" stroke-linecap="round" opacity=".6"/>
+    <path d="M376 194L367 289C364 313 350 335 331 348" stroke="#597475" stroke-width="5" stroke-linecap="round" opacity=".55"/>
+    <path d="M276 366H324L332 410H268Z" fill="url(#silver)"/><path d="M257 410H343L357 444H243Z" fill="url(#handles)"/>
+    <path d="M214 445H386V502H214Z" fill="url(#base)" stroke="#7C9C93" stroke-width="2"/><path d="M202 502H398V525H202Z" fill="#283B34" stroke="#9DB9AA" stroke-width="2"/>
+    <rect x="249" y="461" width="102" height="27" rx="3" fill="url(#silver)"/><path d="M265 472H335M282 480H318" stroke="#55746C" stroke-width="2" opacity=".7"/>
+    <circle cx="300" cy="134" r="64" fill="url(#ball)" stroke="#D9E8E2" stroke-width="2"/>
+    <path d="M300 102L324 120L315 148H285L276 120Z" fill="#667D7A"/><path d="M300 102V70M276 120L245 109M324 120L355 109M315 148L336 177M285 148L264 177M245 109L255 89L275 75M355 109L345 89L325 75M264 177L283 194H317L336 177" stroke="#718D86" stroke-width="3"/>
+    <path d="M250 115C256 96 268 83 283 77" stroke="#F5FFF7" stroke-width="5" stroke-linecap="round" opacity=".8"/>
+    <path d="M300 240L307 253L322 255L311 266L314 281L300 274L286 281L289 266L278 255L293 253Z" stroke="#F1FAED" stroke-width="3" opacity=".75"/>
+  </g>
+</svg>

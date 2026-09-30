@@ -1,0 +1,25 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 600 600" fill="none" role="img" aria-labelledby="title desc">
+  <title id="title">Medalha Camisa 10</title><desc id="desc">Medalha original de prata, com uma camisa 10 em relevo, inspirada nos meias e nas tradições do futebol brasileiro e europeu.</desc>
+  <defs>
+    <linearGradient id="metal" x1="173" y1="250" x2="433" y2="496" gradientUnits="userSpaceOnUse"><stop stop-color="#EAF1F0"/><stop offset=".23" stop-color="#919E9B"/><stop offset=".46" stop-color="#F7FCF9"/><stop offset=".63" stop-color="#7A8984"/><stop offset=".86" stop-color="#DFE6E0"/><stop offset="1" stop-color="#8B9791"/></linearGradient>
+    <radialGradient id="face" cx="0" cy="0" r="1" gradientTransform="translate(266 299) rotate(43) scale(187)"><stop stop-color="#DCE7E1"/><stop offset=".64" stop-color="#81988B"/><stop offset="1" stop-color="#52695C"/></radialGradient>
+    <linearGradient id="ribbon" x1="236" y1="65" x2="341" y2="267" gradientUnits="userSpaceOnUse"><stop stop-color="#262E2A"/><stop offset=".52" stop-color="#637169"/><stop offset="1" stop-color="#151E18"/></linearGradient>
+    <filter id="shadow" x="-.3" y="-.2" width="1.6" height="1.5"><feDropShadow dx="0" dy="12" stdDeviation="12" flood-color="#000" flood-opacity=".32"/></filter>
+  </defs>
+  <ellipse cx="300" cy="518" rx="132" ry="15" fill="#000" opacity=".24"/>
+  <g filter="url(#shadow)">
+    <path d="M180 60H255L334 242L301 282L260 263Z" fill="url(#ribbon)"/><path d="M345 60H420L339 265L300 282L266 242Z" fill="url(#ribbon)"/>
+    <path d="M207 60H223L312 261L297 269Z" fill="#07F468"/><path d="M377 60H393L312 269L297 261Z" fill="#07F468"/>
+    <path d="M253 70L319 226M351 70L283 226" stroke="#9AB9A5" stroke-width="3" opacity=".5"/>
+    <ellipse cx="300" cy="277" rx="21" ry="25" stroke="url(#metal)" stroke-width="10"/>
+    <circle cx="300" cy="378" r="122" fill="url(#metal)" stroke="#D9E4DD" stroke-width="2"/>
+    <circle cx="300" cy="378" r="107" fill="url(#face)" stroke="#E6F2E9" stroke-width="2"/>
+    <circle cx="300" cy="378" r="96" stroke="#C8D5CC" stroke-width="2" stroke-dasharray="2 10"/>
+    <path d="M268 322L248 326L222 352L244 378L263 363V432H337V363L356 378L378 352L352 326L332 322C324 337 311 341 300 341C289 341 276 337 268 322Z" fill="url(#metal)" stroke="#51665A" stroke-width="3"/>
+    <path d="M267 322C271 339 284 351 300 351C316 351 329 339 333 322" stroke="#768C7D" stroke-width="3"/>
+    <path d="M274 370L287 361V407M274 407H299M316 365C300 365 300 406 316 406C332 406 332 365 316 365Z" stroke="#4E6757" stroke-width="7" stroke-linecap="round" stroke-linejoin="round"/>
+    <path d="M253 340L238 354L245 364M270 419H330" stroke="#FAFFF9" stroke-width="4" stroke-linecap="round" opacity=".7"/>
+    <path d="M274 460L284 444L294 460M306 460L316 444L326 460" stroke="#DDEBDD" stroke-width="3" stroke-linecap="round"/>
+    <path d="M213 326C221 309 235 295 251 287" stroke="#FAFFFA" stroke-width="5" stroke-linecap="round" opacity=".72"/>
+  </g>
+</svg>

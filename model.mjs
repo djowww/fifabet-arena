@@ -1,3 +1,5 @@
+import {CLUBS,clubById,findClub} from './clubs.mjs?v=10';
+export {CLUBS,clubById,findClub};
 export const STORAGE_KEY = 'fifabet:arena:v2';
 export const VIEWS = ['arena', 'friends', 'store', 'ranking', 'bets', 'trophies', 'wallet'];
 export const MATCHES = [
@@ -58,17 +60,17 @@ export const STICKERS = [
   {id:'breno-vale',player:'Breno Vale',club:'Sol do Norte FC',position:'GOLEIRO',rating:90,price:500,theme:'solar',signature:'B. Vale',kind:'fictional-demo',retired:true}
 ];
 export const TROPHIES = [
-  {id:'welcome',name:'Primeiro passo',description:'Crie seu perfil na arena.',icon:'flag',color:'mint'},
-  {id:'favorite',name:'Na torcida',description:'Salve uma partida nos favoritos.',icon:'star',color:'amber'},
-  {id:'firstbet',name:'Visão de jogo',description:'Registre seu primeiro palpite.',icon:'ticket',color:'blue'},
-  {id:'winner',name:'Bola na rede',description:'Conclua um palpite vencedor na simulação.',icon:'target',color:'mint'},
-  {id:'friend',name:'Joga junto',description:'Adicione seu primeiro amigo demo.',icon:'users',color:'pink'},
-  {id:'explorer',name:'Explorador',description:'Conheça as áreas principais da FifaBet.',icon:'compass',color:'violet'}
+  {id:'welcome',name:'Taça de estreia',description:'Crie seu perfil na arena.',icon:'flag',color:'mint'},
+  {id:'favorite',name:'Alma de arquibancada',description:'Salve uma partida demo nos favoritos.',icon:'star',color:'amber'},
+  {id:'firstbet',name:'Camisa 10',description:'Registre seu primeiro palpite na simulação.',icon:'ticket',color:'blue'},
+  {id:'winner',name:'Chuteira de ouro',description:'Conclua um palpite vencedor na simulação.',icon:'target',color:'mint'},
+  {id:'friend',name:'Clássico entre amigos',description:'Adicione seu primeiro amigo demo.',icon:'users',color:'pink'},
+  {id:'explorer',name:'Noites europeias',description:'Conheça as áreas principais da FifaBet.',icon:'compass',color:'violet'}
 ];
 const stamp=()=>new Date().toISOString();
 const uid=()=>globalThis.crypto?.randomUUID?.() || `demo-${Date.now()}-${Math.random().toString(36).slice(2,9)}`;
 const copy=x=>JSON.parse(JSON.stringify(x));
-export const emptyState=()=>({version:5,activeProfileId:null,profiles:{},results:{},legacyArchive:[]});
+export const emptyState=()=>({version:6,activeProfileId:null,profiles:{},results:{},legacyArchive:[]});
 export const current=s=>Object.hasOwn(s.profiles,s.activeProfileId)?s.profiles[s.activeProfileId]:null;
 export const points=n=>Number(n||0).toLocaleString('pt-BR');
 export const payout=(stake,odd)=>Math.round(stake*odd);
@@ -100,7 +102,7 @@ function gameAccount(value){
 }
 function profile(name,color='mint'){
   const date=stamp();
-  return {id:uid(),nickname:name,color:COLORS.includes(color)?color:'mint',teamName:'',teamFlag:'green',avatarSticker:null,ownedStickers:[],gameAccount:null,createdAt:date,balance:1000,bets:[],transactions:[{id:uid(),ref:'welcome',kind:'bonus',label:'Boas-vindas à arena',amount:1000,date}],friends:[],requests:[{personId:'bia',direction:'in'}],challenges:[],favorites:[],reminders:[],achievements:{},visited:[],activity:[],unread:0};
+  return {id:uid(),nickname:name,color:COLORS.includes(color)?color:'mint',clubId:null,teamName:'',teamFlag:'green',avatarSticker:null,ownedStickers:[],gameAccount:null,createdAt:date,balance:1000,bets:[],transactions:[{id:uid(),ref:'welcome',kind:'bonus',label:'Boas-vindas à arena',amount:1000,date}],friends:[],requests:[{personId:'bia',direction:'in'}],challenges:[],favorites:[],reminders:[],achievements:{},visited:[],activity:[],unread:0};
 }
 function activity(p,text,icon='bell'){
   p.activity.unshift({id:uid(),text,icon,date:stamp()});
@@ -134,7 +136,14 @@ export function change(input,action,data={}){
       const name=nickname(data.nickname);
       if(Object.values(s.profiles).some(x=>x.id!==p.id&&x.nickname.toLocaleLowerCase()===name.toLocaleLowerCase()))throw Error('Esse apelido já está em uso neste navegador.');
       p.nickname=name;if(COLORS.includes(data.color))p.color=data.color;
-      if(typeof data.teamName==='string')p.teamName=data.teamName.trim().slice(0,28);
+      if(Object.hasOwn(data,'clubId')){
+        const club=clubById(data.clubId);
+        if(data.clubId!==null&&data.clubId!==''&&!club)throw Error('Escolha um clube da lista.');
+        p.clubId=club?.id||null;p.teamName=club?.name||'';
+      }else if(typeof data.teamName==='string'){
+        p.teamName=data.teamName.trim().slice(0,50);const club=findClub(p.teamName);
+        p.clubId=club?.id||null;if(club)p.teamName=club.name;
+      }
       if(TEAM_FLAGS.some(flag=>flag.id===data.teamFlag))p.teamFlag=data.teamFlag;
     }else if(action==='saveGameAccount'){
       const id=eaId(data.eaId);
@@ -243,11 +252,13 @@ function normalizeBet(b){
 }
 export function restore(raw,oldProfile=null,oldBets=null){
   const s=emptyState();let d;try{d=typeof raw==='string'?JSON.parse(raw):raw;}catch{}
-  if([2,3,4,5].includes(d?.version)&&d.profiles&&typeof d.profiles==='object'){
+  if([2,3,4,5,6].includes(d?.version)&&d.profiles&&typeof d.profiles==='object'){
     for(const value of Object.values(d.profiles).slice(0,50)){
       if(!value||typeof value.id!=='string'||!value.id||['__proto__','constructor','prototype'].includes(value.id)||typeof value.nickname!=='string'||!value.nickname.trim())continue;
       const p=profile(text(value.nickname,20),value.color);p.id=text(value.id,80);p.createdAt=text(value.createdAt,40)||stamp();p.balance=safeBalance(value.balance);
-      p.teamName=text(value.teamName,28).trim();p.teamFlag=TEAM_FLAGS.some(flag=>flag.id===value.teamFlag)?value.teamFlag:'green';
+      p.teamName=text(value.teamName,50).trim();p.teamFlag=TEAM_FLAGS.some(flag=>flag.id===value.teamFlag)?value.teamFlag:'green';
+      const club=d.version<6||!Object.hasOwn(value,'clubId')?clubById(value.clubId)||findClub(p.teamName):clubById(value.clubId);
+      p.clubId=club?.id||null;if(club)p.teamName=club.name;
       p.ownedStickers=[...new Set(array(value.ownedStickers).filter(id=>STICKERS.some(item=>item.id===id)))];
       p.avatarSticker=p.ownedStickers.includes(value.avatarSticker)?value.avatarSticker:null;
       p.gameAccount=gameAccount(value.gameAccount);
@@ -271,7 +282,7 @@ export function restore(raw,oldProfile=null,oldBets=null){
       p.activity=array(value.activity).filter(a=>a&&typeof a.text==='string').slice(0,100).map(a=>({id:text(a.id,80),text:text(a.text,220),icon:text(a.icon,20),date:text(a.date,40)}));p.unread=Math.max(0,Math.min(99,finite(value.unread)));
       s.profiles[p.id]=p;
     }
-    s.version=5;s.activeProfileId=Object.hasOwn(s.profiles,d.activeProfileId)?d.activeProfileId:null;
+    s.version=6;s.activeProfileId=Object.hasOwn(s.profiles,d.activeProfileId)?d.activeProfileId:null;
     for(const m of MATCHES)if(['home','away'].includes(d.results?.[m.id]?.winner))s.results[m.id]={winner:d.results[m.id].winner,date:text(d.results[m.id].date,40)};
     s.legacyArchive=array(d.legacyArchive).map(normalizeBet).filter(Boolean);return s;
   }

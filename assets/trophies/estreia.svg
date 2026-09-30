@@ -1,0 +1,30 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 600 600" fill="none" role="img" aria-labelledby="title desc">
+  <title id="title">Taça de estreia da arena</title><desc id="desc">Taça original de metal dourado, bola de futebol e fitas verdes, inspirada nas copas do futebol brasileiro.</desc>
+  <defs>
+    <linearGradient id="gold" x1="185" y1="150" x2="400" y2="320" gradientUnits="userSpaceOnUse"><stop stop-color="#826023"/><stop offset=".19" stop-color="#FFE9A0"/><stop offset=".38" stop-color="#B58B35"/><stop offset=".53" stop-color="#F8DB78"/><stop offset=".73" stop-color="#A77A28"/><stop offset=".88" stop-color="#FFEAA6"/><stop offset="1" stop-color="#77551F"/></linearGradient>
+    <linearGradient id="stem" x1="250" y1="340" x2="353" y2="440" gradientUnits="userSpaceOnUse"><stop stop-color="#876423"/><stop offset=".35" stop-color="#FEEBB1"/><stop offset=".62" stop-color="#BD9B43"/><stop offset="1" stop-color="#866523"/></linearGradient>
+    <linearGradient id="base" x1="215" y1="440" x2="384" y2="520" gradientUnits="userSpaceOnUse"><stop stop-color="#383F3D"/><stop offset=".48" stop-color="#141918"/><stop offset="1" stop-color="#454D48"/></linearGradient>
+    <linearGradient id="ribbon" x1="130" y1="130" x2="207" y2="347" gradientUnits="userSpaceOnUse"><stop stop-color="#07F468"/><stop offset="1" stop-color="#067836"/></linearGradient>
+    <radialGradient id="ball" cx="0" cy="0" r="1" gradientTransform="translate(281 94) rotate(56) scale(83)"><stop stop-color="#FFF3C5"/><stop offset=".65" stop-color="#DDB45F"/><stop offset="1" stop-color="#836022"/></radialGradient>
+    <filter id="shadow" x="-.3" y="-.2" width="1.6" height="1.5"><feDropShadow dx="0" dy="14" stdDeviation="13" flood-color="#000" flood-opacity=".36"/></filter>
+  </defs>
+  <ellipse cx="301" cy="526" rx="135" ry="16" fill="#000" opacity=".28"/>
+  <g filter="url(#shadow)">
+    <path d="M197 185H130C109 185 102 201 106 223C113 269 153 296 220 301M403 185H470C491 185 498 201 494 223C487 269 447 296 380 301" stroke="url(#gold)" stroke-width="18"/>
+    <path d="M197 185H135C125 185 118 189 116 199M403 185H465C475 185 482 189 484 199" stroke="#FFF3BD" stroke-width="3" opacity=".7"/>
+    <path d="M163 169C139 205 167 248 144 338L173 322L192 340C209 272 179 213 188 176Z" fill="url(#ribbon)"/>
+    <path d="M437 169C461 205 433 248 456 338L427 322L408 340C391 272 421 213 412 176Z" fill="url(#ribbon)"/>
+    <path d="M182 162H418L398 262C389 308 349 348 300 348C251 348 211 308 202 262Z" fill="url(#gold)" stroke="#EDD08A" stroke-width="2"/>
+    <path d="M211 181L226 257C233 294 256 321 280 328" stroke="#FFF5CF" stroke-width="8" stroke-linecap="round" opacity=".58"/>
+    <path d="M386 178L374 254C369 280 355 304 337 321" stroke="#664518" stroke-width="5" stroke-linecap="round" opacity=".38"/>
+    <ellipse cx="300" cy="162" rx="118" ry="14" fill="#D7AF55" stroke="#FFE6A7" stroke-width="4"/><ellipse cx="300" cy="161" rx="102" ry="7" fill="#74531E"/>
+    <path d="M280 344H320L330 388H270Z" fill="url(#stem)"/><path d="M263 388H337L356 429H244Z" fill="url(#stem)"/>
+    <path d="M218 430H382V489H218Z" fill="url(#base)" stroke="#727966" stroke-width="2"/><path d="M207 489H393V510H207Z" fill="#222A26" stroke="#95926C" stroke-width="2"/>
+    <rect x="248" y="447" width="104" height="28" rx="3" fill="url(#gold)"/><path d="M265 458H335M278 466H322" stroke="#674719" stroke-width="2" opacity=".7"/>
+    <circle cx="300" cy="116" r="61" fill="url(#ball)" stroke="#F3DA9B" stroke-width="2"/>
+    <path d="M300 85L324 103L315 132H285L276 103Z" fill="#684D22" opacity=".68"/>
+    <path d="M276 103L250 95M324 103L350 95M315 132L332 153M285 132L268 153M300 85V57M250 95L261 74L278 65M350 95L339 74L322 65M268 153L289 174H311L332 153" stroke="#7B5B29" stroke-width="3" opacity=".62"/>
+    <path d="M251 96C256 79 268 67 282 62" stroke="#FFF7D5" stroke-width="5" stroke-linecap="round" opacity=".72"/>
+    <path d="M283 233L300 221L317 233L311 254H289Z" stroke="#FFF3BD" stroke-width="3" opacity=".84"/>
+  </g>
+</svg>

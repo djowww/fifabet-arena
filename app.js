@@ -1,4 +1,5 @@
-import {STORAGE_KEY,VIEWS,MATCHES,PEOPLE,COLORS,TEAM_FLAGS,STICKERS,TROPHIES,GAME_PLATFORMS,emptyState,current,points,payout,validStake,change,restore} from './model.mjs?v=9';
+import {STORAGE_KEY,VIEWS,MATCHES,PEOPLE,COLORS,TEAM_FLAGS,STICKERS,TROPHIES,GAME_PLATFORMS,CLUBS,clubById,findClub,emptyState,current,points,payout,validStake,change,restore} from './model.mjs?v=10';
+import {renderFootballTrophies} from './football-trophies.mjs?v=10';
 const ATHLETES=[
  {
   "name": "Erling Haaland",
@@ -69,7 +70,10 @@ function profileAvatar(p,size=''){
  return sticker?`<span class='avatar sticker-avatar ${sticker.theme} ${size}' role='img' aria-label='Figurinha demo de ${esc(sticker.player)}'><i class='portrait-hair'></i><i class='portrait-head'></i><i class='portrait-body'></i><b>${esc(initials(sticker.player))}</b></span>`:avatar(p?.nickname||p?.name||'FC',p?.color||'mint',size);
 }
 function teamBanner(p,compact=false){
+ const club=clubById(p?.clubId)||findClub(p?.teamName);
+ if(club)return `<div class='team-banner club-banner ${compact?'compact':''}' style='--club-primary:${club.colors[0]};--club-secondary:${club.colors[1]};--club-ink:${club.ink||'#ffffff'}'><img class='club-banner-watermark' src='${esc(club.crest)}' alt='' aria-hidden='true' width='130' height='130'><span class='club-banner-crest'><img src='${esc(club.crest)}' alt='Brasão do ${esc(club.name)}' width='68' height='68'></span><div><small>TIME DO CORAÇÃO</small><strong>${esc(club.name)}</strong><span>${esc(club.country)} · ${esc(club.shortName||club.name)}</span></div></div>`;
  const flag=TEAM_FLAGS.find(item=>item.id===p?.teamFlag)||TEAM_FLAGS[0],name=p?.teamName||'Escolha seu time';
+ if(!p?.teamName)return `<div class='team-banner club-banner-empty ${compact?'compact':''}'><span class='team-banner-badge'>${icon('shield')}</span><div><small>TIME DO CORAÇÃO</small><strong>Sua torcida começa aqui.</strong><span>Escolha um clube no perfil.</span></div></div>`;
  const badge=name.split(/\s+/).filter(Boolean).slice(0,2).map(word=>word[0]).join('').toUpperCase()||'FC';
  return `<div class='team-banner team-${flag.id} ${compact?'compact':''}'><span class='team-banner-badge' aria-hidden='true'>${esc(badge)}</span><div><small>TIME DO CORAÇÃO</small><strong>${esc(name)}</strong><span>${flag.name} · arte demonstrativa</span></div></div>`;
 }
@@ -225,8 +229,7 @@ function renderStore(){
  return heading('Loja da arena.','Caricaturas para dar personalidade ao seu perfil.',`<button class='btn secondary' data-route='wallet'>${icon('wallet')}${p?`${points(p.balance)} pts demo`:'Pontos demo'}</button>`)+(!p?guestBanner('Sua coleção começa aqui','Crie um perfil para obter avatares com pontos de demonstração.'):'')+`<section class='collection-banner'><div><p class='eyebrow'>ARENA COLLECTION / VOL. 01</p><h2>SEU ÍDOLO.<br><em>SUA IDENTIDADE.</em></h2><p>Escolha seu jogador, monte sua coleção e entre em campo com outro estilo.</p></div><div class='collection-banner-emblems' aria-hidden='true'>${tierEmblem('bronze')}${tierEmblem('silver')}${tierEmblem('gold')}</div></section><div class='collection-scale' aria-label='Categorias editoriais de reconhecimento'><span><i class='tier-dot tier-bronze'></i><strong>Bronze</strong>Em ascensão</span><span><i class='tier-dot tier-silver'></i><strong>Prata</strong>Reconhecimento internacional</span><span><i class='tier-dot tier-gold'></i><strong>Ouro</strong>Ícone global</span></div><div class='collection-toolbar'><div class='collection-filters' role='group' aria-label='Filtrar avatares'>${filters.map(([value,label])=>`<button data-action='storeFilter' data-value='${value}' aria-pressed='${ui.storeTier===value}'>${label}</button>`).join('')}</div><span>${owned.size} ${owned.size===1?'avatar':'avatares'} na coleção</span></div><div class='collectible-grid'>${filtered.length?filtered.map(card).join(''):empty('Sua coleção começa em campo.','Escolha uma categoria e obtenha seu primeiro avatar.')}</div>${legacy.length&&['all','owned'].includes(ui.storeTier)?`<section class='legacy-collection'><h2>Sua coleção original</h2><p class='meta'>Figurinhas das edições anteriores, preservadas no seu perfil.</p><div class='sticker-grid'>${legacy.map(card).join('')}</div></section>`:''}${p?.avatarSticker?`<button class='text-button collection-reset' data-action='defaultAvatar'>Usar iniciais no perfil</button>`:''}<div class='collection-notes'><p>${icon('info')}Compras usam pontos fictícios, sem cobrança real. As categorias são uma seleção editorial da arena, sem relação com as notas da EA.</p><p>Caricaturas ilustradas com IA e reproduções de assinaturas publicadas, com fonte consultável em cada cartão. Não são autógrafos personalizados ou certificados pelos atletas.</p></div>`;
 }
 function renderTrophies(){
- const p=current(state),count=Object.keys(p?.achievements||{}).length,l=level(p);
- return heading('Pequenas conquistas. Grandes histórias.','Explore a arena e complete sua coleção de troféus.')+(!p?guestBanner('Sua coleção começa com um perfil','Os troféus acompanham suas ações de demonstração.'):'')+`<section class='trophy-overview'><div class='trophy-large'>${icon('trophy')}</div><div class='grow'><p class='eyebrow' style='color:var(--purple)'>SEU CAMINHO NA ARENA</p><h2>${p?`Nível ${l.number} · ${count<2?'Novato da arena':count<4?'Olho no jogo':'Craque da comunidade'}`:'Colecione seus primeiros troféus'}</h2><p class='meta'>${p?`${l.xp} XP conquistados · ${200-l.progress} XP para o próximo nível`:'Cada conquista vale 100 XP de demonstração.'}</p><progress class='progress' max='200' value='${l.progress}' aria-label='Progresso do nível'></progress></div><div class='trophy-total'>${count}<span class='muted'>/6</span><small>TROFÉUS DESBLOQUEADOS</small></div></section><div class='trophy-grid'>${TROPHIES.map(t=>{const earned=p?.achievements[t.id],partial=t.id==='explorer'?(p?.visited.length||0):0,total=t.id==='explorer'?VIEWS.length:1;return `<article class='card trophy-card ${earned?'unlocked':'locked'}'><div class='between'><div class='trophy-icon'>${icon(t.icon)}</div><span class='meta'>100 XP</span></div><h3>${t.name}</h3><p>${t.description}</p><div class='trophy-status'>${icon(earned?'check':'lock')}<span>${earned?`Conquistado em ${date(earned)}`:t.id==='explorer'?`${partial} de ${VIEWS.length} áreas visitadas`:'Ainda por conquistar'}</span></div><progress class='progress' max='${total}' value='${earned?total:partial}' aria-label='Progresso: ${t.name}'></progress></article>`;}).join('')}</div>`;
+ return renderFootballTrophies({profile:current(state),level:level(current(state)),icon,esc,date});
 }
 function friendResults(){
  const p=current(state),search=ui.friendSearch.toLocaleLowerCase();
@@ -289,9 +292,35 @@ function finishLogin(){
  const after=ui.afterLogin;visit();closeDialog();render();toast('Perfil demo conectado. Bom jogo!');
  if(after)setTimeout(()=>{try{after();}catch(e){toast(e.message);}},0);
 }
+function clubPickerLabel(club,fallback=''){
+ return `${club?`<img src='${esc(club.crest)}' alt='' width='32' height='32'>`:`<span class='club-picker-placeholder'>${icon('shield')}</span>`}<span><strong>${esc(club?.name||fallback||'Escolha seu clube')}</strong><small>${esc(club?.country||'Clubes do Brasil e da Europa')}</small></span>${icon('down')}`;
+}
+const clubSearchText=value=>String(value||'').normalize('NFD').replace(/[\u0300-\u036f]/g,'').toLocaleLowerCase().trim();
+function clubOptions(search=''){
+ const query=clubSearchText(search),clubs=CLUBS.filter(club=>clubSearchText([club.name,club.shortName,club.country,...(club.aliases||[])].join(' ')).includes(query));
+ return ['Brasil','Europa'].map(region=>{
+  const group=clubs.filter(club=>(club.country==='Brasil'?'Brasil':'Europa')===region);
+  return group.length?`<div class='club-options-group' role='group' aria-label='${region}'><p>${region}</p>${group.map(club=>`<button type='button' role='option' aria-selected='${ui.profileClubId===club.id}' data-action='selectClub' data-id='${club.id}'><img src='${esc(club.crest)}' alt='' width='30' height='30' loading='lazy'><span><strong>${esc(club.name)}</strong><small>${esc(club.country)}</small></span>${ui.profileClubId===club.id?icon('check'):''}</button>`).join('')}</div>`:'';
+ }).join('')||`<p class='club-search-empty'>Nenhum clube encontrado. Tente outro nome.</p>`;
+}
+function toggleClubPicker(open){
+ const panel=$('clubPickerPanel'),button=$('heartClub');if(!panel||!button)return;
+ panel.hidden=!open;button.setAttribute('aria-expanded',String(open));
+ if(open)$('clubSearch')?.focus();else button.focus();
+}
+function selectHeartClub(id){
+ const club=clubById(id);if(id&&!club)return;
+ ui.profileClubId=club?.id||'';ui.profileClubChanged=true;
+ $('profileClubId').value=ui.profileClubId;$('heartClub').innerHTML=clubPickerLabel(club);
+ $('heartClub').setAttribute('aria-label',`Time do coração: ${club?.name||'selecionar clube'}`);
+ $('teamPreview').innerHTML=teamBanner({...current(state),clubId:club?.id||null,teamName:club?.name||''},true);
+ $('clubResults').innerHTML=clubOptions($('clubSearch').value);toggleClubPicker(false);
+ $('teamPreview').scrollIntoView({block:'nearest',behavior:'smooth'});
+}
 function showProfile(){
  const p=current(state);if(!p){showAuth();return;}ui.color=p.color;
- showDialog('Seu perfil','Personalize sua bandeira e seu avatar.',`<div class='profile-summary'>${profileAvatar(p,'large')}<div><h3>${esc(p.nickname)}</h3><p class='meta'>Nível ${level(p).number} · ${Object.keys(p.achievements).length} troféus</p><span class='pill subtle'>PERFIL LOCAL</span></div></div><div id='teamPreview'>${teamBanner(p,true)}</div><form data-form='profile'><label class='form-label' for='editNickname'>Apelido</label><input class='form-input' id='editNickname' name='nickname' value='${esc(p.nickname)}' required minlength='2' maxlength='20'><label class='form-label' for='teamName'>Time do coração</label><input class='form-input' id='teamName' name='teamName' value='${esc(p.teamName||'')}' maxlength='28' placeholder='Ex.: meu time favorito'><label class='form-label' for='teamFlag'>Estilo da bandeira de fundo</label><select class='form-input' id='teamFlag' name='teamFlag'>${TEAM_FLAGS.map(flag=>`<option value='${flag.id}' ${p.teamFlag===flag.id?'selected':''}>${flag.name}</option>`).join('')}</select><p class='form-help'>Use o nome do seu time; os padrões de fundo são estilos genéricos, sem escudos oficiais.</p>${colorsHTML()}<button class='btn primary wide' type='submit'>${icon('check')}Salvar perfil</button></form>${gameAccountCard(p)}<button class='btn secondary wide' data-route='loja' style='margin-top:12px'>${icon('store')}Abrir loja e coleção</button><div class='divider'></div><div class='action-grid'><button class='btn secondary' data-action='switchProfile'>Trocar perfil</button><button class='btn secondary' data-action='logout'>${icon('logout')}Sair</button></div>`,'profile');
+ const club=clubById(p.clubId)||findClub(p.teamName);ui.profileClubId=club?.id||'';ui.profileClubChanged=false;ui.profileEditingId=p.id;
+ showDialog('Seu perfil','Seu time no peito. Sua história na arena.',`<div class='profile-summary'>${profileAvatar(p,'large')}<div><h3>${esc(p.nickname)}</h3><p class='meta'>Nível ${level(p).number} · ${Object.keys(p.achievements).length} troféus</p><span class='pill subtle'>PERFIL LOCAL</span></div></div><div id='teamPreview'>${teamBanner(p,true)}</div><form data-form='profile' data-profile-id='${esc(p.id)}'><label class='form-label' for='editNickname'>Apelido</label><input class='form-input' id='editNickname' name='nickname' value='${esc(p.nickname)}' required minlength='2' maxlength='20'><span class='form-label' id='heartClubLabel'>Time do coração</span><div class='club-picker'><input type='hidden' id='profileClubId' name='clubId' value='${esc(ui.profileClubId)}'><button type='button' id='heartClub' class='club-picker-button' data-action='toggleClubPicker' aria-haspopup='listbox' aria-expanded='false' aria-controls='clubPickerPanel' aria-label='Time do coração: ${esc(club?.name||'selecionar clube')}'>${clubPickerLabel(club,p.teamName)}</button><div id='clubPickerPanel' class='club-picker-panel' hidden><label class='club-search-label' for='clubSearch'>${icon('search')}<input id='clubSearch' type='search' placeholder='Buscar clube ou país' autocomplete='off' aria-label='Buscar clube ou país'></label><div id='clubResults' class='club-options' role='listbox' aria-label='Clubes disponíveis'>${clubOptions()}</div><button type='button' class='club-clear-button' data-action='selectClub' data-id=''>Sem clube no banner</button></div></div><p class='form-help'>Escolha um clube para ver suas cores e seu brasão no banner. ${!club&&p.teamName?'Seu nome de time anterior será preservado até você escolher outro.':''}</p><span class='form-label'>Cor das suas iniciais</span>${colorsHTML()}<button class='btn primary wide' type='submit'>${icon('check')}Salvar perfil</button></form>${gameAccountCard(p)}<button class='btn secondary wide' data-route='loja' style='margin-top:12px'>${icon('store')}Abrir loja e coleção</button><div class='divider'></div><div class='action-grid'><button class='btn secondary' data-action='switchProfile'>Trocar perfil</button><button class='btn secondary' data-action='logout'>${icon('logout')}Sair</button></div>`,'profile');
 }
 function showGameAccount(){
  const p=current(state);if(!p)return;
@@ -439,6 +468,8 @@ document.addEventListener('click',event=>{
    case 'color':ui.color=button.dataset.color;document.querySelectorAll('.color-choice').forEach(el=>{el.classList.toggle('active',el.dataset.color===ui.color);el.setAttribute('aria-pressed',String(el.dataset.color===ui.color));});break;
    case 'login':commit('login',{id});finishLogin();break;
    case 'profile':showProfile();break;
+   case 'toggleClubPicker':toggleClubPicker($('clubPickerPanel').hidden);break;
+   case 'selectClub':selectHeartClub(id);break;
    case 'gameAccount':withProfile(showGameAccount);break;
    case 'selectMode':if(['1v1','Ultimate Team','Clubes'].includes(value)){ui.challengeMode=value;go('amigos');toast('Modo '+value+' selecionado. Escolha seu amigo para desafiar.');}break;
    case 'unlinkGameAccount':commit('unlinkGameAccount',{profileId:button.dataset.profileId});render();showGameAccount();toast('EA ID removido deste perfil.');break;
@@ -497,12 +528,22 @@ document.addEventListener('click',event=>{
 document.addEventListener('input',event=>{
  if(event.target.matches('[data-stake]')){ui.stake=event.target.value;syncStake();}
  if(event.target.id==='friendSearch'){ui.friendSearch=event.target.value;$('friendGrid').innerHTML=friendResults();}
- if(event.target.id==='teamName'&&current(state))$('teamPreview').innerHTML=teamBanner({...current(state),teamName:event.target.value},true);
+ if(event.target.id==='clubSearch')$('clubResults').innerHTML=clubOptions(event.target.value);
+});
+document.addEventListener('keydown',event=>{
+ if(ui.modalKind!=='profile')return;
+ const panel=$('clubPickerPanel');if(!panel)return;
+ if(event.target.id==='heartClub'&&event.key==='ArrowDown'){event.preventDefault();toggleClubPicker(true);return;}
+ if(panel.hidden)return;
+ if(event.key==='Escape'){event.preventDefault();event.stopPropagation();toggleClubPicker(false);return;}
+ if(!['ArrowDown','ArrowUp'].includes(event.key))return;
+ const options=[...document.querySelectorAll('#clubResults [role=option]')];if(!options.length)return;
+ const index=options.indexOf(event.target);if(index<0&&event.target.id!=='clubSearch')return;
+ event.preventDefault();options[index<0?0:Math.max(0,Math.min(options.length-1,index+(event.key==='ArrowDown'?1:-1)))].focus();
 });
 document.addEventListener('change',event=>{
  if(event.target.id==='categoryFilter'){ui.category=event.target.value;$('matchGrid').innerHTML=matchList();}
  if(event.target.id==='walletFilter'){ui.walletFilter=event.target.value;render();}
- if(event.target.id==='teamFlag'&&current(state))$('teamPreview').innerHTML=teamBanner({...current(state),teamName:$('teamName').value,teamFlag:event.target.value},true);
  if(['challengeEvidence','fraudEvidence'].includes(event.target.id)){
   const file=event.target.files?.[0],preview=$('evidencePreview');
   if(file)preview.innerHTML=`<img src='${esc(URL.createObjectURL(file))}' alt='Prévia da foto selecionada'><span>${esc(file.name)}</span>`;
@@ -530,10 +571,14 @@ document.addEventListener('submit',async event=>{
   }
   const values=new FormData(form),data={nickname:values.get('nickname'),color:ui.color};
   if(form.dataset.form==='create'){commit('create',data);finishLogin();}
-  if(form.dataset.form==='profile'){data.teamName=values.get('teamName');data.teamFlag=values.get('teamFlag');commit('profile',data);closeDialog();render();toast('Perfil atualizado.');}
+  if(form.dataset.form==='profile'){
+   data.profileId=form.dataset.profileId||ui.profileEditingId;
+   if(ui.profileClubChanged||values.get('clubId'))data.clubId=values.get('clubId');
+   commit('profile',data);closeDialog();render();toast('Perfil atualizado.');
+  }
  }catch(error){reportError(error);}
 });
-$('modal').addEventListener('cancel',event=>{event.preventDefault();closeDialog();});
+$('modal').addEventListener('cancel',event=>{event.preventDefault();if(ui.modalKind==='profile'&&$('clubPickerPanel')&&!$('clubPickerPanel').hidden)toggleClubPicker(false);else closeDialog();});
 $('modal').addEventListener('click',event=>{if(event.target===$('modal')){const r=$('modal').getBoundingClientRect();if(event.clientX<r.left||event.clientX>r.right||event.clientY<r.top||event.clientY>r.bottom)closeDialog();}});
 window.addEventListener('hashchange',()=>{closeDialog();ui.view=routes[location.hash.slice(1)]||'arena';visit();render();window.scrollTo({top:0});$('screen').focus({preventScroll:true});});
 window.addEventListener('storage',event=>{

@@ -1,0 +1,26 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 600 600" fill="none" role="img" aria-labelledby="title desc">
+  <title id="title">Taça Clássico entre amigos</title><desc id="desc">Taça original de bronze e prata com duas alças, fitas verdes e bola em relevo, homenageando a amizade e a rivalidade dos clássicos.</desc>
+  <defs>
+    <linearGradient id="bronze" x1="197" y1="130" x2="419" y2="316" gradientUnits="userSpaceOnUse"><stop stop-color="#AF6F43"/><stop offset=".19" stop-color="#F6CFAB"/><stop offset=".39" stop-color="#A76E40"/><stop offset=".57" stop-color="#E5B98A"/><stop offset=".73" stop-color="#815030"/><stop offset=".88" stop-color="#F0CDA9"/><stop offset="1" stop-color="#865834"/></linearGradient>
+    <linearGradient id="silver" x1="190" y1="140" x2="405" y2="448" gradientUnits="userSpaceOnUse"><stop stop-color="#65746D"/><stop offset=".28" stop-color="#EBF2E7"/><stop offset=".47" stop-color="#92A497"/><stop offset=".65" stop-color="#F8FAED"/><stop offset="1" stop-color="#6B8071"/></linearGradient>
+    <linearGradient id="ribbon" x1="151" y1="164" x2="187" y2="317" gradientUnits="userSpaceOnUse"><stop stop-color="#07F468"/><stop offset="1" stop-color="#045F2D"/></linearGradient>
+    <linearGradient id="base" x1="213" y1="437" x2="386" y2="506" gradientUnits="userSpaceOnUse"><stop stop-color="#48534A"/><stop offset=".49" stop-color="#141C17"/><stop offset="1" stop-color="#3F4D43"/></linearGradient>
+    <filter id="shadow" x="-.3" y="-.2" width="1.6" height="1.5"><feDropShadow dx="0" dy="13" stdDeviation="13" flood-color="#000" flood-opacity=".35"/></filter>
+  </defs>
+  <ellipse cx="300" cy="527" rx="133" ry="17" fill="#000" opacity=".26"/>
+  <g filter="url(#shadow)">
+    <path d="M218 161C178 132 121 149 119 195C115 244 151 286 229 289M382 161C422 132 479 149 481 195C485 244 449 286 371 289" stroke="url(#silver)" stroke-width="20"/>
+    <path d="M209 155C176 138 139 151 131 180M391 155C424 138 461 151 469 180" stroke="#EDF5E7" stroke-width="3" opacity=".7"/>
+    <path d="M161 166C148 207 173 237 153 328L179 311L196 332C211 252 184 218 188 168Z" fill="url(#ribbon)"/>
+    <path d="M439 166C452 207 427 237 447 328L421 311L404 332C389 252 416 218 412 168Z" fill="url(#ribbon)"/>
+    <path d="M213 140H387L378 251C376 288 343 323 300 323C257 323 224 288 222 251Z" fill="url(#bronze)" stroke="#E4BC97" stroke-width="2"/>
+    <ellipse cx="300" cy="139" rx="87" ry="13" fill="#B98A62" stroke="#F1D3B3" stroke-width="3"/><ellipse cx="300" cy="138" rx="72" ry="6" fill="#754E33"/>
+    <path d="M232 158L239 248C242 279 260 300 281 308" stroke="#FFE3C4" stroke-width="7" stroke-linecap="round" opacity=".6"/>
+    <path d="M365 158L360 246C358 269 346 287 332 300" stroke="#644024" stroke-width="4" opacity=".5"/>
+    <circle cx="300" cy="231" r="41" fill="url(#silver)" stroke="#F1EDD5" stroke-width="2"/>
+    <path d="M300 208L317 221L311 240H289L283 221Z" fill="#75816E"/><path d="M300 208V191M283 221L262 214M317 221L338 214M289 240L278 263M311 240L322 263" stroke="#6F7D69" stroke-width="2"/>
+    <path d="M283 321H317L326 392H274Z" fill="url(#silver)"/><path d="M262 392H338L359 432H241Z" fill="url(#silver)"/>
+    <path d="M218 433H382V490H218Z" fill="url(#base)" stroke="#87917B" stroke-width="2"/><path d="M207 490H393V511H207Z" fill="#27332A" stroke="#BFA888" stroke-width="2"/>
+    <rect x="251" y="450" width="98" height="25" rx="3" fill="url(#bronze)"/><path d="M267 460H333M279 468H321" stroke="#71492B" stroke-width="2" opacity=".7"/>
+  </g>
+</svg>

@@ -7,14 +7,14 @@ Protótipo front-end de uma arena para desafiar amigos no EA SPORTS FC, combinar
 ## O que dá para explorar
 
 - Criar um perfil local com apelido e avatar.
-- Personalizar o perfil com o nome do time e uma bandeira de fundo estilizada.
+- Personalizar o perfil escolhendo entre 23 clubes brasileiros e europeus, com busca, prévia do brasão e fundo nas cores do time.
 - Comprar com pontos fictícios caricaturas de Cristiano Ronaldo, Bruno Fernandes e Senne Lammens, montar uma coleção e usar uma delas como avatar.
 - Explorar as categorias Ouro, Prata e Bronze e consultar as fontes das reproduções de assinaturas que acompanham as figurinhas.
 - Descobrir jogadores de exemplo, aceitar convites e montar uma lista de amigos.
 - Enviar um desafio de demonstração escolhendo modo de jogo e pontos simbólicos.
 - Simular o aceite do desafio e enviar uma foto do placar para deixar o resultado pendente de revisão.
 - Sinalizar suspeita de fraude com descrição e foto; resultados pendentes não contam no ranking.
-- Ver um ranking ilustrativo, histórico local e coleção de medalhas.
+- Ver um ranking ilustrativo, histórico local e uma sala de troféus com seis peças originais inspiradas na cultura do futebol brasileiro e europeu.
 - Cadastrar EA ID e plataforma como referência **não verificada**, editar ou remover o cadastro.
 - Consultar partidas locais pelo histórico ou painel de EA ID.
 - Explorar a direção visual com fotos reais de Haaland, Alexia Putellas e Mbappé, com créditos acessíveis.
@@ -22,6 +22,29 @@ Protótipo front-end de uma arena para desafiar amigos no EA SPORTS FC, combinar
 - Acessar classificações, estatísticas de atletas e FC Pro nos canais oficiais da EA.
 
 Os perfis de oponentes, convites e números do ranking são demonstrativos. Os dados ficam no navegador; ainda não há contas compartilhadas, sincronização entre dispositivos, servidor de partidas ou apostas e pagamentos reais. As compras da loja descontam somente o saldo fictício local. Nos desafios, os pontos combinados não são transferidos, e nenhum ponto pode ser convertido em dinheiro.
+
+## Perfil e clube do coração
+
+A configuração do perfil permite buscar e selecionar um dos **23 clubes** do catálogo. A prévia mostra o brasão e as cores antes de salvar. O clube escolhido é persistido pelo seu identificador, permitindo recuperar a mesma identidade ao reabrir a arena. No Internacional, o vermelho `#E20613` foi extraído do próprio SVG publicado no site oficial.
+
+Os perfis anteriores são migrados para o esquema 6, preservando avatares, coleção, conquistas e nomes de time personalizados que já estavam salvos. O catálogo organiza os clubes conhecidos sem apagar a personalização anterior.
+
+Os brasões vêm de fontes oficiais documentadas; as cores de interface aproximam a identidade de cada clube. A origem de cada arquivo e as alterações estão em [assets/clubs/credits.json](assets/clubs/credits.json) e [fontes dos clubes](docs/CLUBES_FONTES.md), conferidas em 30/09/2026.
+
+## Sala de troféus
+
+As seis conquistas receberam taças, medalhas e uma chuteira desenhadas em SVG para a arena. A apresentação tem referências à arquibancada, à camisa 10, aos clássicos e às noites de copa do futebol brasileiro e europeu. São colecionáveis originais do aplicativo; não representam troféus oficiais ou vitórias em competições reais.
+
+| Peça | Critério preservado |
+| --- | --- |
+| Taça de estreia | Criar um perfil local. |
+| Alma de arquibancada | Salvar uma partida demo nos favoritos. |
+| Camisa 10 | Registrar o primeiro palpite na simulação demo. |
+| Chuteira de ouro | Concluir um palpite vencedor na simulação demo. |
+| Clássico entre amigos | Adicionar o primeiro amigo de demonstração. |
+| Noites europeias | Visitar as sete áreas principais da arena. |
+
+Os identificadores e as regras das seis conquistas foram mantidos, assim como os registros de quem já as desbloqueou. Resultados de palpites continuam simulados; a mudança visual não aprova resultados de desafios pendentes de revisão.
 
 ## Loja e coleção
 
@@ -57,7 +80,10 @@ Depois, acesse http://127.0.0.1:4173. Mantenha o terminal aberto enquanto usa a 
 ## Arquivos
 
 - `index.html`, `styles.css`, `arena.css`, `shop.css`, `app.js` e `model.mjs` — aplicação estática servida pelo GitHub Pages.
+- `clubs.mjs` e `profile.css` — catálogo de clubes e apresentação da personalização de perfil.
+- `football-trophies.mjs` e `achievements.css` — sala de troféus e apresentação das seis conquistas.
 - `assets/avatars/`, `assets/signatures/` e `assets/players/` — caricaturas, reproduções de assinaturas e fotografias editoriais, com créditos separados.
+- `assets/clubs/` — brasões com manifesto de fontes; `assets/trophies/` — seis ilustrações SVG originais da arena.
 - `model.test.mjs` e `ui-flows.test.mjs` — testes das regras e dos fluxos da demonstração.
 - `package.json` — comandos do projeto, sem dependências externas.
 

@@ -1,0 +1,24 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 600 600" fill="none" role="img" aria-labelledby="title desc">
+  <title id="title">Chuteira de ouro da arena</title><desc id="desc">Escultura original de uma chuteira dourada com cadarços e travas sobre pedestal escuro, uma homenagem à artilharia do futebol.</desc>
+  <defs>
+    <linearGradient id="gold" x1="142" y1="203" x2="475" y2="398" gradientUnits="userSpaceOnUse"><stop stop-color="#A27524"/><stop offset=".18" stop-color="#FDEBB3"/><stop offset=".38" stop-color="#D0A849"/><stop offset=".51" stop-color="#FFE395"/><stop offset=".72" stop-color="#AC7B27"/><stop offset=".89" stop-color="#F8D57F"/><stop offset="1" stop-color="#76521A"/></linearGradient>
+    <linearGradient id="sole" x1="143" y1="348" x2="473" y2="392" gradientUnits="userSpaceOnUse"><stop stop-color="#98712A"/><stop offset=".26" stop-color="#ECD082"/><stop offset=".57" stop-color="#A87928"/><stop offset=".82" stop-color="#F6DD97"/><stop offset="1" stop-color="#936C23"/></linearGradient>
+    <linearGradient id="base" x1="140" y1="440" x2="461" y2="509" gradientUnits="userSpaceOnUse"><stop stop-color="#383F3C"/><stop offset=".43" stop-color="#141A17"/><stop offset="1" stop-color="#4A514B"/></linearGradient>
+    <filter id="shadow" x="-.3" y="-.2" width="1.6" height="1.5"><feDropShadow dx="0" dy="13" stdDeviation="13" flood-color="#000" flood-opacity=".35"/></filter>
+  </defs>
+  <ellipse cx="304" cy="527" rx="166" ry="18" fill="#000" opacity=".27"/>
+  <g filter="url(#shadow)">
+    <path d="M145 441H455V502H145Z" fill="url(#base)" stroke="#787864" stroke-width="2"/><path d="M132 502H468V520H132Z" fill="#28312A" stroke="#C0A363" stroke-width="2"/>
+    <rect x="244" y="459" width="112" height="28" rx="3" fill="url(#sole)"/><path d="M263 470H337M280 479H320" stroke="#795420" stroke-width="2" opacity=".7"/>
+    <path d="M259 396H283V442H259Z" fill="url(#sole)"/><path d="M355 386H379V442H355Z" fill="url(#sole)"/>
+    <path d="M145 243C153 220 175 199 199 193L221 226C243 226 260 236 277 251L345 303C370 321 405 321 446 329C470 334 485 347 479 363C473 380 446 387 412 389L180 369C152 366 131 350 131 325C131 294 139 267 145 243Z" fill="url(#gold)" stroke="#F1D183" stroke-width="3"/>
+    <path d="M157 226C170 215 183 210 198 211L219 241C196 249 178 256 155 251Z" fill="#735322" stroke="#DEBD74" stroke-width="3"/>
+    <path d="M133 322C156 346 194 348 224 351L420 365C447 367 466 362 481 352V370C470 389 439 396 411 395L178 377C151 375 133 363 130 348Z" fill="url(#sole)" stroke="#C39D4C" stroke-width="2"/>
+    <path d="M184 377V398L202 400L205 379M248 382V406L267 407L270 384M343 389V411L362 412L365 391M415 394V415L435 414L438 392" fill="url(#sole)" stroke="#9A742B" stroke-width="2"/>
+    <path d="M204 246C228 244 247 253 267 270L330 319L311 336C285 312 257 288 227 280Z" fill="#A77E32" opacity=".48"/>
+    <path d="M228 252L244 242M245 263L261 252M260 275L278 265M276 287L292 277M292 298L308 290" stroke="#FFF1BA" stroke-width="7" stroke-linecap="round"/>
+    <path d="M162 269C178 275 191 294 193 320M196 323C223 323 251 334 270 345M324 318C346 341 375 352 413 353" stroke="#865F22" stroke-width="3" opacity=".62"/>
+    <path d="M146 273C142 290 139 303 143 317M345 313C370 331 404 330 438 339" stroke="#FFF0B7" stroke-width="5" stroke-linecap="round" opacity=".7"/>
+    <path d="M223 291L247 314L223 315L207 303Z" fill="#EDD490" opacity=".76"/>
+  </g>
+</svg>

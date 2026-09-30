@@ -1,0 +1,535 @@
+{
+  "checkedAt": "2026-09-30",
+  "note": "Cores de interface aproximadas à identidade de cada clube. Fontes oficiais identificadas por sourceUrl e assetUrl; nenhum endosso presumido.",
+  "clubs": [
+    {
+      "id": "internacional",
+      "name": "Internacional",
+      "shortName": "Inter",
+      "country": "Brasil",
+      "colors": [
+        "#E20613",
+        "#FFFFFF"
+      ],
+      "crest": "assets/clubs/internacional.svg",
+      "sourceUrl": "https://internacional.com.br/",
+      "assetUrl": "https://internacional.com.br/img/sci.svg",
+      "checkedAt": "2026-09-30",
+      "dimensions": {
+        "width": 95,
+        "height": 95
+      },
+      "author": "Identidade visual do clube indicado; arquivo publicado na fonte oficial referenciada.",
+      "license": "Marca e identidade visual de terceiros. A publicação pública do arquivo não equivale a licença comercial ou endosso.",
+      "changes": [
+        "Metadados XML/comentários removidos; arquivo sem scripts ou referências externas."
+      ],
+      "sha256": "55885fac5c662416c6b3a9d495d5dd4cff8cc7c71bda4e131f209e03b744a868"
+    },
+    {
+      "id": "gremio",
+      "name": "Grêmio",
+      "shortName": "Grêmio",
+      "country": "Brasil",
+      "colors": [
+        "#0088CC",
+        "#101010"
+      ],
+      "crest": "assets/clubs/gremio.png",
+      "sourceUrl": "https://internacional.com.br/",
+      "assetUrl": "https://static.internacional.com.br/cms/assets/gremio_foot_ball_porto_alegrense_72acb530aa.png",
+      "checkedAt": "2026-09-30",
+      "dimensions": {
+        "width": 300,
+        "height": 300
+      },
+      "author": "Identidade visual do clube indicado; arquivo publicado na fonte oficial referenciada.",
+      "license": "Marca e identidade visual de terceiros. A publicação pública do arquivo não equivale a licença comercial ou endosso.",
+      "changes": [],
+      "sourceNote": "Brasão do clube reproduzido no calendário de jogos do site oficial do Internacional.",
+      "sha256": "43d5cbae465d8eb76b87aec8259d7dd07cf46550ba07692beb34c232ac3bab94"
+    },
+    {
+      "id": "flamengo",
+      "name": "Flamengo",
+      "shortName": "Flamengo",
+      "country": "Brasil",
+      "colors": [
+        "#C5262C",
+        "#111111"
+      ],
+      "crest": "assets/clubs/flamengo.png",
+      "sourceUrl": "https://www.flamengo.com.br/",
+      "assetUrl": "https://storage.googleapis.com/crf-strapi-media-hml/Flamengo_RJ_BRA_7224611566/Flamengo_RJ_BRA_7224611566.png",
+      "checkedAt": "2026-09-30",
+      "dimensions": {
+        "width": 773,
+        "height": 948
+      },
+      "author": "Identidade visual do clube indicado; arquivo publicado na fonte oficial referenciada.",
+      "license": "Marca e identidade visual de terceiros. A publicação pública do arquivo não equivale a licença comercial ou endosso.",
+      "changes": [],
+      "sha256": "1c84fd37ee1feecfecaea3547ef66108493c800022403f7f92d20d76bd36a3e5"
+    },
+    {
+      "id": "palmeiras",
+      "name": "Palmeiras",
+      "shortName": "Palmeiras",
+      "country": "Brasil",
+      "colors": [
+        "#006437",
+        "#FFFFFF"
+      ],
+      "crest": "assets/clubs/palmeiras.png",
+      "sourceUrl": "https://www.palmeiras.com.br/",
+      "assetUrl": "https://www.palmeiras.com.br/wp-content/themes/foursys-palmeiras/assets/images/logo-palmeiras-star.png",
+      "checkedAt": "2026-09-30",
+      "dimensions": {
+        "width": 320,
+        "height": 320
+      },
+      "author": "Identidade visual do clube indicado; arquivo publicado na fonte oficial referenciada.",
+      "license": "Marca e identidade visual de terceiros. A publicação pública do arquivo não equivale a licença comercial ou endosso.",
+      "changes": [],
+      "sha256": "673175b95d89a9844be0a07b4093b00bb9b12f0d2c067af25d8bbb554870bdb6"
+    },
+    {
+      "id": "corinthians",
+      "name": "Corinthians",
+      "shortName": "Corinthians",
+      "country": "Brasil",
+      "colors": [
+        "#181818",
+        "#FFFFFF"
+      ],
+      "crest": "assets/clubs/corinthians.png",
+      "sourceUrl": "https://internacional.com.br/",
+      "assetUrl": "https://static.internacional.com.br/cms/assets/sport_club_corinthians_paulista_c5fd3b8bbe.png",
+      "checkedAt": "2026-09-30",
+      "dimensions": {
+        "width": 300,
+        "height": 300
+      },
+      "author": "Identidade visual do clube indicado; arquivo publicado na fonte oficial referenciada.",
+      "license": "Marca e identidade visual de terceiros. A publicação pública do arquivo não equivale a licença comercial ou endosso.",
+      "changes": [],
+      "sourceNote": "Brasão do clube reproduzido no calendário de jogos do site oficial do Internacional.",
+      "sha256": "b8b75c29138c5a5ecb15ecb60cae0a6642a8549a54be9fd63d39423d60ce5c9e"
+    },
+    {
+      "id": "sao-paulo",
+      "name": "São Paulo",
+      "shortName": "São Paulo",
+      "country": "Brasil",
+      "colors": [
+        "#C71924",
+        "#FFFFFF"
+      ],
+      "crest": "assets/clubs/sao-paulo.png",
+      "sourceUrl": "https://www.saopaulofc.net/",
+      "assetUrl": "https://www.saopaulofc.net/wp-content/themes/spfc2022/assets/img/favicon/android-icon-192x192.png",
+      "checkedAt": "2026-09-30",
+      "dimensions": {
+        "width": 192,
+        "height": 192
+      },
+      "author": "Identidade visual do clube indicado; arquivo publicado na fonte oficial referenciada.",
+      "license": "Marca e identidade visual de terceiros. A publicação pública do arquivo não equivale a licença comercial ou endosso.",
+      "changes": [],
+      "sha256": "6908f8315504d12ffe432870e8e8aff592916a17c7436171b8fad491440c1fba"
+    },
+    {
+      "id": "santos",
+      "name": "Santos",
+      "shortName": "Santos",
+      "country": "Brasil",
+      "colors": [
+        "#202020",
+        "#FFFFFF"
+      ],
+      "crest": "assets/clubs/santos.png",
+      "sourceUrl": "https://www.santosfc.com.br/",
+      "assetUrl": "https://media.santosfc.com.br/wp-content/uploads/2024/04/EscudoSantosVetor.png",
+      "checkedAt": "2026-09-30",
+      "dimensions": {
+        "width": 1000,
+        "height": 1000
+      },
+      "author": "Identidade visual do clube indicado; arquivo publicado na fonte oficial referenciada.",
+      "license": "Marca e identidade visual de terceiros. A publicação pública do arquivo não equivale a licença comercial ou endosso.",
+      "changes": [],
+      "sha256": "fd376fab20ea8c2ab16ecc85bfa02caba5c75b61b25e8bdb52980748668e2c8d"
+    },
+    {
+      "id": "vasco",
+      "name": "Vasco da Gama",
+      "shortName": "Vasco",
+      "country": "Brasil",
+      "colors": [
+        "#161616",
+        "#FFFFFF"
+      ],
+      "crest": "assets/clubs/vasco.png",
+      "sourceUrl": "https://internacional.com.br/",
+      "assetUrl": "https://static.internacional.com.br/cms/assets/club_regatas_vasco_gama_854ca776d9.png",
+      "checkedAt": "2026-09-30",
+      "dimensions": {
+        "width": 300,
+        "height": 300
+      },
+      "author": "Identidade visual do clube indicado; arquivo publicado na fonte oficial referenciada.",
+      "license": "Marca e identidade visual de terceiros. A publicação pública do arquivo não equivale a licença comercial ou endosso.",
+      "changes": [],
+      "sourceNote": "Brasão do clube reproduzido no calendário de jogos do site oficial do Internacional.",
+      "sha256": "b151824713dc005bc5cb88c992e46814558ea71be8135f07fd0a9aaa56d49462"
+    },
+    {
+      "id": "cruzeiro",
+      "name": "Cruzeiro",
+      "shortName": "Cruzeiro",
+      "country": "Brasil",
+      "colors": [
+        "#005CA9",
+        "#FFFFFF"
+      ],
+      "crest": "assets/clubs/cruzeiro.png",
+      "sourceUrl": "https://internacional.com.br/",
+      "assetUrl": "https://static.internacional.com.br/cms/assets/cruzeiro_esporte_clube_fc16319150.png",
+      "checkedAt": "2026-09-30",
+      "dimensions": {
+        "width": 300,
+        "height": 300
+      },
+      "author": "Identidade visual do clube indicado; arquivo publicado na fonte oficial referenciada.",
+      "license": "Marca e identidade visual de terceiros. A publicação pública do arquivo não equivale a licença comercial ou endosso.",
+      "changes": [],
+      "sourceNote": "Brasão do clube reproduzido no calendário de jogos do site oficial do Internacional.",
+      "sha256": "0c171da588dea33fc9463353b73790bf2a837a7e61b2b6f2b855c1daa9c0425a"
+    },
+    {
+      "id": "atletico-mineiro",
+      "name": "Atlético Mineiro",
+      "shortName": "Atlético-MG",
+      "country": "Brasil",
+      "colors": [
+        "#1B1B1B",
+        "#FFFFFF"
+      ],
+      "crest": "assets/clubs/atletico-mineiro.svg",
+      "sourceUrl": "https://atletico.com.br/",
+      "assetUrl": "https://atletico.com.br/wp-content/uploads/2022/01/atletico.svg",
+      "checkedAt": "2026-09-30",
+      "dimensions": {
+        "width": 323,
+        "height": 480
+      },
+      "author": "Identidade visual do clube indicado; arquivo publicado na fonte oficial referenciada.",
+      "license": "Marca e identidade visual de terceiros. A publicação pública do arquivo não equivale a licença comercial ou endosso.",
+      "changes": [
+        "Metadados XML/comentários removidos; arquivo sem scripts ou referências externas."
+      ],
+      "sha256": "337cff1c73031cbab5c2c7f768d2d201082c7ccbf5f8ebd3dd322899b3d8ba46"
+    },
+    {
+      "id": "botafogo",
+      "name": "Botafogo",
+      "shortName": "Botafogo",
+      "country": "Brasil",
+      "colors": [
+        "#151515",
+        "#FFFFFF"
+      ],
+      "crest": "assets/clubs/botafogo.png",
+      "sourceUrl": "https://www.botafogo.com.br/",
+      "assetUrl": "https://www.botafogo.com.br/images/BFR-logo-2.png",
+      "checkedAt": "2026-09-30",
+      "dimensions": {
+        "width": 200,
+        "height": 200
+      },
+      "author": "Identidade visual do clube indicado; arquivo publicado na fonte oficial referenciada.",
+      "license": "Marca e identidade visual de terceiros. A publicação pública do arquivo não equivale a licença comercial ou endosso.",
+      "changes": [],
+      "sha256": "aad49fcd2ec84bbdf3d5ada44227658729a9d8f4836b306c88a538795f3e714e"
+    },
+    {
+      "id": "fluminense",
+      "name": "Fluminense",
+      "shortName": "Fluminense",
+      "country": "Brasil",
+      "colors": [
+        "#7B1921",
+        "#00613C"
+      ],
+      "crest": "assets/clubs/fluminense.svg",
+      "sourceUrl": "https://www.fluminense.com.br/",
+      "assetUrl": "https://assets-fluminense.s3.amazonaws.com/assets/fluminense-d99518426e66fb3576697742f31b8b1d2b8b53d34f409072c52711764f1bdf32.svg",
+      "checkedAt": "2026-09-30",
+      "dimensions": {
+        "width": 100,
+        "height": 100
+      },
+      "author": "Identidade visual do clube indicado; arquivo publicado na fonte oficial referenciada.",
+      "license": "Marca e identidade visual de terceiros. A publicação pública do arquivo não equivale a licença comercial ou endosso.",
+      "changes": [
+        "Metadados XML/comentários removidos; arquivo sem scripts ou referências externas."
+      ],
+      "sha256": "14b253aedc52aa0f7c175658b9850ad1fa7a0e95cf0e0b98b2db436d09772106"
+    },
+    {
+      "id": "real-madrid",
+      "name": "Real Madrid",
+      "shortName": "Real Madrid",
+      "country": "Espanha",
+      "colors": [
+        "#F1F1F1",
+        "#3E31FA"
+      ],
+      "crest": "assets/clubs/real-madrid.png",
+      "sourceUrl": "https://www.realmadrid.com/en-US",
+      "assetUrl": "https://assets.realmadrid.com/is/image/realmadrid/6210?fmt=png-alpha&wid=320&hei=320&fit=constrain",
+      "checkedAt": "2026-09-30",
+      "dimensions": {
+        "width": 144,
+        "height": 144
+      },
+      "author": "Identidade visual do clube indicado; arquivo publicado na fonte oficial referenciada.",
+      "license": "Marca e identidade visual de terceiros. A publicação pública do arquivo não equivale a licença comercial ou endosso.",
+      "changes": [
+        "Arquivo raster preservado; parâmetros de tamanho/formato enviados ao CDN oficial."
+      ],
+      "sourceNote": "Brasão em cores publicado no calendário oficial do clube (identificado no HTML como Real Madrid); imagem fornecida pelo CDN oficial em PNG com transparência.",
+      "sha256": "27942e14087450560f7d2acd0245927a9ffbf8fb60b38599f25b44542ca6f5da"
+    },
+    {
+      "id": "barcelona",
+      "name": "Barcelona",
+      "shortName": "Barça",
+      "country": "Espanha",
+      "colors": [
+        "#A50044",
+        "#004D98"
+      ],
+      "crest": "assets/clubs/barcelona.svg",
+      "sourceUrl": "https://www.fcbarcelona.com/en/",
+      "assetUrl": "https://www.fcbarcelona.com/resources/v3.10.0-9124/i/svg-output/club-badges.svg",
+      "checkedAt": "2026-09-30",
+      "dimensions": {
+        "width": 347,
+        "height": 351
+      },
+      "author": "Identidade visual do clube indicado; arquivo publicado na fonte oficial referenciada.",
+      "license": "Marca e identidade visual de terceiros. A publicação pública do arquivo não equivale a licença comercial ou endosso.",
+      "changes": [
+        "Símbolo BCN extraído do sprite oficial, sem redesenho.",
+        "Metadados XML/comentários removidos; arquivo sem scripts ou referências externas."
+      ],
+      "sha256": "743c403620c318b2728dc242173ee7b1f2fef380c0e452d4851d9d95188df2e8"
+    },
+    {
+      "id": "manchester-united",
+      "name": "Manchester United",
+      "shortName": "Man. United",
+      "country": "Inglaterra",
+      "colors": [
+        "#DA291C",
+        "#111111"
+      ],
+      "crest": "assets/clubs/manchester-united.png",
+      "sourceUrl": "https://www.manutd.com/",
+      "assetUrl": "https://contentfulproxy.stadion.io/unzgbvss5tuy/5GFoxbOTd249o0VhuZNczI/cde0cb3a7b895c6a99f2796433232819/TONAL_CREST_Black%C3%83___3x-png.png?fm=png&f=center&w=320&h=320",
+      "checkedAt": "2026-09-30",
+      "dimensions": {
+        "width": 320,
+        "height": 320
+      },
+      "author": "Identidade visual do clube indicado; arquivo publicado na fonte oficial referenciada.",
+      "license": "Marca e identidade visual de terceiros. A publicação pública do arquivo não equivale a licença comercial ou endosso.",
+      "changes": [],
+      "sourceNote": "Brasão em cores publicado pelo clube no arquivo que a fonte denomina TONAL_CREST_Black; o conteúdo efetivo do arquivo foi revisado visualmente.",
+      "sha256": "b8c415488b71aa201f04035eec92a759bf77144dcbc39eb0307ea3a5190b3d1d"
+    },
+    {
+      "id": "manchester-city",
+      "name": "Manchester City",
+      "shortName": "Man. City",
+      "country": "Inglaterra",
+      "colors": [
+        "#6CABDD",
+        "#1C2C5B"
+      ],
+      "crest": "assets/clubs/manchester-city.svg",
+      "sourceUrl": "https://www.mancity.com/",
+      "assetUrl": "https://www.mancity.com/",
+      "checkedAt": "2026-09-30",
+      "dimensions": {
+        "width": 500,
+        "height": 500
+      },
+      "author": "Identidade visual do clube indicado; arquivo publicado na fonte oficial referenciada.",
+      "license": "Marca e identidade visual de terceiros. A publicação pública do arquivo não equivale a licença comercial ou endosso.",
+      "changes": [
+        "SVG do brasão oficial extraído do HTML da página pública de erro, sem redesenho.",
+        "Metadados XML/comentários removidos; arquivo sem scripts ou referências externas."
+      ],
+      "sourceNote": "Página principal respondeu HTTP 403 e continha o próprio brasão oficial como SVG inline na página pública de erro. Somente esse SVG foi extraído, sem acessar conteúdo protegido.",
+      "sha256": "baa65b9f9f4696e8a3670e5618a6bb3d1333a579daf00bca976b42f24a5b4dda"
+    },
+    {
+      "id": "liverpool",
+      "name": "Liverpool",
+      "shortName": "Liverpool",
+      "country": "Inglaterra",
+      "colors": [
+        "#C8102E",
+        "#00A398"
+      ],
+      "crest": "assets/clubs/liverpool.webp",
+      "sourceUrl": "https://www.liverpoolfc.com/",
+      "assetUrl": "https://www.liverpoolfc.com/liverpoolfc_crest.webp",
+      "checkedAt": "2026-09-30",
+      "dimensions": {
+        "width": 110,
+        "height": 200
+      },
+      "author": "Identidade visual do clube indicado; arquivo publicado na fonte oficial referenciada.",
+      "license": "Marca e identidade visual de terceiros. A publicação pública do arquivo não equivale a licença comercial ou endosso.",
+      "changes": [],
+      "sha256": "1830ea444f957010bef82659905c88ffc8e4e6bafb4158bb1822bb9c77542d4f"
+    },
+    {
+      "id": "arsenal",
+      "name": "Arsenal",
+      "shortName": "Arsenal",
+      "country": "Inglaterra",
+      "colors": [
+        "#EF0107",
+        "#063672"
+      ],
+      "crest": "assets/clubs/arsenal.png",
+      "sourceUrl": "https://www.arsenal.com/",
+      "assetUrl": "https://assets.arsenal.com/prod/images/gm_preview/4bcf538e5c1c-arsenal-crest.png",
+      "checkedAt": "2026-09-30",
+      "dimensions": {
+        "width": 538,
+        "height": 633
+      },
+      "author": "Identidade visual do clube indicado; arquivo publicado na fonte oficial referenciada.",
+      "license": "Marca e identidade visual de terceiros. A publicação pública do arquivo não equivale a licença comercial ou endosso.",
+      "changes": [],
+      "sha256": "27b8b3259570a74bf8bc335da0778f29e89ca6e72ccd2770584f9635c56cf42b"
+    },
+    {
+      "id": "bayern",
+      "name": "Bayern München",
+      "shortName": "Bayern",
+      "country": "Alemanha",
+      "colors": [
+        "#DC052D",
+        "#0066B2"
+      ],
+      "crest": "assets/clubs/bayern.svg",
+      "sourceUrl": "https://fcbayern.com/en",
+      "assetUrl": "https://img.fcbayern.com/image/upload/v1779947813/cms/public/images/fcbayern-com/logos/fcbayern.svg",
+      "checkedAt": "2026-09-30",
+      "dimensions": {
+        "width": 567,
+        "height": 567
+      },
+      "author": "Identidade visual do clube indicado; arquivo publicado na fonte oficial referenciada.",
+      "license": "Marca e identidade visual de terceiros. A publicação pública do arquivo não equivale a licença comercial ou endosso.",
+      "changes": [
+        "Metadados XML/comentários removidos; arquivo sem scripts ou referências externas."
+      ],
+      "sha256": "95aafdbbe10431a637b66ff4d96f963c3386c55963ca18c582a52d7b6aa9aeca"
+    },
+    {
+      "id": "psg",
+      "name": "Paris Saint-Germain",
+      "shortName": "PSG",
+      "country": "França",
+      "colors": [
+        "#004170",
+        "#DA291C"
+      ],
+      "crest": "assets/clubs/psg.png",
+      "sourceUrl": "https://www.psg.fr/",
+      "assetUrl": "https://media.psg.fr/image/upload/w_320/f_png,q_90/psg-logo_avcznk",
+      "checkedAt": "2026-09-30",
+      "dimensions": {
+        "width": 320,
+        "height": 329
+      },
+      "author": "Identidade visual do clube indicado; arquivo publicado na fonte oficial referenciada.",
+      "license": "Marca e identidade visual de terceiros. A publicação pública do arquivo não equivale a licença comercial ou endosso.",
+      "changes": [],
+      "sha256": "225bce48526e7cb2e2e6fa44c9612043f9cae57a434b3c0823fa4ef1f9d315c8"
+    },
+    {
+      "id": "juventus",
+      "name": "Juventus",
+      "shortName": "Juventus",
+      "country": "Itália",
+      "colors": [
+        "#1D1D1D",
+        "#FFFFFF"
+      ],
+      "crest": "assets/clubs/juventus.png",
+      "sourceUrl": "https://www.juventus.com/en",
+      "assetUrl": "https://www.juventus.com/images/image/upload/f_png/dev/assets/logo/juventus_logo_white",
+      "checkedAt": "2026-09-30",
+      "dimensions": {
+        "width": 63,
+        "height": 100
+      },
+      "author": "Identidade visual do clube indicado; arquivo publicado na fonte oficial referenciada.",
+      "license": "Marca e identidade visual de terceiros. A publicação pública do arquivo não equivale a licença comercial ou endosso.",
+      "changes": [],
+      "sha256": "eb39c8b661b53bb9cb05878eb6acd451ff73b1055e3e16b230411c23fae3c3e1"
+    },
+    {
+      "id": "milan",
+      "name": "AC Milan",
+      "shortName": "Milan",
+      "country": "Itália",
+      "colors": [
+        "#FB090B",
+        "#171717"
+      ],
+      "crest": "assets/clubs/milan.png",
+      "sourceUrl": "https://www.acmilan.com/en",
+      "assetUrl": "https://assets-eu-01.kc-usercontent.com/006f7528-416b-01e4-8ef2-ab6ab3f4e177/64895510-84a6-4350-b249-f89a6a1f7f0f/Logo%20AC%20Milan.png",
+      "checkedAt": "2026-09-30",
+      "dimensions": {
+        "width": 361,
+        "height": 566
+      },
+      "author": "Identidade visual do clube indicado; arquivo publicado na fonte oficial referenciada.",
+      "license": "Marca e identidade visual de terceiros. A publicação pública do arquivo não equivale a licença comercial ou endosso.",
+      "changes": [],
+      "sha256": "66a66fd114ed4084667e9f56bca709e74aee16f9ea4435175054262d251ba719"
+    },
+    {
+      "id": "inter-milan",
+      "name": "Inter de Milão",
+      "shortName": "Inter Milano",
+      "country": "Itália",
+      "colors": [
+        "#0046A8",
+        "#121212"
+      ],
+      "crest": "assets/clubs/inter-milan.png",
+      "sourceUrl": "https://www.inter.it/en",
+      "assetUrl": "https://www.inter.it/favicon/apple-touch-icon-180x180.png",
+      "checkedAt": "2026-09-30",
+      "dimensions": {
+        "width": 180,
+        "height": 180
+      },
+      "author": "Identidade visual do clube indicado; arquivo publicado na fonte oficial referenciada.",
+      "license": "Marca e identidade visual de terceiros. A publicação pública do arquivo não equivale a licença comercial ou endosso.",
+      "changes": [],
+      "sha256": "d21acfbfdbc8a0d5d7612d051540fa40479a074f9d540cf687ea00fd97b7982e"
+    }
+  ]
+}

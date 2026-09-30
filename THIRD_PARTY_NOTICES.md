@@ -1,6 +1,6 @@
 # Créditos de terceiros
 
-Verificação das fontes: 29 de setembro de 2026.
+Verificação das fontes de atletas e assinaturas: 29 de setembro de 2026. Fontes dos clubes: 30 de setembro de 2026.
 
 ## Fotografias de atletas
 
@@ -47,6 +47,22 @@ Consulte a [cadeia de fontes e verificação](docs/ASSINATURAS_FONTES.md) e os [
 ## Coleção anterior
 
 Nilo Raio, Maya Luz, Tito Rocha e Breno Vale são personagens fictícios do protótipo anterior, com rubricas ilustrativas. Estão retirados do catálogo; os itens já adquiridos permanecem na coleção local para preservar os perfis existentes.
+
+## Brasões e identidade dos clubes
+
+O catálogo de perfil contém 23 clubes brasileiros e europeus. Os arquivos de `assets/clubs/` foram obtidos em sites oficiais de clubes, sem redesenho ou geração por IA. Algumas fontes publicam o brasão de um adversário no calendário de jogos; essa origem está identificada por clube no manifesto. Os SVGs foram sanitizados, preservando a geometria visual; os arquivos raster foram mantidos como fornecidos.
+
+O registro em [assets/clubs/credits.json](assets/clubs/credits.json) reúne os links oficiais de origem e de cada arquivo, dimensões, alterações, data de consulta e hash SHA-256. A [tabela de fontes dos 23 clubes](docs/CLUBES_FONTES.md) facilita a consulta, incluindo variações de identidade visual fornecidas pelas próprias fontes.
+
+O Internacional usa o brasão do [site oficial do clube](https://internacional.com.br/) e o vermelho `#E20613` presente no SVG. Os demais fundos usam cores de interface aproximadas à identidade de cada clube. O catálogo inclui fontes como [Flamengo](https://www.flamengo.com.br/), [Real Madrid](https://www.realmadrid.com/en-US), [Barcelona](https://www.fcbarcelona.com/en/) e [Manchester United](https://www.manutd.com/); as atribuições completas de todos os arquivos permanecem no manifesto.
+
+Os nomes e brasões pertencem aos respectivos clubes. A publicação dos arquivos em fontes oficiais não equivale a uma licença comercial, parceria ou endosso deste aplicativo. A licença proprietária do código não se estende a essas marcas.
+
+## Artes originais das conquistas
+
+As seis peças de `assets/trophies/` foram desenhadas em SVG para a FifaBet Arena: `estreia.svg` (Taça de estreia), `torcida.svg` (Alma de arquibancada), `camisa-10.svg` (Camisa 10), `chuteira.svg` (Chuteira de ouro), `classico.svg` (Clássico entre amigos) e `europeia.svg` (Noites europeias).
+
+São ilustrações originais inspiradas na cultura do futebol brasileiro e europeu, sujeitas à [licença proprietária do projeto](LICENSE). Não são reproduções de troféus oficiais, não usam uma licença de organizadores de competições e não certificam títulos ou premiações reais. As conquistas correspondem às seis regras locais de demonstração já existentes no aplicativo.
 
 ## Limites das licenças
 

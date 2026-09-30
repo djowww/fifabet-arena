@@ -1,4 +1,4 @@
-import {STORAGE_KEY,VIEWS,MATCHES,PEOPLE,COLORS,TEAM_FLAGS,STICKERS,TROPHIES,emptyState,current,points,payout,validStake,change,restore} from './model.mjs?v=4';
+import {STORAGE_KEY,VIEWS,MATCHES,PEOPLE,COLORS,TEAM_FLAGS,STICKERS,TROPHIES,emptyState,current,points,payout,validStake,change,restore} from './model.mjs?v=5';
 const $=id=>document.getElementById(id);
 const esc=x=>String(x??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
 const paths={
@@ -111,9 +111,10 @@ function leaderboardRow(player,index){
  return `<div class='leader-row ${player.isYou?'you':''}'><span class='rank-position ${index<3?'podium':''}'>${medal}</span>${player.isYou?profileAvatar(player):avatar(player.name,player.color)}<div class='leader-copy'><strong>${esc(player.name)}${player.isYou?` <span class='pill lime'>VOCÊ</span>`:''}</strong><small>${player.isYou&&player.teamName?`${esc(player.teamName)} · `:''}${player.wins} vitórias · ${player.medals} medalhas</small></div><span class='leader-level'>NV. ${player.level}</span></div>`;
 }
 function duelCard(c){
- const w=PEOPLE.find(person=>person.id===c.personId),status=c.status||'sent',label=status==='sent'?'Convite enviado':status==='accepted'?'Partida confirmada':c.winner==='you'?'Você venceu':'Amigo venceu';
- const actions=status==='sent'?`<div class='challenge-row-actions'><button class='btn small primary' data-action='acceptChallenge' data-id='${esc(c.id)}'>Simular aceite</button><button class='btn small secondary' data-action='cancelChallenge' data-id='${esc(c.id)}'>Cancelar</button></div>`:status==='accepted'?`<button class='btn small primary' data-action='challengeResult' data-id='${esc(c.id)}'>Registrar resultado</button>`:'';
- return `<div class='challenge-row ${status==='completed'?'completed':''}'>${avatar(w?.name||'Amigo',w?.color||'mint','small')}<div class='grow'><strong>vs ${esc(w?.name||'Amigo')}</strong><small>${esc(c.mode||'1v1')} · ${c.stake?`${points(c.stake)} pts simbólicos`:'amistoso'}</small></div><span class='pill ${status==='sent'?'amber':status==='accepted'?'mint':'subtle'}'>${label}</span>${actions}</div>`;
+ const w=PEOPLE.find(person=>person.id===c.personId),status=c.status||'sent',label=status==='sent'?'Convite enviado':status==='accepted'?'Partida confirmada':status==='review'?'Aguardando análise':status==='disputed'?'Fraude sinalizada · em análise':c.winner==='you'?'Você venceu':'Amigo venceu';
+ const actions=status==='sent'?`<div class='challenge-row-actions'><button class='btn small primary' data-action='acceptChallenge' data-id='${esc(c.id)}'>Simular aceite</button><button class='btn small secondary' data-action='cancelChallenge' data-id='${esc(c.id)}'>Cancelar</button></div>`:status==='accepted'?`<div class='challenge-row-actions'><button class='btn small primary' data-action='challengeResult' data-id='${esc(c.id)}'>Enviar placar</button><button class='btn small secondary' data-action='reportFraud' data-id='${esc(c.id)}'>Sinalizar fraude</button></div>`:['review','disputed'].includes(status)?`<div class='challenge-row-actions'><button class='btn small secondary' data-action='challengeEvidence' data-id='${esc(c.id)}'>Ver evidência</button>${status==='review'?`<button class='btn small secondary' data-action='reportFraud' data-id='${esc(c.id)}'>Sinalizar fraude</button>`:''}</div>`:'';
+ const pill=status==='sent'?'amber':status==='accepted'?'mint':status==='review'?'violet':status==='disputed'?'live':'subtle';
+ return `<div class='challenge-row ${status==='completed'?'completed':''}'>${avatar(w?.name||'Amigo',w?.color||'mint','small')}<div class='grow'><strong>vs ${esc(w?.name||'Amigo')}</strong><small>${esc(c.mode||'1v1')} · ${c.stake?`${points(c.stake)} pts simbólicos`:'amistoso'}</small></div><span class='pill ${pill}'>${label}</span>${actions}</div>`;
 }
 function renderArena(){
  const p=current(state),duels=p?.challenges||[],myWins=p?(p.bets.filter(b=>b.status==='won').length+duels.filter(c=>c.status==='completed'&&c.winner==='you').length):0,medals=Object.keys(p?.achievements||{}).length,nextFriend=p?.friends.map(id=>PEOPLE.find(w=>w.id===id)).find(Boolean);
@@ -290,7 +291,37 @@ function showMatch(id){
 function showChallengeResult(id){
  const challenge=current(state)?.challenges.find(c=>c.id===id&&c.status==='accepted');if(!challenge)return;
  const rival=PEOPLE.find(person=>person.id===challenge.personId)?.name||'seu amigo';
- showDialog('Quem levou a melhor?','Registre o resultado da partida de demonstração.',`<p class='hint'>Desafio ${esc(challenge.mode||'1v1')} contra <strong>${esc(rival)}</strong> · ${points(challenge.stake)} pontos simbólicos.</p><div class='banner-note'>${icon('info')}<span>Este registro atualiza somente o ranking demonstrativo. Nenhum ponto é transferido.</span></div><div class='action-grid'><button class='btn primary' data-action='challengeWinner' data-id='${esc(id)}' data-side='you'>Eu venci</button><button class='btn secondary' data-action='challengeWinner' data-id='${esc(id)}' data-side='friend'>${esc(rival)} venceu</button></div>`,'challengeResult');
+ showDialog('Envie o placar para análise','Uma foto do resultado é obrigatória antes de qualquer pontuação.',`<p class='hint'>Desafio ${esc(challenge.mode||'1v1')} contra <strong>${esc(rival)}</strong> · ${points(challenge.stake)} pontos simbólicos.</p><form data-form='challengeResult' data-id='${esc(id)}'><label class='form-label' for='challengeWinner'>Quem venceu?</label><select class='form-input' id='challengeWinner' name='winner' required><option value='you'>Eu venci</option><option value='friend'>${esc(rival)} venceu</option></select>${evidenceField('challengeEvidence')}<div class='banner-note fraud-note'>${icon('shield')}<span>O resultado ficará pendente e não alterará ranking ou pontos enquanto não houver revisão. Neste protótipo, a foto fica somente neste navegador; a equipe ainda não recebe o envio.</span></div><button class='btn primary wide' type='submit'>Salvar placar e deixar em análise</button></form><button class='btn secondary wide fraud-trigger' data-action='reportFraud' data-id='${esc(id)}'>Sinalizar suspeita de fraude</button>`,'challengeResult');
+}
+function evidenceField(id){
+ return `<label class='form-label' for='${id}'>Foto do resultado</label><input class='form-input evidence-input' id='${id}' name='evidence' type='file' accept='image/*' capture='environment' required><p class='form-help'>Tire uma foto da tela final ou selecione uma imagem do placar. A imagem será reduzida antes de ser salva.</p><div class='evidence-preview' id='evidencePreview'><span>Prévia da evidência aparecerá aqui.</span></div>`;
+}
+async function compressEvidence(file){
+ if(!file||!String(file.type||'').startsWith('image/'))throw Error('Selecione uma foto válida do resultado.');
+ if(file.size>15*1024*1024)throw Error('A foto precisa ter até 15 MB antes da compressão.');
+ let bitmap;
+ try{bitmap=await createImageBitmap(file);}catch{throw Error('Não consegui abrir essa foto. Escolha outra imagem.');}
+ try{
+  let scale=Math.min(1,1200/Math.max(bitmap.width,bitmap.height));
+  for(let attempt=0;attempt<6;attempt++){
+   const canvas=document.createElement('canvas');canvas.width=Math.max(1,Math.round(bitmap.width*scale));canvas.height=Math.max(1,Math.round(bitmap.height*scale));
+   const context=canvas.getContext('2d',{alpha:false});if(!context)throw Error('Não consegui preparar a foto neste navegador.');
+   context.drawImage(bitmap,0,0,canvas.width,canvas.height);
+   for(const quality of [.76,.64,.52,.4]){const data=canvas.toDataURL('image/jpeg',quality);if(data.length<=450000)return data;}
+   scale*=.72;
+  }
+ }finally{bitmap.close?.();}
+ throw Error('A foto ainda ficou grande demais. Tire outra com menos detalhes ou resolução.');
+}
+function showFraudReport(id){
+ const challenge=current(state)?.challenges.find(c=>c.id===id&&['accepted','review'].includes(c.status));if(!challenge)return;
+ const rival=PEOPLE.find(person=>person.id===challenge.personId)?.name||'seu amigo';
+ showDialog('Sinalizar suspeita de fraude','Anexe o placar e explique a divergência.',`<form data-form='fraudReport' data-id='${esc(id)}'><label class='form-label' for='fraudWinner'>Quem aparece como vencedor?</label><select class='form-input' id='fraudWinner' name='winner' required><option value='you' ${challenge.reportedWinner==='you'?'selected':''}>Eu venci</option><option value='friend' ${challenge.reportedWinner==='friend'?'selected':''}>${esc(rival)} venceu</option></select><label class='form-label' for='fraudReason'>O que precisa ser revisado?</label><textarea class='form-input fraud-reason' id='fraudReason' name='reason' minlength='8' maxlength='300' placeholder='Ex.: o resultado registrado não corresponde ao placar final.' required></textarea>${evidenceField('fraudEvidence')}<div class='banner-note fraud-note'>${icon('shield')}<span>A sinalização bloqueia a conclusão do desafio. A foto fica local neste protótipo e não é enviada para uma equipe.</span></div><button class='btn primary wide' type='submit'>Salvar denúncia e bloquear pontuação</button></form>`,'fraudReport');
+}
+function showChallengeEvidence(id){
+ const challenge=current(state)?.challenges.find(c=>c.id===id&&['review','disputed','completed'].includes(c.status));if(!challenge?.evidenceDataUrl)return;
+ const winner=challenge.reportedWinner==='you'?'Você':PEOPLE.find(person=>person.id===challenge.personId)?.name||'seu amigo';
+ showDialog('Evidência do desafio','Foto salva neste navegador para revisão demonstrativa.',`<figure class='evidence-figure'><img class='evidence-image' src='${esc(challenge.evidenceDataUrl)}' alt='Foto do placar enviada para o desafio'><figcaption>${esc(challenge.evidenceName||'Foto do resultado')} · resultado informado: ${esc(winner)}</figcaption></figure>${challenge.fraudReason?`<div class='banner-note fraud-note'>${icon('shield')}<span>${esc(challenge.fraudReason)}</span></div>`:''}<div class='banner-note fraud-note'>${icon('info')}<span>Esta imagem não foi enviada a uma equipe. Para revisão real entre dispositivos, falta conectar o backend de moderação.</span></div><button class='btn secondary wide' data-action='closeDialog'>Fechar</button>`,'challengeEvidence');
 }
 function showFriend(id){
  const w=PEOPLE.find(w=>w.id===id);if(!w)return;
@@ -368,7 +399,8 @@ document.addEventListener('click',event=>{
    case 'removeFriendConfirm':friendMutation('removeFriend',id);break;
    case 'acceptChallenge':commit('acceptChallenge',{id});render();toast('Aceite de demonstração registrado.');break;
    case 'challengeResult':showChallengeResult(id);break;
-   case 'challengeWinner':commit('resolveChallenge',{id,winner:side});closeDialog();render();toast(side==='you'?'Vitória registrada no ranking demo.':'Resultado registrado no ranking demo.');break;
+   case 'reportFraud':showFraudReport(id);break;
+   case 'challengeEvidence':showChallengeEvidence(id);break;
    case 'activity':showActivity();break;
   }
  }catch(error){reportError(error);}
@@ -382,13 +414,27 @@ document.addEventListener('change',event=>{
  if(event.target.id==='categoryFilter'){ui.category=event.target.value;$('matchGrid').innerHTML=matchList();}
  if(event.target.id==='walletFilter'){ui.walletFilter=event.target.value;render();}
  if(event.target.id==='teamFlag'&&current(state))$('teamPreview').innerHTML=teamBanner({...current(state),teamName:$('teamName').value,teamFlag:event.target.value},true);
+ if(['challengeEvidence','fraudEvidence'].includes(event.target.id)){
+  const file=event.target.files?.[0],preview=$('evidencePreview');
+  if(file)preview.innerHTML=`<img src='${esc(URL.createObjectURL(file))}' alt='Prévia da foto selecionada'><span>${esc(file.name)}</span>`;
+ }
 });
-document.addEventListener('submit',event=>{
+document.addEventListener('submit',async event=>{
  const form=event.target.closest('[data-form]');if(!form)return;event.preventDefault();
  if(!form.reportValidity())return;
  try{
   if(form.dataset.form==='challenge'){
    const data=new FormData(form);commit('challenge',{id:form.dataset.id,stake:Number(data.get('stake')),mode:data.get('mode')});closeDialog();render();toast('Convite enviado. Os pontos simbólicos não são debitados.');return;
+  }
+  if(['challengeResult','fraudReport'].includes(form.dataset.form)){
+   const values=new FormData(form),file=values.get('evidence'),submitter=event.submitter;
+   if(submitter)submitter.disabled=true;
+   try{
+    const evidenceDataUrl=await compressEvidence(file),payload={id:form.dataset.id,winner:values.get('winner'),evidenceDataUrl,evidenceName:file.name};
+    if(form.dataset.form==='fraudReport')payload.reason=values.get('reason');
+    commit(form.dataset.form==='fraudReport'?'reportFraud':'submitChallengeResult',payload);closeDialog();render();toast(form.dataset.form==='fraudReport'?'Denúncia salva. A pontuação continua bloqueada.':'Foto salva. O resultado aguarda revisão e não altera os pontos.');
+   }catch(error){if(submitter)submitter.disabled=false;reportError(error);}
+   return;
   }
   const values=new FormData(form),data={nickname:values.get('nickname'),color:ui.color};
   if(form.dataset.form==='create'){commit('create',data);finishLogin();}

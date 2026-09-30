@@ -41,7 +41,7 @@ export const TROPHIES = [
 const stamp=()=>new Date().toISOString();
 const uid=()=>globalThis.crypto?.randomUUID?.() || `demo-${Date.now()}-${Math.random().toString(36).slice(2,9)}`;
 const copy=x=>JSON.parse(JSON.stringify(x));
-export const emptyState=()=>({version:3,activeProfileId:null,profiles:{},results:{},legacyArchive:[]});
+export const emptyState=()=>({version:4,activeProfileId:null,profiles:{},results:{},legacyArchive:[]});
 export const current=s=>Object.hasOwn(s.profiles,s.activeProfileId)?s.profiles[s.activeProfileId]:null;
 export const points=n=>Number(n||0).toLocaleString('pt-BR');
 export const payout=(stake,odd)=>Math.round(stake*odd);
@@ -148,7 +148,7 @@ export function change(input,action,data={}){
       p.friends=p.friends.filter(id=>id!==data.id);p.challenges=p.challenges.filter(c=>c.personId!==data.id);
     }else if(action==='challenge'){
       const who=person(data.id);if(!p.friends.includes(who.id))throw Error('Adicione esse jogador aos amigos primeiro.');
-      if(p.challenges.some(c=>c.personId===who.id&&['sent','accepted'].includes(c.status)))throw Error('Já existe um desafio demo pendente para esse amigo.');
+      if(p.challenges.some(c=>c.personId===who.id&&['sent','accepted','review','disputed'].includes(c.status)))throw Error('Já existe um desafio demo pendente para esse amigo.');
       const stake=Number(data.stake??100),mode=String(data.mode||'1v1');
       if(![50,100,250,500].includes(stake))throw Error('Escolha um valor simbólico válido.');
       if(!['1v1','Ultimate Team','Clubes'].includes(mode))throw Error('Escolha um formato de partida válido.');
@@ -156,9 +156,19 @@ export function change(input,action,data={}){
     }else if(action==='acceptChallenge'){
       const c=p.challenges.find(item=>item.id===data.id&&item.status==='sent');if(!c)throw Error('Este convite não está mais pendente.');
       c.status='accepted';activity(p,`Aceite demo confirmado para o desafio de ${person(c.personId).name}.`,'gamepad');
+    }else if(action==='submitChallengeResult'){
+      const c=p.challenges.find(item=>item.id===data.id&&item.status==='accepted');if(!c||!['you','friend'].includes(data.winner))throw Error('Escolha um desafio confirmado e informe quem venceu.');
+      if(!validEvidence(data.evidenceDataUrl))throw Error('Anexe uma foto válida do placar para solicitar a revisão.');
+      c.status='review';c.reportedWinner=data.winner;c.evidenceDataUrl=data.evidenceDataUrl;c.evidenceName=text(data.evidenceName,100)||'Foto do resultado';c.submittedAt=stamp();
+      activity(p,`Resultado do desafio contra ${person(c.personId).name} enviado para análise. Pontos seguem bloqueados.`,'shield');
+    }else if(action==='reportFraud'){
+      const c=p.challenges.find(item=>item.id===data.id&&['accepted','review'].includes(item.status));if(!c)throw Error('Este desafio não está disponível para sinalização.');
+      if(!['you','friend'].includes(data.winner)||!validEvidence(data.evidenceDataUrl))throw Error('Informe o possível vencedor e anexe uma foto válida do placar.');
+      const reason=text(data.reason,300).trim();if(reason.length<8)throw Error('Explique a suspeita em pelo menos 8 caracteres.');
+      c.status='disputed';c.reportedWinner=data.winner;c.evidenceDataUrl=data.evidenceDataUrl;c.evidenceName=text(data.evidenceName,100)||'Foto do resultado';c.fraudReason=reason;c.flaggedAt=stamp();
+      activity(p,`Suspeita de fraude sinalizada no desafio contra ${person(c.personId).name}. Pontos seguem bloqueados.`,'shield');
     }else if(action==='resolveChallenge'){
-      const c=p.challenges.find(item=>item.id===data.id&&item.status==='accepted');if(!c||!['you','friend'].includes(data.winner))throw Error('Escolha um desafio confirmado e um vencedor.');
-      c.status='completed';c.winner=data.winner;c.completedAt=stamp();activity(p,`${data.winner==='you'?'Você venceu':'Seu amigo venceu'} o desafio demo contra ${person(c.personId).name}.`,'trophy');
+      throw Error('O resultado não pode ser concluído sem foto e revisão da equipe.');
     }else if(action==='cancelChallenge'){p.challenges=p.challenges.filter(c=>c.id!==data.id);}
     else if(action==='readActivity'){p.unread=0;}
     else throw Error('Ação desconhecida.');
@@ -169,13 +179,14 @@ const array=x=>Array.isArray(x)?x:[];
 const finite=(x,fallback=0)=>Number.isFinite(Number(x))?Number(x):fallback;
 const safeBalance=x=>Math.max(0,Math.min(1e9,Math.floor(finite(x))));
 const text=(x,max=120)=>typeof x==='string'?x.slice(0,max):'';
+const validEvidence=x=>typeof x==='string'&&x.length<=450000&&/^data:image\/(?:jpeg|png|webp);base64,[A-Za-z0-9+/]{4,}={0,2}$/.test(x);
 function normalizeBet(b){
   if(!b||!Number.isSafeInteger(b.stake)||b.stake<10||b.stake>1e9||!Number.isFinite(b.odd)||b.odd<=1||!Number.isSafeInteger(payout(b.stake,b.odd)))return null;
   return {id:text(String(b.id),80)||uid(),matchId:text(b.matchId,20),home:text(b.home,30),away:text(b.away,30),league:text(b.league),side:b.side==='away'?'away':'home',selection:text(b.selection,30),stake:b.stake,odd:b.odd,potential:payout(b.stake,b.odd),status:['pending','won','lost'].includes(b.status)?b.status:'pending',date:text(b.date,40)||stamp(),settledAt:text(b.settledAt,40)};
 }
 export function restore(raw,oldProfile=null,oldBets=null){
   const s=emptyState();let d;try{d=typeof raw==='string'?JSON.parse(raw):raw;}catch{}
-  if([2,3].includes(d?.version)&&d.profiles&&typeof d.profiles==='object'){
+  if([2,3,4].includes(d?.version)&&d.profiles&&typeof d.profiles==='object'){
     for(const value of Object.values(d.profiles).slice(0,50)){
       if(!value||typeof value.id!=='string'||!value.id||['__proto__','constructor','prototype'].includes(value.id)||typeof value.nickname!=='string'||!value.nickname.trim())continue;
       const p=profile(text(value.nickname,20),value.color);p.id=text(value.id,80);p.createdAt=text(value.createdAt,40)||stamp();p.balance=safeBalance(value.balance);
@@ -186,7 +197,15 @@ export function restore(raw,oldProfile=null,oldBets=null){
       p.transactions=array(value.transactions).filter(t=>t&&Number.isSafeInteger(t.amount)&&typeof t.ref==='string').map(t=>({id:text(String(t.id),80),ref:text(t.ref,150),kind:text(t.kind,30),label:text(t.label),amount:t.amount,date:text(t.date,40)||stamp()})).slice(0,3000);
       p.friends=[...new Set(array(value.friends).filter(id=>PEOPLE.some(w=>w.id===id)))];
       p.requests=array(value.requests).filter(r=>r&&PEOPLE.some(w=>w.id===r.personId)&&['in','out'].includes(r.direction)&&!p.friends.includes(r.personId)).map(r=>({personId:r.personId,direction:r.direction}));
-      p.challenges=array(value.challenges).filter(c=>c&&p.friends.includes(c.personId)).map(c=>({id:text(c.id,80),personId:c.personId,date:text(c.date,40),stake:[50,100,250,500].includes(Number(c.stake))?Number(c.stake):0,mode:['1v1','Ultimate Team','Clubes'].includes(c.mode)?c.mode:'1v1',status:['sent','accepted','completed'].includes(c.status)?c.status:'sent',winner:['you','friend'].includes(c.winner)?c.winner:'',completedAt:text(c.completedAt,40)}));
+      p.challenges=array(value.challenges).filter(c=>c&&p.friends.includes(c.personId)).map(c=>{
+        const evidence=validEvidence(c.evidenceDataUrl)?c.evidenceDataUrl:'';
+        let status=['sent','accepted','review','disputed','completed'].includes(c.status)?c.status:'sent';
+        let reviewedAt=text(c.reviewedAt,40),winner=['you','friend'].includes(c.winner)?c.winner:'';
+        const reportedWinner=['you','friend'].includes(c.reportedWinner)?c.reportedWinner:'';
+        if(status==='completed'&&(!reviewedAt||!evidence)){status=evidence?'review':'accepted';winner='';reviewedAt='';}
+        if(['review','disputed'].includes(status)&&(!evidence||!reportedWinner))status='accepted';
+        return {id:text(c.id,80),personId:c.personId,date:text(c.date,40),stake:[50,100,250,500].includes(Number(c.stake))?Number(c.stake):0,mode:['1v1','Ultimate Team','Clubes'].includes(c.mode)?c.mode:'1v1',status,winner:status==='completed'?winner:'',completedAt:status==='completed'?text(c.completedAt,40):'',reportedWinner,evidenceDataUrl:evidence,evidenceName:text(c.evidenceName,100),submittedAt:text(c.submittedAt,40),fraudReason:text(c.fraudReason,300),flaggedAt:text(c.flaggedAt,40),reviewedAt};
+      });
       p.favorites=[...new Set(array(value.favorites).filter(id=>MATCHES.some(m=>m.id===id)))];
       p.reminders=[...new Set(array(value.reminders).filter(id=>MATCHES.some(m=>m.id===id)))];
       p.visited=[...new Set(array(value.visited).filter(v=>VIEWS.includes(v)))];p.achievements={};
@@ -194,7 +213,7 @@ export function restore(raw,oldProfile=null,oldBets=null){
       p.activity=array(value.activity).filter(a=>a&&typeof a.text==='string').slice(0,100).map(a=>({id:text(a.id,80),text:text(a.text,220),icon:text(a.icon,20),date:text(a.date,40)}));p.unread=Math.max(0,Math.min(99,finite(value.unread)));
       s.profiles[p.id]=p;
     }
-    s.version=3;s.activeProfileId=Object.hasOwn(s.profiles,d.activeProfileId)?d.activeProfileId:null;
+    s.version=4;s.activeProfileId=Object.hasOwn(s.profiles,d.activeProfileId)?d.activeProfileId:null;
     for(const m of MATCHES)if(['home','away'].includes(d.results?.[m.id]?.winner))s.results[m.id]={winner:d.results[m.id].winner,date:text(d.results[m.id].date,40)};
     s.legacyArchive=array(d.legacyArchive).map(normalizeBet).filter(Boolean);return s;
   }

@@ -42,6 +42,24 @@ test('friends, invites, challenges and trophies update consistently',()=>{
  for(const view of VIEWS)s=change(s,'visit',{view});assert.ok(current(s).achievements.explorer);
  s=change(s,'readActivity');assert.equal(current(s).unread,0);
 });
+test('challenge results and fraud reports require image evidence and stay unawarded pending review',()=>{
+ let s=create();s=change(s,'accept',{id:'bia'});s=change(s,'challenge',{id:'bia',stake:100,mode:'1v1'});const id=current(s).challenges[0].id;
+ s=change(s,'acceptChallenge',{id});assert.throws(()=>change(s,'resolveChallenge',{id,winner:'you'}),/sem foto e revisão/);
+ assert.throws(()=>change(s,'submitChallengeResult',{id,winner:'you'}),/foto válida/);
+ const evidence='data:image/jpeg;base64,dGVzdA==';s=change(s,'submitChallengeResult',{id,winner:'you',evidenceDataUrl:evidence,evidenceName:'placar.jpg'});
+ assert.equal(current(s).challenges[0].status,'review');assert.ok(!current(s).challenges[0].winner);assert.equal(current(s).challenges[0].reportedWinner,'you');assert.equal(current(s).balance,1000);
+ assert.throws(()=>change(s,'challenge',{id:'bia',stake:50}),/pendente/);
+ assert.throws(()=>change(s,'reportFraud',{id,winner:'friend',reason:'placar diferente'}),/foto válida/);
+ s=change(s,'reportFraud',{id,winner:'friend',reason:'Placar não bateu',evidenceDataUrl:evidence,evidenceName:'tela-final.jpg'});
+ assert.equal(current(s).challenges[0].status,'disputed');assert.equal(current(s).challenges[0].reportedWinner,'friend');assert.equal(current(s).challenges[0].fraudReason,'Placar não bateu');assert.equal(current(s).balance,1000);
+ assert.throws(()=>change(s,'submitChallengeResult',{id,winner:'you',evidenceDataUrl:evidence}),/desafio confirmado/);
+ const saved=restore(JSON.stringify(s));assert.equal(current(saved).challenges[0].status,'disputed');assert.equal(current(saved).challenges[0].evidenceDataUrl,evidence);
+});
+test('old unverified challenge winners are reopened for photo review',()=>{
+ let s=create();s=change(s,'accept',{id:'bia'});s=change(s,'challenge',{id:'bia'});const profile=current(s),id=profile.challenges[0].id;
+ profile.challenges[0]={...profile.challenges[0],status:'completed',winner:'you',completedAt:new Date().toISOString()};s.version=3;
+ const migrated=restore(JSON.stringify(s));assert.equal(current(migrated).challenges[0].status,'accepted');assert.equal(current(migrated).challenges[0].winner,'');assert.equal(current(migrated).challenges[0].id,id);
+});
 test('persisted state rehydrates safely, preserving key account values',()=>{
  let s=create();s=bet(s);s=change(s,'favorite',{id:'m2'});const out=restore(JSON.stringify(s));assert.equal(out.activeProfileId,s.activeProfileId);assert.equal(current(out).balance,900);assert.equal(current(out).bets.length,1);assert.equal(current(out).transactions.length,2);assert.deepEqual(current(out).favorites,['m2']);
  assert.deepEqual(restore('{broken'),emptyState());

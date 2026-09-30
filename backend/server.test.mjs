@@ -246,20 +246,99 @@ test('shared leaderboard counts only reviewed settlements, orders victories/draw
   for(const sensitive of ['balance','passwordHash','passwordSalt','csrfToken','transactions','isReviewer','a robust testing passphrase',alice.cookie.split('=')[1]])assert.ok(!serialized.includes(sensitive));
 });
 
+test('demo deposits are idempotent pending orders; card approval credits once and never accepts card/bank details',async t=>{
+  const h=await harness(t),owner=h.client(),other=h.client();await owner.register('Owner');await other.register('Other');
+  const status=(await owner.api('/status')).data;assert.equal(status.paymentMode,'demo');assert.equal(status.realMoney,false);assert.equal(status.noRealMoney,true);
+  const wallet=(await owner.api('/wallet')).data;assert.deepEqual(wallet.catalog,[100,250,500,1000]);assert.deepEqual(wallet.methods,['card','pix','transfer']);assert.equal(wallet.balance,1000);assert.equal(wallet.reserved,0);
+  const data={amount:250,method:'card',installments:3,idempotencyKey:'test-card-operation-0001'};
+  const parallel=await Promise.all(Array.from({length:5},()=>owner.api('/wallet/deposits',{method:'POST',data})));
+  assert.ok(parallel.every(result=>result.status===200));assert.equal(new Set(parallel.map(result=>result.data.deposit.id)).size,1);
+  const deposit=parallel[0].data.deposit;assert.equal(deposit.status,'pending');assert.equal(deposit.version,1);assert.equal(deposit.installments,3);assert.ok(!Object.hasOwn(deposit,'idempotencyKey'));
+  assert.equal((await owner.api('/wallet')).data.balance,1000);assert.equal((await owner.api('/wallet')).data.deposits.length,1);
+  assert.equal((await other.api('/wallet')).data.deposits.length,0);
+  assert.equal((await owner.api('/wallet/deposits',{method:'POST',data:{...data,amount:500}})).status,409);
+  for(const invalid of [{...data,amount:'250'},{...data,amount:300},{...data,installments:0},{...data,installments:7},{...data,method:'pix',installments:2},{...data,cardNumber:'never-persist-this-card'},{...data,cvv:'never-persist-this-cvv'},{...data,bankAccount:'never-persist-this-bank'}])assert.equal((await owner.api('/wallet/deposits',{method:'POST',data:invalid})).status,400);
+  assert.equal((await other.api(`/wallet/deposits/${deposit.id}/simulate`,{method:'POST',data:{mode:'demo',outcome:'approved',version:1}})).status,404);
+  assert.equal((await owner.api(`/wallet/deposits/${deposit.id}/simulate`,{method:'POST',data:{mode:'live',outcome:'approved',version:1}})).status,400);
+  const approval=await owner.api(`/wallet/deposits/${deposit.id}/simulate`,{method:'POST',data:{mode:'demo',outcome:'approved',version:1}});
+  assert.equal(approval.status,200);assert.equal(approval.data.balance,1250);assert.equal(approval.data.deposit.status,'approved');assert.equal(approval.data.deposit.version,2);assert.equal(approval.data.deposit.decision.kind,'simulation');assert.equal(approval.data.deposit.decision.provider,'fifabet-demo');
+  assert.equal((await owner.api(`/wallet/deposits/${deposit.id}/simulate`,{method:'POST',data:{mode:'demo',outcome:'approved',version:1}})).status,409);
+  const after=(await owner.api('/wallet')).data;assert.equal(after.balance,1250);
+  const credits=after.transactions.filter(tx=>tx.reference===`deposit:${deposit.id}`);assert.equal(credits.length,1);assert.equal(credits[0].amount,250);assert.equal(credits[0].demo,true);assert.match(credits[0].label,/\[DEMO\]/);
+  assert.equal((await owner.api('/wallet/deposits',{method:'POST',data})).data.deposit.status,'approved'); // Retry after settlement never creates a second order.
+  assert.deepEqual((await owner.api('/leaderboard')).data.entries,[]); // Buying demo credits does not create match statistics.
+  const stored=await readFile(join(h.dataDir,'state.json'),'utf8');
+  for(const forbidden of ['never-persist-this-card','never-persist-this-cvv','never-persist-this-bank'])assert.ok(!stored.includes(forbidden));
+});
+
+test('demo Pix rejection and cancellation never credit; wallet reservations continue to come exclusively from duels',async t=>{
+  const h=await harness(t),owner=h.client();await owner.register('Owner');
+  const created=await owner.api('/duels',{method:'POST',data:{stake:100,mode:'1v1',platform:'pc'}});assert.equal(created.status,200);
+  const pix=(await owner.api('/wallet/deposits',{method:'POST',data:{amount:100,method:'pix',idempotencyKey:'test-pix-operation-0001'}})).data.deposit;
+  const before=(await owner.api('/wallet')).data;assert.equal(before.balance,900);assert.equal(before.reserved,100);
+  assert.equal((await owner.api(`/wallet/deposits/${pix.id}/simulate`,{method:'POST',data:{mode:'demo',outcome:'rejected',version:1}})).status,200);
+  const card=(await owner.api('/wallet/deposits',{method:'POST',data:{amount:1000,method:'card',installments:6,idempotencyKey:'test-card-operation-0002'}})).data.deposit;
+  assert.equal((await owner.api(`/wallet/deposits/${card.id}/cancel`,{method:'POST',data:{version:0}})).status,409);
+  assert.equal((await owner.api(`/wallet/deposits/${card.id}/cancel`,{method:'POST',data:{version:1}})).status,200);
+  assert.equal((await owner.api(`/wallet/deposits/${card.id}/simulate`,{method:'POST',data:{mode:'demo',outcome:'approved',version:1}})).status,409);
+  const after=(await owner.api('/wallet')).data;assert.equal(after.balance,900);assert.equal(after.reserved,100);assert.equal(after.transactions.filter(tx=>tx.source==='deposit').length,0);
+  assert.ok(after.deposits.some(deposit=>deposit.status==='rejected'));assert.ok(after.deposits.some(deposit=>deposit.status==='cancelled'));
+});
+
+test('transfer proof remains private and only a different authorized reviewer can approve demo credits exactly once',async t=>{
+  const h=await harness(t),owner=h.client(),other=h.client(),team=h.client(),visitor=h.client();
+  const ownerUser=await owner.register('Owner');await other.register('Other');const reviewer=await team.register('ReviewTeam');h.arena.reviewerIds.add(reviewer.id);h.arena.reviewerIds.add(ownerUser.id);
+  const order=(await owner.api('/wallet/deposits',{method:'POST',data:{amount:500,method:'transfer',idempotencyKey:'test-transfer-operation-0001'}})).data.deposit;
+  assert.equal((await owner.api(`/wallet/deposits/${order.id}/simulate`,{method:'POST',data:{mode:'demo',outcome:'approved',version:1}})).status,403);
+  assert.equal((await team.api(`/wallet/reviews/${order.id}`,{method:'POST',data:{decision:'approve',reason:'Esta conta não enviou comprovante ainda.',version:1}})).status,409);
+  assert.equal((await other.api(`/wallet/deposits/${order.id}/proof?version=1`,{method:'POST',body:PNG,mime:'image/png'})).status,404);
+  const uploaded=await owner.api(`/wallet/deposits/${order.id}/proof?version=1`,{method:'POST',body:PNG,mime:'image/png'});
+  assert.equal(uploaded.status,200);const deposit=uploaded.data.deposit,evidenceId=uploaded.data.evidence.id;assert.equal(deposit.status,'review');assert.equal(deposit.version,2);
+  assert.equal((await visitor.api(`/wallet/evidence/${evidenceId}`)).status,401);assert.equal((await other.api(`/wallet/evidence/${evidenceId}`)).status,404);assert.equal((await owner.api(`/wallet/evidence/${evidenceId}`)).status,200);assert.equal((await team.api(`/wallet/evidence/${evidenceId}`)).status,200);
+  assert.equal((await owner.api(`/evidence/${evidenceId}`)).status,404); // A wallet proof cannot be used as a match photo.
+  assert.equal((await other.api('/wallet/reviews')).status,403);assert.equal((await owner.api('/wallet/reviews')).data.deposits.length,0);assert.equal((await team.api('/wallet/reviews')).data.deposits[0].id,deposit.id);
+  const decision={decision:'approve',reason:'Conferi o comprovante fictício para o teste.',version:2};
+  assert.equal((await owner.api(`/wallet/reviews/${deposit.id}`,{method:'POST',data:decision})).status,403);assert.equal((await other.api(`/wallet/reviews/${deposit.id}`,{method:'POST',data:decision})).status,403);
+  assert.equal((await team.api(`/wallet/reviews/${deposit.id}`,{method:'POST',data:decision})).status,200);assert.equal((await team.api(`/wallet/reviews/${deposit.id}`,{method:'POST',data:decision})).status,409);
+  const wallet=(await owner.api('/wallet')).data;assert.equal(wallet.balance,1500);assert.equal(wallet.transactions.filter(tx=>tx.reference===`deposit:${deposit.id}`).length,1);assert.equal(wallet.deposits[0].decision.kind,'team_review');
+});
+
+test('replacing a transfer proof invalidates stale decisions; rejection and cancellation preserve the balance',async t=>{
+  const h=await harness(t),owner=h.client(),team=h.client();await owner.register('Owner');const reviewer=await team.register('ReviewTeam');h.arena.reviewerIds.add(reviewer.id);
+  const order=(await owner.api('/wallet/deposits',{method:'POST',data:{amount:1000,method:'transfer',idempotencyKey:'test-transfer-operation-0002'}})).data.deposit;
+  assert.equal((await owner.api(`/wallet/deposits/${order.id}/proof?version=1`,{method:'POST',body:Buffer.from('<svg></svg>'),mime:'image/png'})).status,400);
+  await owner.api(`/wallet/deposits/${order.id}/proof?version=1`,{method:'POST',body:PNG,mime:'image/png'});
+  const replacement=await owner.api(`/wallet/deposits/${order.id}/proof?version=2`,{method:'POST',body:PNG,mime:'image/png'});assert.equal(replacement.data.deposit.version,3);assert.equal(replacement.data.deposit.evidenceIds.length,2);
+  assert.equal((await team.api(`/wallet/reviews/${order.id}`,{method:'POST',data:{decision:'approve',reason:'A equipe precisa revisar a versão atual.',version:2}})).status,409);
+  assert.equal((await team.api(`/wallet/reviews/${order.id}`,{method:'POST',data:{decision:'reject',reason:'Comprovante fictício rejeitado neste teste.',version:3}})).status,200);
+  assert.equal((await owner.api('/wallet')).data.balance,1000);
+  const another=(await owner.api('/wallet/deposits',{method:'POST',data:{amount:100,method:'transfer',idempotencyKey:'test-transfer-operation-0003'}})).data.deposit;
+  await owner.api(`/wallet/deposits/${another.id}/proof?version=1`,{method:'POST',body:PNG,mime:'image/png'});
+  assert.equal((await owner.api(`/wallet/deposits/${another.id}/cancel`,{method:'POST',data:{version:2}})).status,200);
+  assert.equal((await team.api(`/wallet/reviews/${another.id}`,{method:'POST',data:{decision:'approve',reason:'Não podemos aprovar um pedido cancelado.',version:2}})).status,409);
+  assert.equal((await owner.api('/wallet')).data.balance,1000);assert.equal((await owner.api('/wallet')).data.transactions.filter(tx=>tx.source==='deposit').length,0);
+});
+
 test('persistent accounts survive restart and private backend files never appear through static HTTP',async t=>{
   const dataDir=await mkdtemp(join(tmpdir(),'fifabet-persistence-test-'));
   let arena=await createArenaServer({dataDir});
   await new Promise(resolve=>arena.server.listen(0,'127.0.0.1',resolve));
   let base=`http://127.0.0.1:${arena.server.address().port}`;
   const registered=await fetch(`${base}/api/v1/auth/register`,{method:'POST',headers:{Origin:base,'Content-Type':'application/json'},body:JSON.stringify({nickname:'Persistent',password:'a persistent passphrase'})});
-  const user=(await registered.json()).user;assert.ok(user);
+  const registration=await registered.json(),user=registration.user;assert.ok(user);
+  const headers={Origin:base,'Content-Type':'application/json',Cookie:registered.headers.get('set-cookie').split(';')[0],'X-CSRF-Token':registration.csrfToken};
+  const depositResponse=await fetch(`${base}/api/v1/wallet/deposits`,{method:'POST',headers,body:JSON.stringify({amount:100,method:'pix',idempotencyKey:'persistent-demo-operation-0001'})});
+  const deposit=(await depositResponse.json()).deposit;assert.ok(deposit);
+  assert.equal((await fetch(`${base}/api/v1/wallet/deposits/${deposit.id}/simulate`,{method:'POST',headers,body:JSON.stringify({mode:'demo',outcome:'approved',version:1})})).status,200);
   await arena.close();
   arena=await createArenaServer({dataDir});
   await new Promise(resolve=>arena.server.listen(0,'127.0.0.1',resolve));
   base=`http://127.0.0.1:${arena.server.address().port}`;
   t.after(async()=>{await arena.close();await rm(dataDir,{recursive:true,force:true});});
   const loggedIn=await fetch(`${base}/api/v1/auth/login`,{method:'POST',headers:{Origin:base,'Content-Type':'application/json'},body:JSON.stringify({identifier:user.publicPlayerId,password:'a persistent passphrase'})});
-  assert.equal(loggedIn.status,200);assert.equal((await loggedIn.json()).user.id,user.id);
+  assert.equal(loggedIn.status,200);const loggedPayload=await loggedIn.json();assert.equal(loggedPayload.user.id,user.id);assert.equal(loggedPayload.user.balance,1100);
+  const persistedWallet=await fetch(`${base}/api/v1/wallet`,{headers:{Cookie:loggedIn.headers.get('set-cookie').split(';')[0]}});
+  const wallet=await persistedWallet.json();assert.equal(wallet.deposits[0].id,deposit.id);assert.equal(wallet.deposits[0].status,'approved');assert.equal(wallet.transactions.filter(tx=>tx.reference===`deposit:${deposit.id}`).length,1);
   for(const path of ['/backend/server.mjs','/.env','/docs/SERVIDOR.md','/state.json'])assert.equal((await fetch(`${base}${path}`)).status,404);
   assert.equal((await fetch(`${base}/backend-client.mjs`)).status,200);
   assert.equal((await fetch(`${base}/assets/kits/internacional.jpg`)).status,200);

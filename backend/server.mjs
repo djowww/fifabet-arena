@@ -13,6 +13,8 @@ const DAY=86_400_000;
 const MAX_IMAGE=5*1024*1024;
 const MODES=['1v1','Ultimate Team','Clubes'];
 const PLATFORMS=['playstation','xbox','pc','switch'];
+const DEPOSIT_AMOUNTS=[100,250,500,1000];
+const DEPOSIT_METHODS=['card','pix','transfer'];
 const COOKIE='fifabet_session';
 const token=()=>randomBytes(32).toString('base64url');
 const sha=value=>createHash('sha256').update(value).digest('hex');
@@ -85,7 +87,7 @@ async function jsonBody(request){
 }
 function balanceChange(user,reference,amount,label){
   if(user.transactions.some(t=>t.reference===reference))return;
-  if(!Number.isSafeInteger(amount)||user.balance+amount<0)fail(409,'Pontos insuficientes.','insufficient_balance');
+  if(!Number.isSafeInteger(amount)||!Number.isSafeInteger(user.balance+amount)||user.balance+amount<0)fail(409,'Pontos insuficientes ou saldo inválido.','insufficient_balance');
   user.balance+=amount;
   user.transactions.unshift({id:randomUUID(),reference,amount,label,date:now()});
 }
@@ -104,6 +106,16 @@ function duelView(state,duel,user){
   if(duel.hostId!==user.id||duel.status!=='invited')delete result.inviteToken;
   return result;
 }
+function depositView(state,deposit){
+  const {idempotencyKey,...visible}=deposit;
+  return {...visible,owner:publicPlayer(state.users[deposit.userId]),paymentMode:'demo',realMoney:false};
+}
+function fields(data,allowed){
+  if(Object.keys(data).some(key=>!allowed.includes(key)))fail(400,'Use apenas os campos da simulação. Não envie número de cartão, CVV, chave Pix ou dados bancários.','unsupported_fields');
+}
+function depositVersion(deposit,version){
+  if(!Number.isSafeInteger(version)||version!==deposit.version)fail(409,'O pedido mudou. Atualize a carteira antes de continuar.','stale_deposit');
+}
 
 /** File persistence is intentionally a single-process prototype, not a production database. */
 export async function createArenaServer(options={}){
@@ -111,6 +123,8 @@ export async function createArenaServer(options={}){
   const rootRelative=relative(ROOT,dataDir);
   if(rootRelative===''||(!rootRelative.startsWith(`..${sep}`)&&rootRelative!=='..'&&!isAbsolute(rootRelative)))throw Error('FIFABET_DATA_DIR deve ficar fora da pasta publicada do site.');
   const publicOrigin=options.publicOrigin||process.env.FIFABET_PUBLIC_ORIGIN||'';
+  const paymentMode=options.paymentMode||process.env.FIFABET_PAYMENT_MODE||'demo';
+  if(paymentMode!=='demo')throw Error('Somente FIFABET_PAYMENT_MODE=demo está disponível. Nenhum gateway de pagamento real está integrado.');
   if(publicOrigin&&(new URL(publicOrigin).origin!==publicOrigin||!/^https?:\/\//.test(publicOrigin)))throw Error('FIFABET_PUBLIC_ORIGIN deve conter somente a origem, sem caminho.');
   const reviewerIds=new Set(options.reviewerIds||String(process.env.FIFABET_REVIEWER_IDS||'').split(',').map(v=>v.trim()).filter(Boolean));
   const secureCookie=publicOrigin.startsWith('https://')||options.secureCookie===true;
@@ -118,6 +132,7 @@ export async function createArenaServer(options={}){
   if(!Number.isSafeInteger(maxEvidenceBytes)||maxEvidenceBytes<MAX_IMAGE)throw Error('FIFABET_MAX_EVIDENCE_BYTES deve ser um número inteiro de pelo menos 5 MiB.');
   await mkdir(dataDir,{recursive:true,mode:0o700});
   await mkdir(join(dataDir,'evidence'),{recursive:true,mode:0o700});
+  await mkdir(join(dataDir,'wallet-evidence'),{recursive:true,mode:0o700});
   const lockPath=join(dataDir,'instance.lock');
   let lock;
   try{lock=await open(lockPath,'wx',0o600);await lock.writeFile(String(process.pid));}
@@ -127,8 +142,11 @@ export async function createArenaServer(options={}){
   try{
     state=JSON.parse(await readFile(statePath,'utf8'));
     if(state.version!==1||!plain(state.users)||!plain(state.duels)||!plain(state.sessions)||!plain(state.evidence))throw Error('Dados do servidor inválidos; restaure um backup.');
+    if(state.deposits===undefined)state.deposits={};
+    if(state.walletEvidence===undefined)state.walletEvidence={};
+    if(!plain(state.deposits)||!plain(state.walletEvidence))throw Error('Dados da carteira inválidos; restaure um backup.');
   }catch(error){
-    if(error.code==='ENOENT')state={version:1,users:{},duels:{},sessions:{},evidence:{}};
+    if(error.code==='ENOENT')state={version:1,users:{},duels:{},sessions:{},evidence:{},deposits:{},walletEvidence:{}};
     else{await lock.close();await unlink(lockPath);throw error;}
   }
   async function persist(draft){
@@ -173,6 +191,19 @@ export async function createArenaServer(options={}){
     if(!duel||(!member(duel,user)&&duel.recipientId!==user.id))fail(404,'Desafio não encontrado.','not_found');
     return duel;
   }
+  function ownDeposit(draft,user,id){
+    const deposit=draft.deposits[id];
+    if(!deposit||deposit.userId!==user.id)fail(404,'Pedido de recarga não encontrado.','not_found');
+    return deposit;
+  }
+  function evidenceTotal(draft){return [...Object.values(draft.evidence),...Object.values(draft.walletEvidence)].reduce((sum,item)=>sum+item.bytes,0);}
+  function approveDeposit(draft,deposit,actorId,kind,text){
+    const owner=draft.users[deposit.userId];
+    balanceChange(owner,`deposit:${deposit.id}`,deposit.amount,`[DEMO] Recarga por ${{card:'cartão',pix:'Pix',transfer:'transferência'}[deposit.method]} aprovada em simulação`);
+    Object.assign(owner.transactions.find(tx=>tx.reference===`deposit:${deposit.id}`),{demo:true,source:'deposit',depositId:deposit.id,method:deposit.method});
+    deposit.status='approved';deposit.updatedAt=now();deposit.version++;
+    deposit.decision={outcome:'approved',kind,actorId,reason:text,date:deposit.updatedAt,provider:'fifabet-demo'};
+  }
   function accept(draft,duel,user){
     if(duel.status!=='invited')fail(409,'Este convite já foi aceito, cancelado ou expirou.');
     if(duel.hostId===user.id)fail(409,'Envie o convite para outra pessoa.');
@@ -183,10 +214,10 @@ export async function createArenaServer(options={}){
     return duelView(draft,duel,user);
   }
   const mimeTypes={'.html':'text/html; charset=utf-8','.js':'text/javascript; charset=utf-8','.mjs':'text/javascript; charset=utf-8','.css':'text/css; charset=utf-8','.png':'image/png','.jpg':'image/jpeg','.webp':'image/webp','.svg':'image/svg+xml'};
-  const publicFiles=new Set(['index.html','legacy.html','colecao.html','app.js','play.js','arena-app.js','backend-client.mjs','model.mjs','clubs.mjs','football-trophies.mjs','rivalry-section.mjs','styles.css','arena.css','shop.css','profile.css','achievements.css','rivalry.css','competitive-modes.css','practical.css','arena-app.css']);
+  const publicFiles=new Set(['index.html','legacy.html','colecao.html','app.js','play.js','arena-app.js','backend-client.mjs','model.mjs','clubs.mjs','football-trophies.mjs','rivalry-section.mjs','styles.css','arena.css','shop.css','profile.css','achievements.css','rivalry.css','competitive-modes.css','practical.css','lobby.css','arena-app.css']);
   async function route(draft,request,response,url){
     const path=url.pathname,method=request.method;
-    if(method==='GET'&&path==='/api/v1/status')return {available:true,mode:'shared-prototype',realMoney:false,apiVersion:1,reviewerConfigured:reviewerIds.size>0};
+    if(method==='GET'&&path==='/api/v1/status')return {available:true,mode:'shared-prototype',paymentMode:'demo',realMoney:false,noRealMoney:true,apiVersion:1,reviewerConfigured:reviewerIds.size>0};
     if(method==='GET'&&path==='/api/v1/session'){
       const session=sessionFor(draft,request),user=session&&draft.users[session.userId];
       return user&&session.expiresAt>Date.now()?{user:{...publicPlayer(user),balance:user.balance,isReviewer:reviewer(user)},csrfToken:session.csrfToken}:{user:null,csrfToken:null};
@@ -246,6 +277,84 @@ export async function createArenaServer(options={}){
       if(Object.hasOwn(data,'nickname')){const name=nickname(data.nickname);if(Object.values(draft.users).some(u=>u.id!==user.id&&u.nickname.toLocaleLowerCase()===name.toLocaleLowerCase()))fail(409,'Este apelido já está em uso.');user.nickname=name;}
       if(Object.hasOwn(data,'clubId')){if(data.clubId!==null&&!CLUBS.some(c=>c.id===data.clubId))fail(400,'Escolha um clube do catálogo.');user.clubId=data.clubId;}
       return {user:{...publicPlayer(user),balance:user.balance,isReviewer:reviewer(user)}};
+    }
+    if(method==='GET'&&path==='/api/v1/wallet'){
+      const reserved=Object.values(draft.duels).filter(duel=>member(duel,user)&&['invited','in_progress','pending_review','disputed'].includes(duel.status)).reduce((sum,duel)=>sum+duel.stake,0);
+      return {balance:user.balance,reserved,transactions:user.transactions,deposits:Object.values(draft.deposits).filter(deposit=>deposit.userId===user.id).sort((a,b)=>b.createdAt.localeCompare(a.createdAt)).map(deposit=>depositView(draft,deposit)),catalog:DEPOSIT_AMOUNTS,methods:DEPOSIT_METHODS,paymentMode:'demo',realMoney:false,noRealMoney:true};
+    }
+    if(method==='POST'&&path==='/api/v1/wallet/deposits'){
+      const data=await jsonBody(request);fields(data,['amount','method','installments','idempotencyKey']);
+      if(!DEPOSIT_AMOUNTS.includes(data.amount)||!DEPOSIT_METHODS.includes(data.method))fail(400,'Escolha um pacote de créditos e um método de teste válidos.');
+      const installments=integer(data.installments??1,1,6,'Número de parcelas');
+      if(data.method!=='card'&&installments!==1)fail(400,'Parcelas são disponíveis apenas na simulação de cartão.');
+      if(typeof data.idempotencyKey!=='string'||!/^[A-Za-z0-9_-]{16,100}$/.test(data.idempotencyKey))fail(400,'Use um identificador único de operação de 16 a 100 caracteres.');
+      const existing=Object.values(draft.deposits).find(deposit=>deposit.userId===user.id&&deposit.idempotencyKey===data.idempotencyKey);
+      if(existing){
+        if(existing.amount!==data.amount||existing.method!==data.method||existing.installments!==installments)fail(409,'Esse identificador já pertence a outro pedido.','idempotency_conflict');
+        return {deposit:depositView(draft,existing)};
+      }
+      if(Object.values(draft.deposits).filter(deposit=>deposit.userId===user.id&&['pending','review'].includes(deposit.status)).length>=10)fail(409,'Conclua ou cancele pedidos pendentes antes de criar mais.');
+      const date=now(),deposit={id:randomUUID(),userId:user.id,idempotencyKey:data.idempotencyKey,amount:data.amount,method:data.method,installments,status:'pending',version:1,createdAt:date,updatedAt:date,evidenceId:null,evidenceIds:[],decision:null};
+      draft.deposits[deposit.id]=deposit;
+      return {deposit:depositView(draft,deposit)};
+    }
+    const depositMatch=/^\/api\/v1\/wallet\/deposits\/([a-f0-9-]{36})\/(simulate|cancel|proof)$/.exec(path);
+    if(method==='POST'&&depositMatch){
+      const deposit=ownDeposit(draft,user,depositMatch[1]),action=depositMatch[2];
+      if(!['pending','review'].includes(deposit.status))fail(409,'Este pedido já foi encerrado.');
+      if(action==='proof'){
+        if(deposit.method!=='transfer')fail(409,'Comprovante é usado apenas na simulação de transferência.');
+        depositVersion(deposit,Number(url.searchParams.get('version')));
+        rateLimit(request,'evidence',30,60*60*1000);
+        if(deposit.evidenceIds.length>=3)fail(409,'Este pedido já possui três comprovantes. A equipe deve revisar as imagens.');
+        const mime=String(request.headers['content-type']||'').split(';')[0];
+        if(!['image/png','image/jpeg','image/webp'].includes(mime))fail(415,'Use uma foto PNG, JPG ou WebP.');
+        const body=await readBody(request,MAX_IMAGE),size=dimensions(body,mime),id=randomUUID();
+        if(evidenceTotal(draft)+body.length>maxEvidenceBytes)fail(507,'O armazenamento de fotos está cheio. Avise a equipe.','storage_full');
+        const item={id,depositId:deposit.id,authorId:user.id,mime,bytes:body.length,...size,sha256:sha(body),createdAt:now()};
+        await writeFile(join(dataDir,'wallet-evidence',id),body,{mode:0o600,flag:'wx'});draft.walletEvidence[id]=item;
+        deposit.evidenceId=id;deposit.evidenceIds.push(id);deposit.status='review';deposit.version++;deposit.updatedAt=now();
+        return {deposit:depositView(draft,deposit),evidence:{id,mime,bytes:body.length,...size,url:`/api/v1/wallet/evidence/${id}`}};
+      }
+      const data=await jsonBody(request);
+      if(action==='cancel'){
+        fields(data,['version']);depositVersion(deposit,data.version);
+        deposit.status='cancelled';deposit.version++;deposit.updatedAt=now();
+        deposit.decision={outcome:'cancelled',kind:'owner',actorId:user.id,reason:'Pedido de teste cancelado pelo jogador.',date:deposit.updatedAt,provider:'fifabet-demo'};
+      }else{
+        fields(data,['mode','outcome','version']);depositVersion(deposit,data.version);
+        if(data.mode!=='demo'||!['approved','rejected'].includes(data.outcome))fail(400,'Identifique explicitamente a simulação demonstrativa.');
+        if(!['card','pix'].includes(deposit.method))fail(403,'Transferências exigem comprovante e revisão por outra conta da equipe.');
+        if(data.outcome==='approved')approveDeposit(draft,deposit,user.id,'simulation','Aprovação simulada pelo jogador em ambiente de teste.');
+        else{deposit.status='rejected';deposit.updatedAt=now();deposit.version++;deposit.decision={outcome:'rejected',kind:'simulation',actorId:user.id,reason:'Rejeição simulada pelo jogador em ambiente de teste.',date:deposit.updatedAt,provider:'fifabet-demo'};}
+      }
+      return {deposit:depositView(draft,deposit),balance:user.balance,paymentMode:'demo',realMoney:false};
+    }
+    const walletEvidenceMatch=/^\/api\/v1\/wallet\/evidence\/([a-f0-9-]{36})$/.exec(path);
+    if(method==='GET'&&walletEvidenceMatch){
+      const item=draft.walletEvidence[walletEvidenceMatch[1]],deposit=item&&draft.deposits[item.depositId];
+      if(!item||!deposit||(deposit.userId!==user.id&&!reviewer(user)))fail(404,'Comprovante não encontrado.','not_found');
+      const body=await readFile(join(dataDir,'wallet-evidence',item.id));
+      response.writeHead(200,{'Content-Type':item.mime,'Content-Length':body.length,'Content-Disposition':`inline; filename="comprovante-demo-${item.id}${{'image/png':'.png','image/jpeg':'.jpg','image/webp':'.webp'}[item.mime]}"`});
+      response.end(body);return null;
+    }
+    if(method==='GET'&&path==='/api/v1/wallet/reviews'){
+      if(!reviewer(user))fail(403,'Apenas a equipe autorizada pode revisar comprovantes.');
+      return {deposits:Object.values(draft.deposits).filter(deposit=>deposit.method==='transfer'&&deposit.status==='review'&&deposit.userId!==user.id).sort((a,b)=>a.createdAt.localeCompare(b.createdAt)).map(deposit=>depositView(draft,deposit)),paymentMode:'demo',realMoney:false};
+    }
+    const walletReviewMatch=/^\/api\/v1\/wallet\/reviews\/([a-f0-9-]{36})$/.exec(path);
+    if(method==='POST'&&walletReviewMatch){
+      if(!reviewer(user))fail(403,'Apenas a equipe autorizada pode decidir sobre comprovantes.');
+      const deposit=draft.deposits[walletReviewMatch[1]];
+      if(!deposit)fail(404,'Pedido de recarga não encontrado.','not_found');
+      if(deposit.userId===user.id)fail(403,'Uma pessoa não pode julgar o próprio comprovante.');
+      if(deposit.method!=='transfer'||deposit.status!=='review'||!draft.walletEvidence[deposit.evidenceId])fail(409,'Este pedido não possui comprovante pendente de revisão.');
+      const data=await jsonBody(request);fields(data,['decision','reason','version']);depositVersion(deposit,data.version);
+      const text=reason(data.reason);
+      if(!['approve','reject'].includes(data.decision))fail(400,'Escolha aprovar ou rejeitar o comprovante de teste.');
+      if(data.decision==='approve')approveDeposit(draft,deposit,user.id,'team_review',text);
+      else{deposit.status='rejected';deposit.updatedAt=now();deposit.version++;deposit.decision={outcome:'rejected',kind:'team_review',actorId:user.id,reason:text,date:deposit.updatedAt,provider:'fifabet-demo'};}
+      return {deposit:depositView(draft,deposit),paymentMode:'demo',realMoney:false};
     }
     const playerMatch=/^\/api\/v1\/players\/(FBA-[A-F0-9]{10})$/.exec(path);
     if(method==='GET'&&playerMatch){
@@ -333,7 +442,7 @@ export async function createArenaServer(options={}){
       const mime=String(request.headers['content-type']||'').split(';')[0];
       if(!['image/png','image/jpeg','image/webp'].includes(mime))fail(415,'Use uma foto PNG, JPG ou WebP.');
       const body=await readBody(request,MAX_IMAGE),size=dimensions(body,mime),id=randomUUID();
-      if(Object.values(draft.evidence).reduce((sum,item)=>sum+item.bytes,0)+body.length>maxEvidenceBytes)fail(507,'O armazenamento de fotos está cheio. Avise a equipe.','storage_full');
+      if(evidenceTotal(draft)+body.length>maxEvidenceBytes)fail(507,'O armazenamento de fotos está cheio. Avise a equipe.','storage_full');
       const item={id,duelId:duel.id,authorId:user.id,mime,bytes:body.length,...size,sha256:sha(body),createdAt:now()};
       await writeFile(join(dataDir,'evidence',id),body,{mode:0o600,flag:'wx'});draft.evidence[id]=item;
       return {evidence:{id,mime,bytes:item.bytes,width:item.width,height:item.height,createdAt:item.createdAt,url:`/api/v1/evidence/${id}`}};

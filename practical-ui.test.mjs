@@ -13,7 +13,7 @@ async function harness({initial=M.emptyState(),api={},url='https://example.test/
   let failWrite=false;
   function node(id){return nodes[id]??={id,innerHTML:'',textContent:'',value:'',hidden:false,open:false,isConnected:true,disabled:false,files:[],dataset:{},classList:{add(){},remove(){}},focus(){document.activeElement=this;},setSelectionRange(){},showModal(){this.open=true;},close(){this.open=false;},getBoundingClientRect(){return {left:0,right:500,top:0,bottom:500};},addEventListener(name,callback){this[name]=callback;}};}
   const document={getElementById:node,activeElement:null,addEventListener(name,callback){listeners[name]=callback;},createElement(tag){assert.equal(tag,'canvas');return {width:0,height:0,getContext(){return {drawImage(){}};},toDataURL(){return photo;}};}};
-  const parsed=new URL(url),location={hash:parsed.hash,href:url,pathname:parsed.pathname};
+  const parsed=new URL(url),location={hash:parsed.hash,href:url,pathname:parsed.pathname,origin:parsed.origin};
   const localStorage={getItem:key=>stored.get(key)??null,setItem(key,value){if(failWrite){failWrite=false;throw Error('quota');}stored.set(key,String(value));},removeItem:key=>stored.delete(key)};
   const API={detectBackend:async()=>null,evidenceUrl:id=>`/api/v1/evidence/${id}`,...api};
   const context={M,API,document,localStorage,location,window:{addEventListener(name,callback){windowListeners[name]=callback;},scrollTo(){}},history:{replaceState(_state,_title,value){location.href=new URL(value,location.href).href;location.hash=new URL(location.href).hash;}},navigator:{clipboard:{async writeText(value){copies.push(value);}}},crypto,URL,Blob,console,clearTimeout(){},setTimeout(){return 1;},createImageBitmap:bitmapFactory||(async()=>({width:1280,height:720,close(){}})),fetch:async()=>({async blob(){return new Blob(['photo'],{type:'image/jpeg'});}}),FormData:class{constructor(form){this.fields=form.fields;}get(key){return this.fields[key]??null;}}};
@@ -39,13 +39,24 @@ async function harness({initial=M.emptyState(),api={},url='https://example.test/
 async function twoPlayers(){
   const h=await harness();await h.click('signup');await h.submit('signup',{nickname:'Alex'});const a=h.api.getState().activeProfileId;
   await h.click('signup');await h.submit('signup',{nickname:'Bruna'});const b=h.api.getState().activeProfileId;
-  await h.click('login');await h.click('select-profile',a);return {h,a,b};
+  await h.click('login');await h.click('select-profile',a);h.route('#criar');return {h,a,b};
 }
 async function challenge(h,b,stake=100){
+  h.route('#criar');
+  const previous=new Set(Object.keys(h.persisted().duels));
   await h.submit('duel',{rivalId:h.api.getState().profiles[b].publicPlayerId,stake:String(stake),mode:'1v1',rules:'Jogo único, seis minutos.'});
-  return M.duelsForProfile(h.persisted())[0].id;
+  const created=Object.values(h.persisted().duels).find(d=>!previous.has(d.id));assert.ok(created,'the submitted duel must be persisted');return created.id;
 }
 async function accept(h,b,id){await h.click('login');await h.click('select-profile',b);await h.click('accept',id);}
+
+test('the initial lobby offers joining or creating a match and keeps the duel form on its own route',async()=>{
+  const h=await harness();assert.match(h.nodes.screen.innerHTML,/data-action='join'/);assert.match(h.nodes.screen.innerHTML,/data-action='create'/);
+  assert.equal([...h.nodes.screen.innerHTML.matchAll(/class='lobby-choice /g)].length,2);
+  assert.match(h.nodes.screen.innerHTML,/Adicionar créditos/);assert.doesNotMatch(h.nodes.screen.innerHTML,/<form data-form='duel'/);
+  await h.click('signup');await h.submit('signup',{nickname:'Alex'});
+  assert.ok(h.nodes.screen.innerHTML.includes(M.current(h.persisted()).publicPlayerId));
+  await h.click('create');assert.equal(h.location.hash,'#criar');assert.match(h.nodes.screen.innerHTML,/<form data-form='duel'/);
+});
 
 test('practical UI creates actual local players, displays their IDs and sends a persisted invite with reserve',async()=>{
   const {h,a,b}=await twoPlayers();
@@ -131,13 +142,13 @@ test('only a server reviewer gets review navigation and decisions carry the phot
   const user={id:'reviewer-account',nickname:'Equipe',publicPlayerId:'FBA-CCCCCCCCCC',balance:1000,isReviewer:true};
   const duel={id:'review-duel',hostId:'host-account',guestId:'guest-account',host:{id:'host-account',nickname:'Alex'},guest:{id:'guest-account',nickname:'Bruna'},stake:100,mode:'1v1',status:'pending_review',createdAt:'2026-09-30T12:00:00.000Z',result:{id:'report-current',reporterId:'host-account',homeScore:3,awayScore:1,evidenceId:'photo-current',confirmedBy:'guest-account'},disputes:[]};
   let completed=false;
-  const api={detectBackend:async()=>({available:true,apiVersion:1}),loadSession:async()=>({user}),getArena:async()=>({user,duels:[],history:[],stats:{reserved:0}}),listReviews:async()=>({duels:completed?[]:[duel]}),reviewDuel:async(id,data)=>{calls.push({id,...data});completed=true;return {};}};
+  const api={detectBackend:async()=>({available:true,apiVersion:1}),loadSession:async()=>({user}),getArena:async()=>({user,duels:[],history:[],stats:{reserved:0}}),listReviews:async()=>({duels:completed?[]:[duel]}),listDepositReviews:async()=>({deposits:[]}),reviewDuel:async(id,data)=>{calls.push({id,...data});completed=true;return {};}};
   const h=await harness({api});assert.match(h.nodes.navigation.innerHTML,/Revisão/);h.route('#revisao');await new Promise(resolve=>setImmediate(resolve));
   assert.match(h.nodes.screen.innerHTML,/photo-current/);await h.click('review',duel.id);
   assert.match(h.nodes.modalContent.innerHTML,/data-report='report-current'/);
   await h.submit('review',{winner:'host',reason:'Foto e placar conferidos pela equipe.'},{id:duel.id,report:'report-current'});
   assert.deepEqual(calls,[{id:duel.id,reportId:'report-current',winner:'host',reason:'Foto e placar conferidos pela equipe.'}]);
-  assert.match(h.nodes.toast.textContent,/revisado e pontos distribuídos/);
+  assert.match(h.nodes.toast.textContent,/revisado e créditos distribuídos/);
 });
 
 test('a server cancellation request keeps a path to continue the match instead of trapping both accounts',async()=>{
@@ -187,4 +198,86 @@ test('shared ranking renders server entries and an obsolete asynchronous respons
   h.route('#ranking');await new Promise(resolve=>setImmediate(resolve));
   assert.match(h.nodes.screen.innerHTML,/Ranking dos jogadores/);assert.match(h.nodes.screen.innerHTML,/Bruna · você/);
   assert.match(h.nodes.screen.innerHTML,/<td>3<\/td><td>2<\/td><td>1<\/td><td>0<\/td>/);assert.equal(requests,2);
+});
+
+test('joining by a local code shows the actual invitation and requires a separate acceptance from its recipient',async()=>{
+  const {h,a,b}=await twoPlayers(),id=await challenge(h,b,250),code=id.slice(0,8).toUpperCase();
+  assert.equal(h.location.hash,'#arena');assert.match(h.nodes.modalContent.innerHTML,/Código da partida/);
+  await h.click('copy-code',code);assert.equal(h.copies.at(-1),code);
+  await h.click('join');await h.submit('join',{code});assert.match(h.nodes.dialogError.textContent,/próprio convite/);
+  assert.equal(h.persisted().duels[id].status,'invited');assert.equal(h.persisted().profiles[a].balance,750);
+  await h.click('login');await h.click('select-profile',b);await h.click('join');await h.submit('join',{code:code.toLowerCase()});
+  assert.match(h.nodes.modalContent.innerHTML,/Alex × Bruna/);assert.match(h.nodes.modalContent.innerHTML,/Aceitar desafio/);
+  assert.equal(h.persisted().duels[id].status,'invited');assert.equal(h.persisted().profiles[b].balance,1000);
+  await h.click('accept',id);assert.equal(h.persisted().duels[id].status,'active');assert.equal(h.persisted().profiles[b].balance,750);
+  await h.click('join');await h.submit('join',{code:id});assert.match(h.nodes.dialogError.textContent,/etapa de convite/);
+});
+
+test('a guest choosing to create or add credits resumes the requested screen after account creation',async()=>{
+  const creator=await harness();await creator.click('create');assert.match(creator.nodes.modalContent.innerHTML,/Criar conta/);
+  await creator.submit('signup',{nickname:'Alex'});assert.equal(creator.location.hash,'#criar');assert.match(creator.nodes.screen.innerHTML,/<form data-form='duel'/);
+  const payer=await harness();await payer.click('deposit');assert.match(payer.nodes.modalContent.innerHTML,/Criar conta/);
+  await payer.submit('signup',{nickname:'Bruna'});assert.match(payer.nodes.modalContent.innerHTML,/data-form='deposit'/);
+  assert.equal(payer.nodes.modal.open,true);assert.match(payer.nodes.modalContent.innerHTML,/nenhuma chave Pix|Não é gerada uma chave Pix/);
+});
+
+test('local wallet binds card installment selection, refusal, Pix approval and pending cancellation without real payment inputs',async()=>{
+  const h=await harness();await h.click('signup');await h.submit('signup',{nickname:'Alex'});
+  await h.click('deposit');h.document.getElementById('depositAmount').value='500';
+  await h.click('payment-method','card');assert.match(h.nodes.modalContent.innerHTML,/6 parcelas/);
+  assert.doesNotMatch(h.nodes.modalContent.innerHTML,/<input[^>]*(?:cvv|cardNumber|card-number|pan|accountNumber)/i);
+  await h.submit('deposit',{amount:'500',method:'card',installments:'6'});let d=M.current(h.persisted()).depositRequests[0];
+  assert.equal(d.installments,6);assert.equal(d.status,'pending');assert.equal(M.current(h.persisted()).balance,1000);assert.equal(h.location.hash,'#carteira');
+  assert.match(h.nodes.modalContent.innerHTML,/Simular aprovação/);await h.click('deposit-reject',d.id);
+  assert.equal(M.current(h.persisted()).depositRequests[0].status,'rejected');assert.equal(M.current(h.persisted()).balance,1000);
+  await h.click('deposit');await h.submit('deposit',{amount:'250',method:'pix',installments:'1'});d=M.current(h.persisted()).depositRequests[0];
+  await h.click('deposit-confirm',d.id);await h.click('deposit-confirm',d.id);
+  assert.equal(M.current(h.persisted()).balance,1250);assert.equal(M.current(h.persisted()).transactions.filter(t=>t.ref===`demo-deposit:${d.id}`).length,1);
+  assert.match(h.nodes.modalContent.innerHTML,/Créditos adicionados/);
+  await h.click('deposit');await h.submit('deposit',{amount:'100',method:'card',installments:'1'});d=M.current(h.persisted()).depositRequests[0];await h.click('deposit-cancel',d.id);
+  assert.equal(M.current(h.persisted()).depositRequests[0].status,'cancelled');assert.equal(M.current(h.persisted()).balance,1250);
+  await h.click('close');h.route('#carteira');await new Promise(resolve=>setImmediate(resolve));
+  assert.match(h.nodes.screen.innerHTML,/Extrato/);assert.match(h.nodes.screen.innerHTML,/Crédito simulado/);assert.match(h.nodes.screen.innerHTML,/1\.250/);
+});
+
+test('local transfer proof enters review, is shown to the owner and remains uncredited after reloading the wallet',async()=>{
+  const h=await harness();await h.click('signup');await h.submit('signup',{nickname:'Alex'});
+  await h.click('deposit');await h.submit('deposit',{amount:'1000',method:'transfer',installments:'1'});const id=M.current(h.persisted()).depositRequests[0].id;
+  await h.click('deposit-proof',id);assert.match(h.nodes.modalContent.innerHTML,/Não envie dados bancários reais/);
+  await h.submit('deposit-proof',{evidence:image});let s=h.persisted(),d=M.current(s).depositRequests[0];
+  assert.equal(d.status,'review');assert.equal(d.receipt.evidenceDataUrl,photo);assert.equal(M.current(s).balance,1000);
+  assert.match(h.nodes.modalContent.innerHTML,/Comprovante em análise/);assert.match(h.nodes.modalContent.innerHTML,/neste navegador/);
+  assert.doesNotMatch(h.nodes.modalContent.innerHTML,/data-action='deposit-confirm'/);
+  const reload=await harness({initial:s,url:'https://example.test/fifabet-arena/#carteira'});await new Promise(resolve=>setImmediate(resolve));
+  assert.match(reload.nodes.screen.innerHTML,/Comprovante em análise/);assert.equal(M.current(reload.persisted()).balance,1000);
+  await reload.click('deposit-details',id);assert.match(reload.nodes.modalContent.innerHTML,/data:image\/jpeg/);
+  assert.match(reload.nodes.modalContent.innerHTML,/data-action='deposit-cancel'/);
+  await reload.click('deposit-cancel',id);s=reload.persisted();d=M.current(s).depositRequests[0];
+  assert.equal(d.status,'cancelled');assert.equal(d.receipt.evidenceDataUrl,photo);assert.equal(d.receipts.length,1);assert.equal(M.current(s).balance,1000);
+  const cancelled=await harness({initial:s,url:'https://example.test/fifabet-arena/#carteira'});await new Promise(resolve=>setImmediate(resolve));
+  await cancelled.click('deposit-details',id);assert.match(cancelled.nodes.modalContent.innerHTML,/Cancelado/);assert.match(cancelled.nodes.modalContent.innerHTML,/data:image\/jpeg/);
+  assert.doesNotMatch(cancelled.nodes.modalContent.innerHTML,/data-action='deposit-confirm'/);assert.equal(M.current(cancelled.persisted()).balance,1000);
+});
+
+test('server wallet approval sends the displayed version and deposit creation uses the form idempotency key',async()=>{
+  const calls=[];let deposit=null,balance=1000;
+  const user={id:'payer-account',nickname:'Bruna',publicPlayerId:'FBA-BBBBBBBBBB',balance:1000,isReviewer:false};
+  const api={detectBackend:async()=>({available:true,apiVersion:1}),loadSession:async()=>({user}),getArena:async()=>({user:{...user,balance},duels:[],history:[],stats:{reserved:0}}),getWallet:async()=>({balance,reserved:0,transactions:[],deposits:deposit?[{...deposit}]:[]}),createDeposit:async data=>{calls.push(['create',{...data}]);deposit={id:'deposit-server',...data,status:'pending',version:1,createdAt:'2026-09-30T12:00:00.000Z'};return {deposit:{...deposit}};},simulateDeposit:async(id,data)=>{calls.push(['simulate',id,{...data}]);deposit.status='approved';deposit.version=2;balance+=deposit.amount;return {deposit:{...deposit}};}};
+  const h=await harness({api});await h.click('deposit');const key=/data-operation='([^']+)'/.exec(h.nodes.modalContent.innerHTML)[1];
+  await h.submit('deposit',{amount:'250',method:'pix',installments:'1'});assert.equal(balance,1000);assert.equal(h.location.hash,'#carteira');
+  assert.deepEqual(calls[0],['create',{amount:250,method:'pix',installments:1,idempotencyKey:key}]);
+  await h.click('deposit-confirm','deposit-server');assert.deepEqual(calls[1],['simulate','deposit-server',{mode:'demo',outcome:'approved',version:1}]);
+  assert.equal(balance,1250);assert.match(h.nodes.modalContent.innerHTML,/Créditos adicionados/);assert.match(h.nodes.headerActions.innerHTML,/Bruna/);
+});
+
+test('server transfer review binds the authorized reviewer decision to the shown receipt version',async()=>{
+  const calls=[];let reviewed=false;
+  const user={id:'reviewer-account',nickname:'Equipe',publicPlayerId:'FBA-CCCCCCCCCC',balance:1000,isReviewer:true};
+  const deposit={id:'transfer-server',owner:{id:'payer-account',nickname:'Bruna'},amount:500,method:'transfer',installments:1,status:'review',version:3,evidenceId:'receipt-private',createdAt:'2026-09-30T12:00:00.000Z'};
+  const api={detectBackend:async()=>({available:true,apiVersion:1}),loadSession:async()=>({user}),getArena:async()=>({user,duels:[],history:[],stats:{reserved:0}}),listReviews:async()=>({duels:[]}),listDepositReviews:async()=>({deposits:reviewed?[]:[deposit]}),depositEvidenceUrl:id=>`/api/v1/wallet/evidence/${id}`,reviewDeposit:async(id,data)=>{calls.push({id,...data});reviewed=true;return {};}};
+  const h=await harness({api});h.route('#revisao');await new Promise(resolve=>setImmediate(resolve));assert.match(h.nodes.screen.innerHTML,/receipt-private/);
+  await h.click('deposit-review',deposit.id);assert.match(h.nodes.modalContent.innerHTML,/data-version='3'/);
+  await h.submit('deposit-review',{decision:'approve',reason:'Comprovante fictício conferido pela equipe.'});
+  assert.deepEqual(calls,[{id:'transfer-server',decision:'approve',reason:'Comprovante fictício conferido pela equipe.',version:3}]);
+  assert.match(h.nodes.toast.textContent,/Transferência de teste aprovada/);
 });

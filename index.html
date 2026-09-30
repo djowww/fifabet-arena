@@ -7,9 +7,10 @@
   <meta name="description" content="Encontre amigos pelo ID FifaBet, crie desafios e acompanhe placares e histórico com revisão de resultados.">
   <title>FifaBet Arena — desafie seus amigos</title>
   <link rel="icon" type="image/svg+xml" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Crect width='32' height='32' rx='9' fill='%2307f468'/%3E%3Cpath d='M10 7h15l-2 5h-8l-1 4h7l-2 5h-6l-2 5H5z' fill='%23151616'/%3E%3C/svg%3E">
-  <link rel="stylesheet" href="styles.css?v=15">
-  <link rel="stylesheet" href="profile.css?v=15">
-  <link rel="stylesheet" href="practical.css?v=15">
+  <link rel="stylesheet" href="styles.css?v=16">
+  <link rel="stylesheet" href="profile.css?v=16">
+  <link rel="stylesheet" href="practical.css?v=16">
+  <link rel="stylesheet" href="lobby.css?v=16">
 </head>
 <body class="practical-app">
   <a class="skip-link" href="#screen">Ir para o conteúdo</a>
@@ -17,7 +18,7 @@
     <a class="brand" href="#arena" aria-label="FifaBet Arena"><span class="brand-symbol" aria-hidden="true">f</span><span>fifa<b>bet</b><small>PLAY YOUR RIVAL</small></span></a>
     <span class="nav-caption">SUA ARENA</span>
     <nav id="navigation" aria-label="Navegação principal"></nav>
-    <div class="sidebar-bottom"><button class="help-button" data-action="help">Como funciona <span>?</span></button><div class="demo-side"><span class="pill lime">DEMO</span><p>Explore com pontos fictícios.<br>Sem valor financeiro.</p></div></div>
+    <div class="sidebar-bottom"><button class="help-button" data-action="help">Como funciona <span>?</span></button><div class="demo-side"><span class="pill lime">DEMO</span><p>Explore com créditos de teste.<br>Sem valor financeiro.</p></div></div>
   </aside>
   <div class="shell">
     <header class="topbar">
@@ -45,7 +46,7 @@
     } else {
       const appScript = document.createElement("script");
       appScript.type = "module";
-      appScript.src = "play.js?v=15";
+      appScript.src = "play.js?v=16";
       appScript.onerror = () => {
         document.getElementById("screen").innerHTML = '<section class="card pad"><h1>Não foi possível carregar a arena.</h1><p>Confira a conexão e recarregue a página. Para executar no computador, use o servidor local.</p></section>';
       };

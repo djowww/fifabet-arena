@@ -1,6 +1,6 @@
 # FifaBet Arena
 
-Desafios entre amigos no EA SPORTS FC, com ID próprio do FifaBet, pontos de demonstração, foto do placar e revisão pela equipe.
+Partidas entre amigos no EA SPORTS FC, com ID próprio do FifaBet, carteira de créditos de teste, foto do placar e revisão pela equipe.
 
 **Interface pública:** https://djowww.github.io/fifabet-arena/
 
@@ -13,7 +13,20 @@ Desafios entre amigos no EA SPORTS FC, com ID próprio do FifaBet, pontos de dem
 5. Uma conta autorizada da equipe revisa a evidência antes de distribuir pontos. Um participante não pode julgar o próprio desafio.
 6. Consulte rival, placar, situação e decisão no histórico dos dois jogadores.
 
-A página inicial foi reduzida ao formulário, ID, saldos e desafios. A classificação usa resultados revisados; não há adversários nem resultados inventados no fluxo principal. O ID e o histórico são internos do FifaBet; não há consulta automática ao histórico da EA.
+A página inicial tem dois cartões: **Entrar em uma partida** e **Criar minha partida**, com referências discretas de Haaland e Alexia Putellas. O formulário completo abre somente na criação. Na entrada, o jogador consulta os convites recebidos ou usa um link/código, confere a partida e aceita pelo próprio perfil.
+
+A classificação usa resultados revisados; não há adversários nem resultados inventados no fluxo principal. O ID e o histórico são internos do FifaBet; não há consulta automática ao histórico da EA.
+
+## Carteira em ambiente de teste
+
+- Saldo disponível, créditos reservados em partidas, pedidos pendentes e extrato.
+- Pacotes de 100, 250, 500 ou 1.000 créditos fictícios.
+- Cartão com 1 a 6 parcelas demonstrativas; Pix com confirmação de teste.
+- Aprovação ou recusa simulada em uma etapa separada. Criar o pedido não altera o saldo; confirmar adiciona créditos uma única vez.
+- Transferência com imagem de comprovante fictício. No servidor, outra conta autorizada da equipe confere a imagem e registra aprovação ou recusa. No modo local, o comprovante fica salvo em análise, sem liberação automática.
+- Pedidos e comprovantes ficam separados por jogador. No servidor, as imagens são privadas e decisões sobre versões antigas do comprovante são rejeitadas.
+
+Esta carteira é uma simulação própria do FifaBet, sem integração com processador de pagamentos. Não recebe cartão real, chave Pix nem dados bancários. A organização do caixa usa como referência a escolha de métodos descrita no [suporte oficial do PokerStars](https://www.pokerstars.com/help/articles/dep-options-avail-general/), com identidade própria.
 
 ## Duas modalidades
 
@@ -24,7 +37,7 @@ A página inicial foi reduzida ao formulário, ID, saldos e desafios. A classifi
 
 Publicar no GitHub não publica a API. O servidor incluído usa JSON com gravação atômica e uma única instância; é um protótipo funcional, ainda sem a infraestrutura de banco e operação de um lançamento comercial. Os modos locais e compartilhados têm cadastros separados, sem migração automática.
 
-Todas as operações usam **pontos fictícios, sem valor financeiro**. Não há Pix, depósitos, saques, cobrança real ou integração automática com resultados da EA.
+Todas as operações usam **créditos fictícios, sem valor financeiro**. Os métodos de recarga são demonstrativos: não há pagamento real, saque ou integração automática com resultados da EA. O modo de pagamento do servidor está fixado em `demo`.
 
 ## Executar
 
@@ -53,7 +66,7 @@ Para verificar regras, integração da interface e API:
 node --test *.test.mjs backend/*.test.mjs
 ```
 
-Os testes cobrem IDs estáveis, reservas sem saldo negativo, permissões de aceite, fotos, contestação, aprovação por terceiro, distribuição única, histórico, cancelamento e persistência. Dados de teste do servidor ficam fora do projeto.
+Os testes cobrem IDs estáveis, convites e códigos, reservas sem saldo negativo, permissões de aceite, fotos, contestação, aprovação por terceiro, distribuição única, histórico, cancelamento e persistência. A carteira verifica parcelamento, pedido sem crédito automático, confirmação única, recusa, privacidade dos comprovantes e revisão de transferências. Dados de teste do servidor ficam fora do projeto.
 
 ## Perfil e coleção preservados
 
@@ -65,7 +78,7 @@ Fontes: [uniformes](docs/UNIFORMES_FONTES.md), [clubes](docs/CLUBES_FONTES.md), 
 
 ## Arquivos principais
 
-- `index.html`, `play.js`, `practical.css`: interface de desafios, ID, histórico e revisão.
+- `index.html`, `play.js`, `practical.css`, `lobby.css`: entrada, partidas, carteira, ID, histórico e revisão.
 - `model.mjs`: regras e persistência da demonstração local.
 - `backend-client.mjs`: comunicação autenticada com a API na mesma origem.
 - `backend/server.mjs`, `backend/accounts.mjs`: servidor, contas, fotos, decisões e consulta administrativa dos IDs.

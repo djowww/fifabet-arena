@@ -20,6 +20,12 @@ export const PEOPLE = [
 ];
 export const COLORS = ['mint','violet','blue','amber','pink'];
 export const DUEL_MODES = ['1v1','Ultimate Team','Clubes'];
+export const DEPOSIT_PACKAGES = [100,250,500,1000];
+export const PAYMENT_METHODS = [
+  {id:'card',label:'Cartão demo'},
+  {id:'pix',label:'Pix demo'},
+  {id:'transfer',label:'Transferência demo'}
+];
 export const GAME_PLATFORMS = [
   {id:'playstation',label:'PlayStation'},
   {id:'xbox',label:'Xbox'},
@@ -113,7 +119,7 @@ function gameAccount(value){
 }
 function profile(name,color='mint'){
   const date=stamp();
-  return {id:uid(),publicPlayerId:'',nickname:name,color:COLORS.includes(color)?color:'mint',clubId:null,teamName:'',teamFlag:'green',avatarSticker:null,ownedStickers:[],gameAccount:null,createdAt:date,balance:1000,bets:[],transactions:[{id:uid(),ref:'welcome',kind:'bonus',label:'Boas-vindas à arena',amount:1000,date}],friends:[],requests:[{personId:'bia',direction:'in'}],challenges:[],favorites:[],reminders:[],achievements:{},visited:[],activity:[],unread:0};
+  return {id:uid(),publicPlayerId:'',nickname:name,color:COLORS.includes(color)?color:'mint',clubId:null,teamName:'',teamFlag:'green',avatarSticker:null,ownedStickers:[],gameAccount:null,createdAt:date,balance:1000,bets:[],depositRequests:[],transactions:[{id:uid(),ref:'welcome',kind:'bonus',label:'Boas-vindas à arena',amount:1000,date}],friends:[],requests:[{personId:'bia',direction:'in'}],challenges:[],favorites:[],reminders:[],achievements:{},visited:[],activity:[],unread:0};
 }
 function playerCode(id,salt=0){
   let hash=2166136261;for(const c of `${id}:${salt}`)hash=Math.imul(hash^c.charCodeAt(0),16777619)>>>0;
@@ -145,6 +151,60 @@ function awards(p,s=null){
 }
 function requireProfile(s){const p=current(s);if(!p)throw Error('Entre em um perfil demo para continuar.');return p;}
 function person(id){if(!PEOPLE.some(p=>p.id===id))throw Error('Jogador não encontrado.');return PEOPLE.find(p=>p.id===id);}
+const DEPOSIT_ACTIONS=['createDemoDeposit','confirmDemoDeposit','rejectDemoDeposit','cancelDemoDeposit','attachDemoReceipt'];
+export function depositRequestsForProfile(s,profileId=s.activeProfileId){
+  return Object.hasOwn(s.profiles,profileId)?[...(s.profiles[profileId].depositRequests||[])]:[];
+}
+export function pendingDemoDepositPoints(s,profileId=s.activeProfileId){
+  return depositRequestsForProfile(s,profileId).filter(d=>['pending','review'].includes(d.status)).reduce((sum,d)=>sum+d.amount,0);
+}
+function changeDemoDeposit(p,action,data){
+  p.depositRequests||=[];
+  if(action==='createDemoDeposit'){
+    const amount=Number(data.amount),method=data.method,installments=Number(data.installments??1);
+    if(!Number.isSafeInteger(amount)||!DEPOSIT_PACKAGES.includes(amount))throw Error('Escolha um pacote demo de 100, 250, 500 ou 1.000 pontos.');
+    if(!PAYMENT_METHODS.some(m=>m.id===method))throw Error('Escolha cartão, Pix ou transferência de demonstração.');
+    if(!Number.isSafeInteger(installments)||installments<1||installments>6||(method!=='card'&&installments!==1))throw Error('Cartão demo aceita de 1 a 6 parcelas. Pix e transferência não têm parcelamento.');
+    const operationId=typeof data.operationId==='string'?data.operationId:'';
+    if(!/^[A-Za-z0-9_-]{1,80}$/.test(operationId))throw Error('Identificador da solicitação demo inválido.');
+    const existing=p.depositRequests.find(d=>d.operationId===operationId);
+    if(existing){
+      if(existing.amount!==amount||existing.method!==method||existing.installments!==installments)throw Error('Essa solicitação já foi criada com outros dados.');
+      return;
+    }
+    if(p.depositRequests.length>=500)throw Error('Este perfil atingiu o limite de 500 solicitações demo.');
+    const request={id:uid(),operationId,amount,method,installments,status:'pending',createdAt:stamp(),confirmedAt:'',rejectedAt:'',cancelledAt:'',receipt:null,receipts:[]};
+    p.depositRequests.unshift(request);
+    activity(p,`${points(amount)} pontos solicitados via ${PAYMENT_METHODS.find(m=>m.id===method).label}. Nenhum valor foi cobrado e seu saldo ainda não mudou.`,'wallet');return;
+  }
+  const d=p.depositRequests.find(item=>item.id===data.id);
+  if(!d)throw Error('Solicitação demo não encontrada neste perfil.');
+  if(action==='confirmDemoDeposit'){
+    if(d.method==='transfer')throw Error('Comprovantes de transferência precisam de uma equipe no servidor. O modo local não libera esses pontos.');
+    if(d.status==='confirmed')return;
+    if(d.status!=='pending')throw Error('Somente uma solicitação demo pendente pode ser confirmada.');
+    if(!DEPOSIT_PACKAGES.includes(d.amount)||!['card','pix'].includes(d.method))throw Error('Solicitação demo inválida.');
+    transaction(p,`demo-deposit:${d.id}`,'demo-deposit',`Crédito simulado · ${PAYMENT_METHODS.find(m=>m.id===d.method).label}`,d.amount);
+    d.status='confirmed';d.confirmedAt=stamp();
+    activity(p,`Simulação concluída: ${points(d.amount)} pontos adicionados. Nenhum pagamento real foi processado.`,'wallet');
+  }else if(action==='rejectDemoDeposit'){
+    if(!['card','pix'].includes(d.method))throw Error('A recusa simulada está disponível apenas para cartão e Pix.');
+    if(d.status==='rejected')return;
+    if(d.status!=='pending')throw Error('Somente uma solicitação demo pendente pode ser recusada.');
+    d.status='rejected';d.rejectedAt=stamp();activity(p,'Pagamento de teste recusado. Nenhum crédito foi adicionado e nenhum valor foi cobrado.','wallet');
+  }else if(action==='cancelDemoDeposit'){
+    if(d.status==='cancelled')return;
+    if(d.status!=='pending'&&!(d.method==='transfer'&&d.status==='review'))throw Error('Somente uma solicitação pendente ou transferência em análise pode ser cancelada.');
+    d.status='cancelled';d.cancelledAt=stamp();activity(p,'Solicitação demo cancelada. Seu saldo não mudou.','wallet');
+  }else if(action==='attachDemoReceipt'){
+    if(d.method!=='transfer'||!['pending','review'].includes(d.status))throw Error('Envie um comprovante de uma transferência demo pendente ou em análise.');
+    if(!validEvidence(data.evidenceDataUrl))throw Error('Anexe uma foto válida do comprovante demo.');
+    if(d.receipts.length>=5)throw Error('Limite de cinco comprovantes demo atingido para esta solicitação.');
+    const receipt={id:uid(),evidenceDataUrl:data.evidenceDataUrl,evidenceName:text(data.evidenceName,100)||'Comprovante demo',date:stamp()};
+    d.receipt=receipt;d.receipts.push(receipt);d.status='review';
+    activity(p,'Comprovante demo salvo neste navegador. Nenhuma equipe está conectada para avaliá-lo; os pontos não foram liberados.','shield');
+  }
+}
 const DUEL_ACTIONS=['createDuel','acceptDuel','rejectDuel','cancelDuel','submitDuelResult','confirmDuelResult','disputeDuelResult','requestDuelCancel','confirmDuelCancel','withdrawDuelCancel'];
 const DUEL_OPEN=['invited','active','review','disputed'];
 export function duelsForProfile(s,profileId=s.activeProfileId){
@@ -302,6 +362,7 @@ export function change(input,action,data={}){
   else {
     p=requireProfile(s);
     if(action==='visit'){if(VIEWS.includes(data.view)&&!p.visited.includes(data.view))p.visited.push(data.view);}
+    else if(DEPOSIT_ACTIONS.includes(action)){changeDemoDeposit(p,action,data);}
     else if(DUEL_ACTIONS.includes(action)){changeDuel(s,p,action,data);}
     else if(action==='profile'){
       const name=nickname(data.nickname);
@@ -422,6 +483,31 @@ function normalizeBet(b){
   if(!b||!Number.isSafeInteger(b.stake)||b.stake<10||b.stake>1e9||!Number.isFinite(b.odd)||b.odd<=1||!Number.isSafeInteger(payout(b.stake,b.odd)))return null;
   return {id:text(String(b.id),80)||uid(),matchId:text(b.matchId,20),home:text(b.home,30),away:text(b.away,30),league:text(b.league),side:b.side==='away'?'away':'home',selection:text(b.selection,30),stake:b.stake,odd:b.odd,potential:payout(b.stake,b.odd),status:['pending','won','lost'].includes(b.status)?b.status:'pending',date:text(b.date,40)||stamp(),settledAt:text(b.settledAt,40)};
 }
+function normalizeDemoReceipt(value){
+  if(!value||typeof value.id!=='string'||!value.id||value.id.length>80||!validEvidence(value.evidenceDataUrl))return null;
+  return {id:value.id,evidenceDataUrl:value.evidenceDataUrl,evidenceName:text(value.evidenceName,100)||'Comprovante demo',date:text(value.date,40)};
+}
+function normalizeDemoDeposit(value,p){
+  if(!value||typeof value.id!=='string'||!value.id||value.id.length>80||!Number.isSafeInteger(value.amount)||!DEPOSIT_PACKAGES.includes(value.amount))return null;
+  if(!PAYMENT_METHODS.some(m=>m.id===value.method)||!Number.isSafeInteger(value.installments)||value.installments<1||value.installments>6||(value.method!=='card'&&value.installments!==1))return null;
+  if(typeof value.operationId!=='string'||!/^[A-Za-z0-9_-]{1,80}$/.test(value.operationId))return null;
+  const request={id:value.id,operationId:value.operationId,amount:value.amount,method:value.method,installments:value.installments,status:['pending','review','confirmed','rejected','cancelled'].includes(value.status)?value.status:'pending',createdAt:text(value.createdAt,40),confirmedAt:'',rejectedAt:'',cancelledAt:'',receipt:null,receipts:[]};
+  if(request.method==='transfer'){
+    const receipts=array(value.receipts).map(normalizeDemoReceipt).filter(Boolean),latest=normalizeDemoReceipt(value.receipt);
+    const seen=new Set();request.receipts=receipts.filter(r=>!seen.has(r.id)&&seen.add(r.id)).slice(-5);
+    if(latest&&!seen.has(latest.id))request.receipts=[...request.receipts,latest].slice(-5);
+    request.receipt=latest||request.receipts.at(-1)||null;
+    if(request.receipt&&!['cancelled','rejected'].includes(request.status))request.status='review';
+    else if(['review','confirmed'].includes(request.status))request.status='pending';
+  }else{
+    const credit=p.transactions.find(t=>t.ref===`demo-deposit:${request.id}`&&t.amount===request.amount);
+    if(credit){request.status='confirmed';request.confirmedAt=text(value.confirmedAt,40)||credit.date;}
+    else if(['confirmed','review'].includes(request.status))request.status='pending';
+  }
+  if(request.status==='cancelled')request.cancelledAt=text(value.cancelledAt,40);
+  if(request.status==='rejected')request.rejectedAt=text(value.rejectedAt,40);
+  return request;
+}
 function normalizeDuelReport(r,d){
   if(!r||!r.id||![d.creatorId,d.opponentId].includes(r.submittedBy)||!validEvidence(r.evidenceDataUrl))return null;
   if(!Number.isSafeInteger(r.homeScore)||!Number.isSafeInteger(r.awayScore)||Math.min(r.homeScore,r.awayScore)<0||Math.max(r.homeScore,r.awayScore)>99)return null;
@@ -473,6 +559,8 @@ export function restore(raw,oldProfile=null,oldBets=null){
       p.gameAccount=gameAccount(value.gameAccount);
       p.bets=array(value.bets).map(normalizeBet).filter(Boolean).slice(0,1000);
       p.transactions=array(value.transactions).filter(t=>t&&Number.isSafeInteger(t.amount)&&typeof t.ref==='string').map(t=>({id:text(String(t.id),80),ref:text(t.ref,150),kind:text(t.kind,30),label:text(t.label),amount:t.amount,date:text(t.date,40)||stamp()})).slice(0,3000);
+      const depositIds=new Set(),operationIds=new Set();
+      p.depositRequests=array(value.depositRequests).map(d=>normalizeDemoDeposit(d,p)).filter(d=>d&&!depositIds.has(d.id)&&!operationIds.has(d.operationId)&&depositIds.add(d.id)&&operationIds.add(d.operationId)).slice(0,500);
       p.friends=[...new Set(array(value.friends).filter(id=>PEOPLE.some(w=>w.id===id)))];
       p.requests=array(value.requests).filter(r=>r&&PEOPLE.some(w=>w.id===r.personId)&&['in','out'].includes(r.direction)&&!p.friends.includes(r.personId)).map(r=>({personId:r.personId,direction:r.direction}));
       p.challenges=array(value.challenges).filter(c=>c&&p.friends.includes(c.personId)).map(c=>{

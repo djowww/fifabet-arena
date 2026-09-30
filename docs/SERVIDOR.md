@@ -1,6 +1,6 @@
-# Contas compartilhadas e desafios reais entre dispositivos
+# Contas, desafios e carteira de teste
 
-O servidor `backend/server.mjs` transforma os desafios de pontos fictícios em dados compartilhados: cada pessoa entra com apelido ou ID e senha, os dois lados usam o mesmo desafio, a foto fica privada e o saldo é controlado pelo servidor. O servidor também entrega os arquivos da interface pela mesma origem. Não há Pix, depósitos, saques, dinheiro real nem consulta a partidas da EA nesta implementação.
+O servidor `backend/server.mjs` transforma os desafios de pontos fictícios em dados compartilhados: cada pessoa entra com apelido ou ID e senha, os dois lados usam o mesmo desafio, a foto fica privada e o saldo é controlado pelo servidor. A carteira oferece pedidos de créditos demonstrativos por cartão, Pix e transferência. Nenhuma dessas ações cobra dinheiro, movimenta uma conta bancária ou consulta um gateway. O servidor também entrega os arquivos da interface pela mesma origem. Saques e consulta a partidas da EA não estão integrados.
 
 O GitHub Pages continua sendo hospedagem estática. Ele não executa este servidor e não cria contas compartilhadas: a interface detecta a API e identifica a demonstração local quando ela não está disponível. Publicar os arquivos no GitHub não publica um banco de dados nem uma API. Nenhum serviço externo foi contratado ou configurado e nenhuma infraestrutura de Tibia/Hostinger foi alterada.
 
@@ -18,7 +18,24 @@ Cada conta tem um ID público permanente como `FBA-A012BC34DE`; trocar o apelido
 
 O ranking compartilhado considera exclusivamente desafios encerrados com decisão da equipe sobre o relatório atual. Convites, partidas em andamento, placares aguardando revisão e disputas não contam. Somente jogadores com ao menos uma partida assim aparecem; cada partida registra vitória e derrota, ou empate para ambos. A classificação contém no máximo 100 jogadores e ordena vitórias em ordem decrescente, depois empates em ordem decrescente e, para desempate, apelido em ordem alfabética portuguesa. Pontos disponíveis não entram no critério e não são expostos pelo ranking.
 
-Por padrão, os dados privados ficam em `%USERPROFILE%\.fifabet-arena` no Windows, ou `~/.fifabet-arena` em outros sistemas. `state.json` contém os registros; `evidence/` contém as imagens. A configuração `FIFABET_DATA_DIR` pode apontar para outra pasta privada, mas o servidor recusa uma pasta dentro da árvore publicada do projeto. Esses arquivos nunca devem ser enviados ao GitHub.
+Por padrão, os dados privados ficam em `%USERPROFILE%\.fifabet-arena` no Windows, ou `~/.fifabet-arena` em outros sistemas. `state.json` contém os registros; `evidence/` contém fotos das partidas; `wallet-evidence/` contém comprovantes demonstrativos. Os registros de carteira e de partidas ficam separados. A configuração `FIFABET_DATA_DIR` pode apontar para outra pasta privada, mas o servidor recusa uma pasta dentro da árvore publicada do projeto. Esses arquivos nunca devem ser enviados ao GitHub.
+
+## Carteira de créditos demonstrativos
+
+O ambiente de teste foi escolhido para esta etapa. `GET /status` e `GET /wallet` identificam `paymentMode:'demo'`, `realMoney:false` e `noRealMoney:true`. O modo é uma simulação interna FifaBet; não é um sandbox oficial de Mercado Pago, PokerStars ou outro provedor. `FIFABET_PAYMENT_MODE` aceita somente `demo`. Uma configuração diferente impede iniciar o servidor, pois nenhum gateway real foi integrado.
+
+Os pacotes disponíveis são 100, 250, 500 e 1.000 créditos. Cartão permite simular de uma a seis parcelas; Pix e transferência usam uma parcela. Os valores são créditos fictícios do mesmo saldo utilizado nos desafios. Criar um pedido não altera esse saldo nem prova um pagamento.
+
+1. Crie o pedido informando pacote, método e `idempotencyKey` única de 16 a 100 letras, números, hífens ou `_`. Repetir a mesma operação com os mesmos dados retorna o pedido existente; mudar os dados mantendo a chave retorna conflito. A chave é individual por conta.
+2. Cartão e Pix permanecem pendentes até a pessoa clicar na ação explícita de simular aprovação ou rejeição. A API exige `mode:'demo'`, a versão atual e o resultado desejado. A aprovação grava uma decisão demonstrativa e uma transação `[DEMO]`; a rejeição não libera créditos.
+3. Transferência exige uma imagem de comprovante fictício, enviada somente pelo proprietário. O pedido passa para `review`; uma conta diferente da equipe confere e aprova ou rejeita. O proprietário, mesmo sendo revisor, não pode julgar o próprio pedido. O botão de simulação de cartão/Pix não aprova transferências.
+4. Apenas aprovação demonstrativa registrada libera o pacote no saldo. Repetições não duplicam o crédito. Pedidos rejeitados ou cancelados não liberam créditos; cancelamento é possível enquanto estiverem pendentes ou aguardando revisão.
+
+Cada pedido possui `version`. Enviar uma nova foto incrementa a versão e invalida decisões preparadas sobre a foto anterior. Aprovar, rejeitar ou cancelar exige a versão atual. Até três imagens são preservadas por pedido; o arquivo original não tem seu nome salvo. Os comprovantes seguem os mesmos limites de tipo, tamanho e acesso privado das fotos de partidas, mas não podem ser usados como evidência de uma partida.
+
+Não envie números de cartão, CVV, chave Pix real, dados bancários ou comprovantes financeiros reais. Os formulários da API aceitam somente campos previstos para a simulação e rejeitam campos adicionais. Os testes usam imagens sintéticas. A carteira de outra conta e seus comprovantes não ficam disponíveis para jogadores; a equipe autorizada tem acesso aos comprovantes para avaliação.
+
+Estados de pedido: `pending`, `review`, `approved`, `rejected`, `cancelled`. Decisões registram autor, motivo, data, `kind:'simulation'` ou `kind:'team_review'` e `provider:'fifabet-demo'`. As reservas da carteira correspondem aos desafios em andamento; pedidos de créditos ainda não aprovados não aumentam saldo disponível ou reservado. Pedidos persistem após reiniciar o servidor. Arquivos JSON anteriores à carteira ganham os registros vazios de depósitos/comprovantes sem alterar contas ou desafios existentes.
 
 ## Revisão de resultados
 
@@ -73,9 +90,9 @@ Faça backup da pasta de dados completa com o servidor parado para manter JSON e
 
 - Senhas derivadas com `scrypt`, sal individual, sessão de 14 dias armazenada por hash e cookie `HttpOnly`/`SameSite=Lax`; logout revoga a sessão.
 - Mutações exigem a origem configurada e, para contas autenticadas, token CSRF. Não há CORS aberto.
-- Saldo e reservas calculados no servidor, sem endpoint de recarga. Enviar `balance` ou `isReviewer` pelo perfil não muda esses campos.
+- Saldo e reservas calculados no servidor. Recargas demonstrativas exigem decisão registrada; enviar `balance` ou `isReviewer` pelo perfil não muda esses campos.
 - Fotos limitadas a PNG/JPG/WebP, até 5 MiB e 24 megapixels, acessíveis somente aos participantes e revisores. Nome original do arquivo não é salvo ou exposto.
-- Limites de tentativas de login, requisições e uploads; 12 fotos por participante/desafio, 20 versões de placar, 10 divergências, 20 convites pendentes e 50 desafios ativos por criador. Esses limites são da aplicação; não são uma promessa de proteção contra DDoS.
+- Limites de tentativas de login, requisições e uploads; 12 fotos por participante/desafio, 20 versões de placar, 10 divergências, 20 convites pendentes e 50 desafios ativos por criador; 10 recargas pendentes/aguardando revisão e três comprovantes por recarga. Esses limites são da aplicação; não são uma promessa de proteção contra DDoS.
 - Armazenamento total de fotos limitado a 200 MiB por padrão. Pode ser configurado por `FIFABET_MAX_EVIDENCE_BYTES`, em bytes, junto a uma política de retenção.
 - Arquivos de backend, documentos, `.env`, dados e testes não são servidos pelo HTTP estático do backend.
 
@@ -93,6 +110,14 @@ Todas as rotas ficam em `/api/v1`; respostas são JSON, exceto o conteúdo de fo
 | Arena da conta | `GET /me` | `{user,duels,history,stats,csrfToken}` |
 | Ranking compartilhado | `GET /leaderboard` | Requer conta; `{entries:[{player,played,wins,draws,losses}]}`, até 100 entradas apenas de partidas revisadas |
 | Perfil | `PATCH /me` | `{nickname,clubId}` |
+| Carteira de teste | `GET /wallet` | `{balance,reserved,transactions,deposits,catalog,methods,paymentMode,realMoney,noRealMoney}` da própria conta |
+| Criar pedido demonstrativo | `POST /wallet/deposits` | `{amount,method:'card'|'pix'|'transfer',installments?,idempotencyKey}`; cria `pending`, não libera créditos |
+| Simular aprovação/rejeição | `POST /wallet/deposits/:id/simulate` | Proprietário, cartão/Pix: `{mode:'demo',outcome:'approved'|'rejected',version}` |
+| Cancelar pedido | `POST /wallet/deposits/:id/cancel` | Proprietário: `{version}`; somente pedidos pendentes/em revisão |
+| Enviar comprovante fictício | `POST /wallet/deposits/:id/proof?version=N` | Proprietário, transferência: corpo binário PNG/JPG/WebP |
+| Ver comprovante | `GET /wallet/evidence/:id` | Somente proprietário ou conta autorizada da equipe |
+| Fila de comprovantes | `GET /wallet/reviews` | Equipe: `{deposits,paymentMode,realMoney}`, sem os próprios pedidos |
+| Decidir sobre comprovante | `POST /wallet/reviews/:id` | Equipe terceira: `{decision:'approve'|'reject',reason,version}` |
 | Buscar jogador | `GET /players/:publicPlayerId` | Perfil público mínimo, requer conta |
 | Criar desafio | `POST /duels` | `{stake,mode,platform,opponentPlayerId?,rules?}` |
 | Abrir convite | `GET /invites/:token` | Convite mínimo, requer conta |
@@ -118,4 +143,4 @@ Estados de desafio: `invited`, `in_progress`, `pending_review`, `disputed`, `com
 node --test backend/server.test.mjs
 ```
 
-Os testes fazem requisições HTTP a servidores temporários e verificam autenticação, origem/CSRF, reservas concorrentes sem saldo negativo, aceite restrito, fotos privadas, confirmação sem liberação, revisão por terceiro, distribuição única, disputa e versão antiga de resultado, cancelamento conjunto, histórico, reinício com dados persistentes e bloqueio de arquivos privados. Os dados temporários ficam fora do projeto e são removidos ao final.
+Os testes fazem requisições HTTP a servidores temporários e verificam autenticação, origem/CSRF, reservas concorrentes sem saldo negativo, aceite restrito, fotos privadas, confirmação sem liberação, revisão por terceiro, distribuição única, disputa e versão antiga de resultado, cancelamento conjunto, histórico, ranking, reinício com dados persistentes e bloqueio de arquivos privados. A carteira verifica criação idempotente, ausência de crédito automático, aprovação única explícita, rejeição/cancelamento sem crédito, recusa de dados bancários/cartão, comprovante privado, revisão por terceiro e bloqueio de versões antigas. Os dados temporários ficam fora do projeto e são removidos ao final.

@@ -9,6 +9,7 @@ const files = new Map([
   ["/play.js", ["play.js", "text/javascript; charset=utf-8"]],
   ["/backend-client.mjs", ["backend-client.mjs", "text/javascript; charset=utf-8"]],
   ["/practical.css", ["practical.css", "text/css; charset=utf-8"]],
+  ["/lobby.css", ["lobby.css", "text/css; charset=utf-8"]],
   ["/app.js", ["app.js", "text/javascript; charset=utf-8"]],
   ["/model.mjs", ["model.mjs", "text/javascript; charset=utf-8"]],
   ["/styles.css", ["styles.css", "text/css; charset=utf-8"]],

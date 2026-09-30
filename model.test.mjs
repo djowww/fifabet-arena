@@ -1,6 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import {emptyState,current,change,restore,validStake,payout,VIEWS} from './model.mjs';
+import {emptyState,current,change,restore,validStake,payout,VIEWS,STICKERS} from './model.mjs';
 const create=(name='Ricardo')=>change(emptyState(),'create',{nickname:name});
 const bet=(s,opts={})=>change(s,'bet',{matchId:'m1',side:'home',stake:100,operationId:'b1',...opts});
 test('logout and login preserve account data; second profile stays isolated',()=>{
@@ -47,6 +47,21 @@ test('persisted state rehydrates safely, preserving key account values',()=>{
  assert.deepEqual(restore('{broken'),emptyState());
  const malformed={version:2,profiles:{invalid:{id:'__proto__',nickname:'Nope'},normal:{id:'good',nickname:'Demo',balance:Infinity,bets:[{stake:100,odd:Infinity}],friends:['unlisted'],activity:[null],requests:[null]}},activeProfileId:'constructor'};
  const repaired=restore(malformed);assert.equal(current(repaired),null);assert.equal(repaired.profiles.good.balance,0);assert.equal(repaired.profiles.good.bets.length,0);assert.deepEqual(repaired.profiles.good.friends,[]);
+});
+test('profile themes and sticker purchases persist safely and spend demo points once',()=>{
+ let s=create();
+ s=change(s,'profile',{nickname:'Ricardo',color:'mint',teamName:'Meu Clube',teamFlag:'blue'});
+ assert.equal(current(s).teamName,'Meu Clube');assert.equal(current(s).teamFlag,'blue');
+ const first=STICKERS.find(item=>item.id==='nilo-raio'),second=STICKERS.find(item=>item.id==='breno-vale');
+ s=change(s,'purchaseSticker',{id:first.id});assert.equal(current(s).balance,650);assert.deepEqual(current(s).ownedStickers,[first.id]);assert.equal(current(s).avatarSticker,first.id);
+ s=change(s,'purchaseSticker',{id:second.id});assert.equal(current(s).balance,150);assert.equal(current(s).transactions.filter(t=>t.kind==='shop').length,2);
+ assert.throws(()=>change(s,'purchaseSticker',{id:first.id}),/já tem/);
+ assert.throws(()=>change(s,'purchaseSticker',{id:'unknown'}),/não encontrada/);
+ assert.throws(()=>change(s,'purchaseSticker',{id:'tito-rocha'}),/insuficiente/);
+ s=change(s,'avatarSticker',{id:second.id});assert.equal(current(s).avatarSticker,second.id);
+ s=change(s,'avatarSticker',{id:null});assert.equal(current(s).avatarSticker,null);
+ assert.throws(()=>change(s,'avatarSticker',{id:'tito-rocha'}),/Compre/);
+ const saved=restore(JSON.stringify(s));assert.equal(current(saved).balance,150);assert.deepEqual(current(saved).ownedStickers,[first.id,second.id]);assert.equal(current(saved).avatarSticker,null);assert.equal(current(saved).teamName,'Meu Clube');assert.equal(current(saved).teamFlag,'blue');
 });
 test('legacy migration preserves balance and history, orphan history is unassigned',()=>{
  const old=JSON.stringify({nickname:'OldPlayer',balance:720});const bets=JSON.stringify([{id:10,home:'NandoFC',away:'LucasD10',selection:'LucasD10',event:'Copa',stake:100,odds:2.2}]);

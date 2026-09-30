@@ -1,9 +1,9 @@
-import {STORAGE_KEY,VIEWS,MATCHES,PEOPLE,COLORS,TROPHIES,emptyState,current,points,payout,validStake,change,restore} from './model.mjs?v=3';
+import {STORAGE_KEY,VIEWS,MATCHES,PEOPLE,COLORS,TEAM_FLAGS,STICKERS,TROPHIES,emptyState,current,points,payout,validStake,change,restore} from './model.mjs?v=4';
 const $=id=>document.getElementById(id);
 const esc=x=>String(x??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
 const paths={
  gamepad:'M6 9h12a3 3 0 0 1 3 3l1 5a2 2 0 0 1-3 2l-3-2H8l-3 2a2 2 0 0 1-3-2l1-5a3 3 0 0 1 3-3M7 11v4M5 13h4M16 12h.01M19 14h.01M9 9V7h6V5',
- ticket:'M4 4h16v5a3 3 0 0 0 0 6v5H4v-5a3 3 0 0 0 0-6V4M14 7v2m0 3v1m0 3v1',
+ ticket:'M4 4h16v5a3 3 0 0 0 0 6v5H4v-5a3 3 0 0 0 0-6V4M14 7v2m0 3v1m0 3v1',store:'M3 4h18v16H3zM7 8h10M7 12h4m2 0h4m-10 4h10',
  wallet:'M20 8H5a3 3 0 0 1 0-6h13v6M3 5v14a2 2 0 0 0 2 2h15V8M16 12h6v5h-6zM18 14.5h.01',
  trophy:'M8 3h8v6a4 4 0 0 1-8 0V3M8 5H4v3a4 4 0 0 0 4 4m8-7h4v3a4 4 0 0 1-4 4M12 13v5M8 21h8M9 18h6v3H9z',
  users:'M15 21v-3a4 4 0 0 0-4-4H7a4 4 0 0 0-4 4v3M21 21v-3a4 4 0 0 0-3-4M16 3a4 4 0 0 1 0 8M13 7a4 4 0 1 1-8 0 4 4 0 0 1 8 0',
@@ -25,13 +25,25 @@ const paths={
 const icon=(name,cls='')=>`<svg class='icon ${cls}' viewBox='0 0 24 24' aria-hidden='true'><path d='${paths[name]||paths.info}'/></svg>`;
 const initials=n=>String(n).replace(/[^\p{L}\p{N}]/gu,'').slice(0,2).toUpperCase();
 const avatar=(name,color='mint',size='')=>`<span class='avatar ${COLORS.includes(color)?color:'mint'} ${size}' aria-hidden='true'>${esc(initials(name))}</span>`;
+function profileAvatar(p,size=''){
+ const sticker=STICKERS.find(item=>item.id===p?.avatarSticker&&p.ownedStickers?.includes(item.id));
+ return sticker?`<span class='avatar sticker-avatar ${sticker.theme} ${size}' role='img' aria-label='Figurinha demo de ${esc(sticker.player)}'><i class='portrait-hair'></i><i class='portrait-head'></i><i class='portrait-body'></i><b>${esc(initials(sticker.player))}</b></span>`:avatar(p?.nickname||'FC',p?.color||'mint',size);
+}
+function teamBanner(p,compact=false){
+ const flag=TEAM_FLAGS.find(item=>item.id===p?.teamFlag)||TEAM_FLAGS[0],name=p?.teamName||'Escolha seu time';
+ const badge=name.split(/\s+/).filter(Boolean).slice(0,2).map(word=>word[0]).join('').toUpperCase()||'FC';
+ return `<div class='team-banner team-${flag.id} ${compact?'compact':''}'><span class='team-banner-badge' aria-hidden='true'>${esc(badge)}</span><div><small>TIME DO CORAÇÃO</small><strong>${esc(name)}</strong><span>${flag.name} · arte demonstrativa</span></div></div>`;
+}
+function stickerPortrait(item){
+ return `<div class='sticker-art ${item.theme}' role='img' aria-label='Arte demonstrativa de ${esc(item.player)}, atleta fictício'><span class='sticker-top'><span>FIFABET · DEMO</span><b>${item.rating}</b></span><span class='sticker-player'><i class='portrait-hair'></i><i class='portrait-head'></i><i class='portrait-body'></i></span><span class='sticker-details'><strong>${esc(item.player)}</strong><small>${esc(item.club)} · ${item.position}</small></span><span class='sticker-signature'>${esc(item.signature)}</span><span class='sticker-disclaimer'>FICTÍCIO</span></div>`;
+}
 const date=v=>{const d=new Date(v);return Number.isFinite(d.getTime())?d.toLocaleDateString('pt-BR',{day:'2-digit',month:'short'}):'Agora';};
 const time=v=>{const d=new Date(v);return Number.isFinite(d.getTime())?d.toLocaleTimeString('pt-BR',{hour:'2-digit',minute:'2-digit'}):'';};
 const newId=()=>crypto.randomUUID?.()||`${Date.now()}-${Math.random()}`;
-const routes={arena:'arena',amigos:'friends',ranking:'ranking',palpites:'bets',historico:'bets',trofeus:'trophies',conquistas:'trophies',carteira:'wallet'};
-const labels={arena:'Desafios',friends:'Amigos',ranking:'Ranking',bets:'Histórico',wallet:'Pontos',trophies:'Conquistas'};
-const navViews=['arena','friends','ranking','bets','trophies'];
-const navIcons={arena:'gamepad',friends:'users',ranking:'trophy',bets:'ticket',trophies:'shield',wallet:'wallet'};
+const routes={arena:'arena',amigos:'friends',loja:'store',store:'store',ranking:'ranking',palpites:'bets',historico:'bets',trofeus:'trophies',conquistas:'trophies',carteira:'wallet'};
+const labels={arena:'Desafios',friends:'Amigos',store:'Loja',ranking:'Ranking',bets:'Histórico',wallet:'Pontos',trophies:'Conquistas'};
+const navViews=['arena','friends','store','ranking','bets','trophies'];
+const navIcons={arena:'gamepad',friends:'users',store:'store',ranking:'trophy',bets:'ticket',trophies:'shield',wallet:'wallet'};
 let localOnly=false;
 function read(key){try{return localStorage.getItem(key);}catch{localOnly=true;return null;}}
 let state=restore(read(STORAGE_KEY),read('fifabet-profile'),read('fifabet-bets'));
@@ -41,7 +53,7 @@ function readSlip(profileId){
  return {pick,stake:typeof value?.stake==='string'||typeof value?.stake==='number'?String(value.stake):'100'};
 }
 const cachedPick=readSlip(state.activeProfileId);
-const ui={view:routes[location.hash.slice(1)]||'arena',matchFilter:'all',category:'all',featured:'m1',pick:cachedPick?.pick||null,stake:cachedPick?.stake||'100',betFilter:'all',friendTab:'discover',friendSearch:'',walletFilter:'all',authTab:'login',color:'mint',payment:null,modalKind:null,afterLogin:null};
+const ui={view:routes[location.hash.slice(1)]||'arena',matchFilter:'all',category:'all',featured:'m1',pick:cachedPick?.pick||null,stake:cachedPick?.stake||'100',betFilter:'all',friendTab:'discover',friendSearch:'',walletFilter:'all',authTab:'login',color:'mint',payment:null,pendingSticker:null,modalKind:null,afterLogin:null};
 if(ui.pick&&!MATCHES.some(m=>m.id===ui.pick.matchId&&['home','away'].includes(ui.pick.side)))ui.pick=null;
 let paymentTimer=null,toastTimer=null,dialogOpener=null;
 function persist(){try{localStorage.setItem(STORAGE_KEY,JSON.stringify(state));}catch{localOnly=true;} $('storageWarning').hidden=!localOnly;}
@@ -67,7 +79,7 @@ function heading(title,description,actions=''){return `<section class='page-head
 function empty(title,description,action=''){return `<div class='empty-state'><div class='empty-emblem'>${icon('compass')}</div><h3>${title}</h3><p>${description}</p>${action}</div>`;}
 function renderHeader(){
  const p=current(state);
- $('headerActions').innerHTML=p?`<button class='balance-button' data-route='wallet' aria-label='Abrir pontos demo, saldo ${points(p.balance)}'>${icon('wallet')}<span><small>PONTOS DEMO</small><strong>${points(p.balance)} <span class='muted'>pts</span></strong></span></button><button class='icon-only notify-button' data-action='activity' aria-label='Atividade${p.unread?', '+p.unread+' novidades':''}'>${icon('bell')}${p.unread?`<span class='notify-badge'>${p.unread>9?'9+':p.unread}</span>`:''}</button><button class='profile-button' data-action='profile' aria-label='Abrir perfil de ${esc(p.nickname)}'>${avatar(p.nickname,p.color,'small')}<span class='profile-name meta'>${esc(p.nickname)}</span>${icon('down')}</button>`:`<button class='btn secondary' data-action='auth' data-mode='login'>Entrar</button><button class='btn primary guest-register' data-action='auth' data-mode='create'>Criar perfil ${icon('arrow')}</button>`;
+ $('headerActions').innerHTML=p?`<button class='balance-button' data-route='wallet' aria-label='Abrir pontos demo, saldo ${points(p.balance)}'>${icon('wallet')}<span><small>PONTOS DEMO</small><strong>${points(p.balance)} <span class='muted'>pts</span></strong></span></button><button class='icon-only notify-button' data-action='activity' aria-label='Atividade${p.unread?', '+p.unread+' novidades':''}'>${icon('bell')}${p.unread?`<span class='notify-badge'>${p.unread>9?'9+':p.unread}</span>`:''}</button><button class='profile-button' data-action='profile' aria-label='Abrir perfil de ${esc(p.nickname)}'>${profileAvatar(p,'small')}<span class='profile-name meta'>${esc(p.nickname)}</span>${icon('down')}</button>`:`<button class='btn secondary' data-action='auth' data-mode='login'>Entrar</button><button class='btn primary guest-register' data-action='auth' data-mode='create'>Criar perfil ${icon('arrow')}</button>`;
  $('breadcrumb').textContent=labels[ui.view];
  $('navigation').innerHTML=navViews.map(v=>`<a class='nav-item ${ui.view===v?'active':''}' href='#${Object.keys(routes).find(k=>routes[k]===v)}' ${ui.view===v?"aria-current='page'":''} aria-label='${labels[v]}'>${icon(navIcons[v])}<span>${labels[v]}</span>${v==='friends'&&p?.requests.filter(r=>r.direction==='in').length?`<b class='count'>${p.requests.filter(r=>r.direction==='in').length}</b>`:''}</a>`).join('');
 }
@@ -91,12 +103,12 @@ function slipHTML(modal=false){
 }
 function rankingEntries(){
  const p=current(state),entries=PEOPLE.map(w=>({id:w.id,name:w.name,color:w.color,wins:w.wins+(p?.challenges.filter(c=>c.personId===w.id&&c.status==='completed'&&c.winner==='friend').length||0),medals:w.trophies,level:w.level,tag:w.tag,isYou:false}));
- if(p)entries.push({id:'you',name:p.nickname,color:p.color,wins:p.bets.filter(b=>b.status==='won').length+p.challenges.filter(c=>c.status==='completed'&&c.winner==='you').length,medals:Object.keys(p.achievements).length,level:level(p).number,tag:'Seu perfil',isYou:true});
+ if(p)entries.push({id:'you',name:p.nickname,color:p.color,avatarSticker:p.avatarSticker,ownedStickers:p.ownedStickers,teamFlag:p.teamFlag,teamName:p.teamName,wins:p.bets.filter(b=>b.status==='won').length+p.challenges.filter(c=>c.status==='completed'&&c.winner==='you').length,medals:Object.keys(p.achievements).length,level:level(p).number,tag:'Seu perfil',isYou:true});
  return entries.sort((a,b)=>b.wins-a.wins||b.medals-a.medals||b.level-a.level||a.name.localeCompare(b.name,'pt-BR'));
 }
 function leaderboardRow(player,index){
  const medal=['🥇','🥈','🥉'][index]||String(index+1).padStart(2,'0');
- return `<div class='leader-row ${player.isYou?'you':''}'><span class='rank-position ${index<3?'podium':''}'>${medal}</span>${avatar(player.name,player.color)}<div class='leader-copy'><strong>${esc(player.name)}${player.isYou?` <span class='pill lime'>VOCÊ</span>`:''}</strong><small>${player.wins} vitórias · ${player.medals} medalhas</small></div><span class='leader-level'>NV. ${player.level}</span></div>`;
+ return `<div class='leader-row ${player.isYou?'you':''}'><span class='rank-position ${index<3?'podium':''}'>${medal}</span>${player.isYou?profileAvatar(player):avatar(player.name,player.color)}<div class='leader-copy'><strong>${esc(player.name)}${player.isYou?` <span class='pill lime'>VOCÊ</span>`:''}</strong><small>${player.isYou&&player.teamName?`${esc(player.teamName)} · `:''}${player.wins} vitórias · ${player.medals} medalhas</small></div><span class='leader-level'>NV. ${player.level}</span></div>`;
 }
 function duelCard(c){
  const w=PEOPLE.find(person=>person.id===c.personId),status=c.status||'sent',label=status==='sent'?'Convite enviado':status==='accepted'?'Partida confirmada':c.winner==='you'?'Você venceu':'Amigo venceu';
@@ -106,16 +118,16 @@ function duelCard(c){
 function renderArena(){
  const p=current(state),duels=p?.challenges||[],myWins=p?(p.bets.filter(b=>b.status==='won').length+duels.filter(c=>c.status==='completed'&&c.winner==='you').length):0,medals=Object.keys(p?.achievements||{}).length,nextFriend=p?.friends.map(id=>PEOPLE.find(w=>w.id===id)).find(Boolean);
  const heroOpponent=nextFriend||PEOPLE.find(w=>w.online);
- const hero=`<section class='duel-hero'><div class='duel-hero-copy'><span class='pill lime'>EA SPORTS FC · ARENA DE AMIGOS</span><p class='eyebrow'>O PRÓXIMO CLÁSSICO COMEÇA AQUI</p><h2>Hoje tem revanche?</h2><p>Escolha um amigo, combine o modo e defina pontos simbólicos. A rivalidade fica; o dinheiro real fica fora.</p><button class='btn primary' data-route='amigos'>${icon('gamepad')}Criar desafio ${icon('arrow')}</button><span class='duel-note'>Pontos de demonstração · sem depósitos ou transferências</span></div><div class='duel-faceoff' aria-label='Confronto de exemplo'><div class='faceoff-player'>${p?avatar(p.nickname,p.color,'large'):`<span class='avatar large'>?</span>`}<strong>${p?esc(p.nickname):'Você'}</strong><small>JOGA EM CASA</small></div><span class='faceoff-vs'>VS</span><div class='faceoff-player'>${avatar(heroOpponent.name,heroOpponent.color,'large')}<strong>${esc(heroOpponent.name)}</strong><small>${heroOpponent.online?'ONLINE AGORA':'NA SUA ARENA'}</small></div></div><div class='duel-decor' aria-hidden='true'>⚽</div></section>`;
+ const hero=`<section class='duel-hero'><div class='duel-hero-copy'><span class='pill lime'>EA SPORTS FC · ARENA DE AMIGOS</span><p class='eyebrow'>O PRÓXIMO CLÁSSICO COMEÇA AQUI</p><h2>Hoje tem revanche?</h2><p>Escolha um amigo, combine o modo e defina pontos simbólicos. A rivalidade fica; o dinheiro real fica fora.</p><button class='btn primary' data-route='amigos'>${icon('gamepad')}Criar desafio ${icon('arrow')}</button><span class='duel-note'>Pontos de demonstração · sem depósitos ou transferências</span></div><div class='duel-faceoff' aria-label='Confronto de exemplo'><div class='faceoff-player'>${p?profileAvatar(p,'large'):`<span class='avatar large'>?</span>`}<strong>${p?esc(p.nickname):'Você'}</strong><small>JOGA EM CASA</small></div><span class='faceoff-vs'>VS</span><div class='faceoff-player'>${avatar(heroOpponent.name,heroOpponent.color,'large')}<strong>${esc(heroOpponent.name)}</strong><small>${heroOpponent.online?'ONLINE AGORA':'NA SUA ARENA'}</small></div></div><div class='duel-decor' aria-hidden='true'>⚽</div></section>`;
  const openDuels=duels.filter(c=>['sent','accepted'].includes(c.status));
  const activeDuels=openDuels.length?openDuels.slice(0,3).map(duelCard).join(''):`<div class='duel-empty'><span class='empty-emblem'>${icon('gamepad')}</span><strong>Seu próximo clássico está esperando.</strong><p>Adicione um amigo e envie um desafio em poucos toques.</p><button class='text-button' data-route='amigos'>Encontrar amigos ${icon('arrow')}</button></div>`;
- const card=`<aside class='card player-card'><div class='card-top'><h2>Seu perfil</h2><button class='text-button' data-action='profile'>Editar</button></div>${p?`<div class='player-profile'>${avatar(p.nickname,p.color,'large')}<div><h3>${esc(p.nickname)}</h3><p class='meta'>Nível ${level(p).number} · Jogador da arena</p></div></div><div class='player-stats'><div><strong>${myWins}</strong><small>vitórias</small></div><div><strong>${medals}</strong><small>medalhas</small></div><div><strong>${p.friends.length}</strong><small>amigos</small></div></div><button class='btn secondary wide' data-route='conquistas'>Ver minhas medalhas ${icon('arrow')}</button>`:`<div class='profile-placeholder'><span class='avatar large'>?</span><h3>Crie seu perfil de jogador</h3><p>Escolha seu apelido e avatar para entrar no ranking da arena.</p><button class='btn primary wide' data-action='auth' data-mode='create'>Criar perfil ${icon('arrow')}</button></div>`}</aside>`;
+ const card=`<aside class='card player-card'><div class='card-top'><h2>Seu perfil</h2><button class='text-button' data-action='profile'>Editar</button></div>${p?`${teamBanner(p,true)}<div class='player-profile'>${profileAvatar(p,'large')}<div><h3>${esc(p.nickname)}</h3><p class='meta'>Nível ${level(p).number} · Jogador da arena</p></div></div><div class='player-stats'><div><strong>${myWins}</strong><small>vitórias</small></div><div><strong>${medals}</strong><small>medalhas</small></div><div><strong>${p.friends.length}</strong><small>amigos</small></div></div><button class='btn secondary wide' data-route='loja'>${icon('store')}Abrir loja de figurinhas</button>`:`<div class='profile-placeholder'><span class='avatar large'>?</span><h3>Crie seu perfil de jogador</h3><p>Escolha seu apelido e avatar para entrar no ranking da arena.</p><button class='btn primary wide' data-action='auth' data-mode='create'>Criar perfil ${icon('arrow')}</button></div>`}</aside>`;
  const leaders=rankingEntries().slice(0,3).map(leaderboardRow).join('');
  return heading('A bola está com vocês.','Desafie um amigo no EA SPORTS FC e transforme cada partida em clássico.',`<button class='btn secondary' data-route='ranking'>${icon('trophy')}Ver ranking</button>`)+hero+(!p?guestBanner('Monte seu perfil de jogador','Seu apelido, avatar e medalhas acompanham você pela arena.'):'')+`<div class='dashboard-columns'><section class='card dashboard-card'><div class='card-top'><div><p class='eyebrow'>CARA A CARA</p><h2>Desafios em aberto</h2></div><button class='text-button' data-route='amigos'>Ver amigos ${icon('arrow')}</button></div><div class='challenge-list'>${activeDuels}</div></section>${card}<section class='card dashboard-card leaderboard-preview'><div class='card-top'><div><p class='eyebrow'>TEMPORADA DE EXEMPLO</p><h2>Quem está no topo</h2></div><button class='text-button' data-route='ranking'>Classificação ${icon('arrow')}</button></div><div class='leader-list'>${leaders}</div><p class='ranking-note'>Ranking ilustrativo · os perfis desta demo não são jogadores conectados.</p></section><section class='card points-note'><span class='points-note-icon'>${icon('shield')}</span><div><h2>Jogue leve, jogue junto.</h2><p>Desafios usam pontos fictícios só para deixar a disputa mais divertida. Nada de dinheiro real, cobrança ou transferência.</p></div></section></div>`;
 }
 function renderRanking(){
  const entries=rankingEntries();
- return heading('A tabela da arena.','Vitórias, medalhas e uma boa história para contar.',`<button class='btn primary' data-route='amigos'>${icon('users')}Desafiar um amigo</button>`)+`<section class='ranking-hero'><div><p class='eyebrow'>TEMPORADA DEMONSTRATIVA</p><h2>Todo clássico conta.</h2><p>Ganhe partidas entre amigos, conquiste medalhas e suba na classificação.</p></div><div class='ranking-hero-medal' aria-hidden='true'>🏆</div></section><section class='card ranking-board'><div class='ranking-head'><span>POSIÇÃO · JOGADOR</span><span>VITÓRIAS</span><span>MEDALHAS</span><span>NÍVEL</span></div>${entries.map((player,index)=>`<div class='ranking-entry ${player.isYou?'you':''}'><span class='ranking-place'>${['🥇','🥈','🥉'][index]||String(index+1).padStart(2,'0')}</span><div class='ranking-person'>${avatar(player.name,player.color)}<div><strong>${esc(player.name)}${player.isYou?` <span class='pill lime'>VOCÊ</span>`:''}</strong><small>${esc(player.tag)}</small></div></div><strong class='ranking-number'>${player.wins}</strong><strong class='ranking-number medal-count'>${player.medals} <span aria-hidden='true'>🏅</span></strong><span class='ranking-level'>Nv. ${player.level}</span></div>`).join('')}</section><p class='ranking-note'>Classificação de exemplo para este protótipo. Os dados não são compartilhados entre dispositivos.</p>`;
+ return heading('A tabela da arena.','Vitórias, medalhas e uma boa história para contar.',`<button class='btn primary' data-route='amigos'>${icon('users')}Desafiar um amigo</button>`)+`<section class='ranking-hero'><div><p class='eyebrow'>TEMPORADA DEMONSTRATIVA</p><h2>Todo clássico conta.</h2><p>Ganhe partidas entre amigos, conquiste medalhas e suba na classificação.</p></div><div class='ranking-hero-medal' aria-hidden='true'>🏆</div></section><section class='card ranking-board'><div class='ranking-head'><span>POSIÇÃO · JOGADOR</span><span>VITÓRIAS</span><span>MEDALHAS</span><span>NÍVEL</span></div>${entries.map((player,index)=>`<div class='ranking-entry ${player.isYou?'you':''}'><span class='ranking-place'>${['🥇','🥈','🥉'][index]||String(index+1).padStart(2,'0')}</span><div class='ranking-person'>${player.isYou?profileAvatar(player):avatar(player.name,player.color)}<div><strong>${esc(player.name)}${player.isYou?` <span class='pill lime'>VOCÊ</span>`:''}</strong><small>${esc(player.tag)}</small></div></div><strong class='ranking-number'>${player.wins}</strong><strong class='ranking-number medal-count'>${player.medals} <span aria-hidden='true'>🏅</span></strong><span class='ranking-level'>Nv. ${player.level}</span></div>`).join('')}</section><p class='ranking-note'>Classificação de exemplo. Figurinhas e perfis de exemplo são demonstrativos.</p>`;
 }
 function stats(items){return `<div class='stat-grid'>${items.map((x,i)=>`<div class='stat ${i===0?'lime-stat':''}'><span class='stat-icon'>${icon(x.icon||'target')}</span><p class='stat-label'>${x.label}</p><p class='stat-value'>${x.value}</p>${x.note?`<p class='stat-note'>${x.note}</p>`:''}</div>`).join('')}</div>`;}
 function betCard(b,archived=false){
@@ -133,7 +145,16 @@ function transactionRows(){
 }
 function renderWallet(){
  const p=current(state),transactions=p?.transactions||[];
- return heading('Sua carteira. Seu ritmo.','Tudo sobre seus pontos de demonstração em um só lugar.')+(!p?guestBanner('Uma carteira para explorar','Entre para testar saldo e pagamentos simulados.'):'')+`<div class='wallet-grid'><section class='balance-card'><div class='balance-title'><span>Saldo disponível</span><span class='pill lime'>DEMONSTRAÇÃO</span></div><p class='balance-amount'>${p?points(p.balance):'—'} <span>pts</span></p><div class='balance-card-bottom'><button class='btn primary' data-action='deposit'>${icon('plus')}Adicionar saldo</button><span class='meta'>Pontos fictícios.<br>Sem depósitos reais.</span></div></section><section class='card method-overview'><h2>Teste o pagamento</h2><p class='meta'>Escolha um método para conhecer o fluxo.</p><div class='methods-row'><button class='method-preview text-button muted' data-action='deposit' data-method='pix'><span class='method-icon'>${icon('pix')}</span><span><strong>Pix demo</strong><small>Confirmação simulada</small></span></button><button class='method-preview text-button muted' data-action='deposit' data-method='card'><span class='method-icon'>${icon('credit')}</span><span><strong>Cartão demo</strong><small>Cartão de teste pronto</small></span></button></div></section></div>`+stats([{label:'Pontos adicionados',value:points(transactions.filter(t=>t.amount>0&&t.kind!=='payout').reduce((s,t)=>s+t.amount,0)),icon:'plus'},{label:'Pontos em palpites',value:points(-transactions.filter(t=>t.kind==='bet').reduce((s,t)=>s+t.amount,0)),icon:'ticket'},{label:'Retornos recebidos',value:points(transactions.filter(t=>t.kind==='payout').reduce((s,t)=>s+t.amount,0)),icon:'trophy'}])+`<section class='card pad'><div class='card-top wrap'><h2>Seu extrato</h2><select id='walletFilter' class='filter-select' aria-label='Filtrar extrato'>${[['all','Todos os movimentos'],['deposit','Saldo adicionado'],['bet','Palpites'],['payout','Retornos']].map(([id,label])=>`<option value='${id}' ${ui.walletFilter===id?'selected':''}>${label}</option>`).join('')}</select></div>${transactionRows()}</section>`;
+ return heading('Sua carteira. Seu ritmo.','Tudo sobre seus pontos de demonstração em um só lugar.')+(!p?guestBanner('Uma carteira para explorar','Entre para testar saldo e pagamentos simulados.'):'')+`<div class='wallet-grid'><section class='balance-card'><div class='balance-title'><span>Saldo disponível</span><span class='pill lime'>DEMONSTRAÇÃO</span></div><p class='balance-amount'>${p?points(p.balance):'—'} <span>pts</span></p><div class='balance-card-bottom'><button class='btn primary' data-action='deposit'>${icon('plus')}Adicionar saldo</button><span class='meta'>Pontos fictícios.<br>Sem depósitos reais.</span></div></section><section class='card method-overview'><h2>Teste o pagamento</h2><p class='meta'>Escolha um método para conhecer o fluxo.</p><div class='methods-row'><button class='method-preview text-button muted' data-action='deposit' data-method='pix'><span class='method-icon'>${icon('pix')}</span><span><strong>Pix demo</strong><small>Confirmação simulada</small></span></button><button class='method-preview text-button muted' data-action='deposit' data-method='card'><span class='method-icon'>${icon('credit')}</span><span><strong>Cartão demo</strong><small>Cartão de teste pronto</small></span></button></div></section></div>`+stats([{label:'Pontos adicionados',value:points(transactions.filter(t=>t.amount>0&&t.kind!=='payout').reduce((s,t)=>s+t.amount,0)),icon:'plus'},{label:'Pontos em palpites',value:points(-transactions.filter(t=>t.kind==='bet').reduce((s,t)=>s+t.amount,0)),icon:'ticket'},{label:'Retornos recebidos',value:points(transactions.filter(t=>t.kind==='payout').reduce((s,t)=>s+t.amount,0)),icon:'trophy'}])+`<section class='card pad'><div class='card-top wrap'><h2>Seu extrato</h2><select id='walletFilter' class='filter-select' aria-label='Filtrar extrato'>${[['all','Todos os movimentos'],['deposit','Saldo adicionado'],['bet','Palpites'],['payout','Retornos'],['shop','Figurinhas']].map(([id,label])=>`<option value='${id}' ${ui.walletFilter===id?'selected':''}>${label}</option>`).join('')}</select></div>${transactionRows()}</section>`;
+}
+function renderStore(){
+ const p=current(state),owned=new Set(p?.ownedStickers||[]);
+ const items=STICKERS.map(item=>{
+  const has=owned.has(item.id),active=p?.avatarSticker===item.id;
+  const action=has?`<button class='btn ${active?'secondary':'primary'} wide' data-action='equipSticker' data-id='${item.id}' ${active?'disabled':''}>${active?'Figurinha em uso':'Usar no perfil'}</button>`:p&&p.balance<item.price?`<button class='btn secondary wide' disabled>Saldo insuficiente · ${points(item.price)} pts</button>`:`<button class='btn primary wide' data-action='buySticker' data-id='${item.id}'>${icon('store')}Comprar · ${points(item.price)} pts</button>`;
+  return `<article class='card sticker-card'>${stickerPortrait(item)}<div class='sticker-card-body'><div class='between'><span class='pill violet'>EDIÇÃO DEMO</span><strong class='sticker-rating'>${item.rating} <small>OVR</small></strong></div><h2>${esc(item.player)}</h2><p class='meta'>${esc(item.club)} · ${item.position}</p><p class='sticker-note'>Atleta fictício · ilustração original · rubrica inventada</p><div class='sticker-card-actions'>${has?`<span class='pill mint'>NA COLEÇÃO</span>`:''}${action}</div></div></article>`;
+ }).join('');
+ return heading('Loja de figurinhas.','Monte sua coleção e escolha um avatar para o perfil.',`<button class='btn secondary' data-route='wallet'>${icon('wallet')}${p?`${points(p.balance)} pts demo`:'Entrar'}</button>`)+(!p?guestBanner('Sua coleção começa aqui','Crie um perfil demo para comprar figurinhas com pontos fictícios.'):'')+`<section class='store-banner'><div><p class='eyebrow'>COLECIONÁVEIS DA ARENA</p><h2>Figurinhas para vestir seu perfil.</h2><p>Use pontos de demonstração. Nenhuma cobrança ou transferência acontece.</p></div><span class='store-banner-art' aria-hidden='true'>🏆</span></section><div class='store-tools'><div><strong>${p?owned.size:0} figurinhas na coleção</strong><p class='meta'>Avatares fictícios criados para esta demonstração.</p></div>${p?.avatarSticker?`<button class='text-button' data-action='defaultAvatar'>Usar iniciais no perfil</button>`:''}</div><div class='sticker-grid'>${items}</div><div class='banner-note store-disclaimer'>${icon('info')}<span>Este catálogo é demonstrativo. Não contém fotos, atletas, escudos nem assinaturas oficiais de clubes ou jogadores.</span></div>`;
 }
 function renderTrophies(){
  const p=current(state),count=Object.keys(p?.achievements||{}).length,l=level(p);
@@ -163,7 +184,7 @@ function renderMobileSlip(){
 }
 function render(){
  if(ui.pick&&state.results[ui.pick.matchId]){ui.pick=null;saveSlip();}
- renderHeader();$('screen').innerHTML=({arena:renderArena,bets:renderBets,wallet:renderWallet,trophies:renderTrophies,friends:renderFriends,ranking:renderRanking}[ui.view])();renderMobileSlip();
+ renderHeader();$('screen').innerHTML=({arena:renderArena,bets:renderBets,wallet:renderWallet,store:renderStore,trophies:renderTrophies,friends:renderFriends,ranking:renderRanking}[ui.view])();renderMobileSlip();
 }
 function go(view){const target=routes[view]||view;if(!VIEWS.includes(target))return;closeDialog();const hash=Object.keys(routes).find(k=>routes[k]===target);if(location.hash===`#${hash}`){ui.view=target;visit();render();}else location.hash=hash;}
 function visit(){if(current(state))commit('visit',{view:ui.view});}
@@ -184,7 +205,7 @@ function showDialog(title,subtitle,body,kind){
  requestAnimationFrame(()=>{if(modal.open)($('modalContent').querySelector('[autofocus]')||$('modalContent').querySelector('button,input'))?.focus();});
 }
 function closeDialog(){
- clearTimeout(paymentTimer);paymentTimer=null;ui.payment=null;ui.betReview=null;ui.afterLogin=null;ui.modalKind=null;
+ clearTimeout(paymentTimer);paymentTimer=null;ui.payment=null;ui.betReview=null;ui.pendingSticker=null;ui.afterLogin=null;ui.modalKind=null;
  if($('modal').open)$('modal').close();
  if(dialogOpener?.isConnected)dialogOpener.focus();else $('screen').focus({preventScroll:true});
 }
@@ -202,7 +223,13 @@ function finishLogin(){
 }
 function showProfile(){
  const p=current(state);if(!p){showAuth();return;}ui.color=p.color;
- showDialog('Seu perfil','Do seu jeito, dentro da demo.',`<div class='profile-summary'>${avatar(p.nickname,p.color,'large')}<div><h3>${esc(p.nickname)}</h3><p class='meta'>Nível ${level(p).number} · ${Object.keys(p.achievements).length} troféus</p><span class='pill subtle'>PERFIL LOCAL</span></div></div><form data-form='profile'><label class='form-label' for='editNickname'>Apelido</label><input class='form-input' id='editNickname' name='nickname' value='${esc(p.nickname)}' required minlength='2' maxlength='20'><p class='form-help'>Seu saldo e histórico acompanham este perfil.</p>${colorsHTML()}<button class='btn primary wide' type='submit'>${icon('check')}Salvar perfil</button></form><div class='divider'></div><div class='action-grid'><button class='btn secondary' data-action='switchProfile'>Trocar perfil</button><button class='btn secondary' data-action='logout'>${icon('logout')}Sair</button></div>`,'profile');
+ showDialog('Seu perfil','Personalize sua bandeira e seu avatar.',`<div class='profile-summary'>${profileAvatar(p,'large')}<div><h3>${esc(p.nickname)}</h3><p class='meta'>Nível ${level(p).number} · ${Object.keys(p.achievements).length} troféus</p><span class='pill subtle'>PERFIL LOCAL</span></div></div><div id='teamPreview'>${teamBanner(p,true)}</div><form data-form='profile'><label class='form-label' for='editNickname'>Apelido</label><input class='form-input' id='editNickname' name='nickname' value='${esc(p.nickname)}' required minlength='2' maxlength='20'><label class='form-label' for='teamName'>Time do coração</label><input class='form-input' id='teamName' name='teamName' value='${esc(p.teamName||'')}' maxlength='28' placeholder='Ex.: meu time favorito'><label class='form-label' for='teamFlag'>Estilo da bandeira de fundo</label><select class='form-input' id='teamFlag' name='teamFlag'>${TEAM_FLAGS.map(flag=>`<option value='${flag.id}' ${p.teamFlag===flag.id?'selected':''}>${flag.name}</option>`).join('')}</select><p class='form-help'>Use o nome do seu time; os padrões de fundo são estilos genéricos, sem escudos oficiais.</p>${colorsHTML()}<button class='btn primary wide' type='submit'>${icon('check')}Salvar perfil</button></form><button class='btn secondary wide' data-route='loja' style='margin-top:12px'>${icon('store')}Abrir loja e coleção</button><div class='divider'></div><div class='action-grid'><button class='btn secondary' data-action='switchProfile'>Trocar perfil</button><button class='btn secondary' data-action='logout'>${icon('logout')}Sair</button></div>`,'profile');
+}
+function showStickerPurchase(id){
+ const item=STICKERS.find(entry=>entry.id===id),p=current(state);if(!item||!p)return;
+ if(p.ownedStickers.includes(item.id)){toast('Essa figurinha já está na sua coleção.');return;}
+ ui.pendingSticker=item.id;
+ showDialog('Confirmar figurinha demo',`${points(item.price)} pontos fictícios serão usados.`,`${stickerPortrait(item)}<p class='hint'>Saldo depois da compra: ${points(p.balance-item.price)} pts demo. Sem cobrança real.</p><button class='btn primary wide' data-action='confirmStickerPurchase'>Confirmar compra de demonstração</button>`,'stickerPurchase');
 }
 function logoutDialog(){showDialog('Sair do perfil?','Você pode voltar quando quiser.',`<p class='hint'>Seu saldo, palpites, amigos e troféus continuam salvos neste navegador.</p><div class='action-grid' style='margin-top:24px'><button class='btn secondary' data-action='closeDialog'>Continuar aqui</button><button class='btn primary' data-action='logoutConfirm'>Sair do perfil</button></div>`,'logout');}
 function openPayment(method='pix'){
@@ -298,6 +325,10 @@ document.addEventListener('click',event=>{
    case 'color':ui.color=button.dataset.color;document.querySelectorAll('.color-choice').forEach(el=>{el.classList.toggle('active',el.dataset.color===ui.color);el.setAttribute('aria-pressed',String(el.dataset.color===ui.color));});break;
    case 'login':commit('login',{id});finishLogin();break;
    case 'profile':showProfile();break;
+   case 'buySticker':withProfile(()=>showStickerPurchase(id));break;
+   case 'confirmStickerPurchase':if(ui.pendingSticker){const item=STICKERS.find(entry=>entry.id===ui.pendingSticker);commit('purchaseSticker',{id:ui.pendingSticker});closeDialog();render();toast(`${item?.player||'Figurinha'} adicionada à coleção.`);}break;
+   case 'equipSticker':withProfile(()=>{commit('avatarSticker',{id});render();toast('Avatar atualizado.');});break;
+   case 'defaultAvatar':withProfile(()=>{commit('avatarSticker',{id:null});render();toast('Avatar de iniciais restaurado.');});break;
    case 'switchProfile':ui.afterLogin=null;showAuth('login');break;
    case 'logout':logoutDialog();break;
    case 'logoutConfirm':commit('logout');closeDialog();render();toast('Você saiu. Seus dados demo continuam salvos.');break;
@@ -345,10 +376,12 @@ document.addEventListener('click',event=>{
 document.addEventListener('input',event=>{
  if(event.target.matches('[data-stake]')){ui.stake=event.target.value;syncStake();}
  if(event.target.id==='friendSearch'){ui.friendSearch=event.target.value;$('friendGrid').innerHTML=friendResults();}
+ if(event.target.id==='teamName'&&current(state))$('teamPreview').innerHTML=teamBanner({...current(state),teamName:event.target.value},true);
 });
 document.addEventListener('change',event=>{
  if(event.target.id==='categoryFilter'){ui.category=event.target.value;$('matchGrid').innerHTML=matchList();}
  if(event.target.id==='walletFilter'){ui.walletFilter=event.target.value;render();}
+ if(event.target.id==='teamFlag'&&current(state))$('teamPreview').innerHTML=teamBanner({...current(state),teamName:$('teamName').value,teamFlag:event.target.value},true);
 });
 document.addEventListener('submit',event=>{
  const form=event.target.closest('[data-form]');if(!form)return;event.preventDefault();
@@ -357,9 +390,9 @@ document.addEventListener('submit',event=>{
   if(form.dataset.form==='challenge'){
    const data=new FormData(form);commit('challenge',{id:form.dataset.id,stake:Number(data.get('stake')),mode:data.get('mode')});closeDialog();render();toast('Convite enviado. Os pontos simbólicos não são debitados.');return;
   }
-  const data={nickname:new FormData(form).get('nickname'),color:ui.color};
+  const values=new FormData(form),data={nickname:values.get('nickname'),color:ui.color};
   if(form.dataset.form==='create'){commit('create',data);finishLogin();}
-  if(form.dataset.form==='profile'){commit('profile',data);closeDialog();render();toast('Perfil atualizado.');}
+  if(form.dataset.form==='profile'){data.teamName=values.get('teamName');data.teamFlag=values.get('teamFlag');commit('profile',data);closeDialog();render();toast('Perfil atualizado.');}
  }catch(error){reportError(error);}
 });
 $('modal').addEventListener('cancel',event=>{event.preventDefault();closeDialog();});

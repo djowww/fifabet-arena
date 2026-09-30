@@ -1,5 +1,5 @@
 export const STORAGE_KEY = 'fifabet:arena:v2';
-export const VIEWS = ['arena', 'friends', 'ranking', 'bets', 'trophies', 'wallet'];
+export const VIEWS = ['arena', 'friends', 'store', 'ranking', 'bets', 'trophies', 'wallet'];
 export const MATCHES = [
   {id:'m1',type:'professional',phase:'live',league:'Copa Brasil',stage:'Semifinal · Jogo 2',home:'NandoFC',away:'LucasD10',score:[2,1],minute:62,odds:[1.72,2.20],color:'violet'},
   {id:'m2',type:'community',phase:'live',league:'Copa da Comunidade',stage:'Chave superior · MD3',home:'gui_x',away:'Renatinho',score:[0,0],minute:28,odds:[1.96,1.88],color:'mint'},
@@ -17,6 +17,19 @@ export const PEOPLE = [
   {id:'nina',name:'NinaFut',initials:'NF',color:'pink',online:true,level:6,tag:'Futebol até no controle',wins:15,trophies:4}
 ];
 export const COLORS = ['mint','violet','blue','amber','pink'];
+export const TEAM_FLAGS = [
+  {id:'green',name:'Verde em faixas'},
+  {id:'blue',name:'Azul em faixas'},
+  {id:'red',name:'Rubro em faixas'},
+  {id:'gold',name:'Dourado em faixas'},
+  {id:'violet',name:'Violeta em faixas'}
+];
+export const STICKERS = [
+  {id:'nilo-raio',player:'Nilo Raio',club:'Aurora City FC',position:'PONTA',rating:91,price:350,theme:'aurora',signature:'N. Raio',kind:'fictional-demo'},
+  {id:'maya-luz',player:'Maya Luz',club:'Luar United',position:'MEIA',rating:89,price:450,theme:'lunar',signature:'Maya L.',kind:'fictional-demo'},
+  {id:'tito-rocha',player:'Tito Rocha',club:'Horizonte AC',position:'ZAGUEIRO',rating:87,price:300,theme:'horizon',signature:'T. Rocha',kind:'fictional-demo'},
+  {id:'breno-vale',player:'Breno Vale',club:'Sol do Norte FC',position:'GOLEIRO',rating:90,price:500,theme:'solar',signature:'B. Vale',kind:'fictional-demo'}
+];
 export const TROPHIES = [
   {id:'welcome',name:'Primeiro passo',description:'Crie seu perfil na arena.',icon:'flag',color:'mint'},
   {id:'favorite',name:'Na torcida',description:'Salve uma partida nos favoritos.',icon:'star',color:'amber'},
@@ -28,7 +41,7 @@ export const TROPHIES = [
 const stamp=()=>new Date().toISOString();
 const uid=()=>globalThis.crypto?.randomUUID?.() || `demo-${Date.now()}-${Math.random().toString(36).slice(2,9)}`;
 const copy=x=>JSON.parse(JSON.stringify(x));
-export const emptyState=()=>({version:2,activeProfileId:null,profiles:{},results:{},legacyArchive:[]});
+export const emptyState=()=>({version:3,activeProfileId:null,profiles:{},results:{},legacyArchive:[]});
 export const current=s=>Object.hasOwn(s.profiles,s.activeProfileId)?s.profiles[s.activeProfileId]:null;
 export const points=n=>Number(n||0).toLocaleString('pt-BR');
 export const payout=(stake,odd)=>Math.round(stake*odd);
@@ -47,7 +60,7 @@ function nickname(value){
 }
 function profile(name,color='mint'){
   const date=stamp();
-  return {id:uid(),nickname:name,color:COLORS.includes(color)?color:'mint',createdAt:date,balance:1000,bets:[],transactions:[{id:uid(),ref:'welcome',kind:'bonus',label:'Boas-vindas à arena',amount:1000,date}],friends:[],requests:[{personId:'bia',direction:'in'}],challenges:[],favorites:[],reminders:[],achievements:{},visited:[],activity:[],unread:0};
+  return {id:uid(),nickname:name,color:COLORS.includes(color)?color:'mint',teamName:'',teamFlag:'green',avatarSticker:null,ownedStickers:[],createdAt:date,balance:1000,bets:[],transactions:[{id:uid(),ref:'welcome',kind:'bonus',label:'Boas-vindas à arena',amount:1000,date}],friends:[],requests:[{personId:'bia',direction:'in'}],challenges:[],favorites:[],reminders:[],achievements:{},visited:[],activity:[],unread:0};
 }
 function activity(p,text,icon='bell'){
   p.activity.unshift({id:uid(),text,icon,date:stamp()});
@@ -81,6 +94,19 @@ export function change(input,action,data={}){
       const name=nickname(data.nickname);
       if(Object.values(s.profiles).some(x=>x.id!==p.id&&x.nickname.toLocaleLowerCase()===name.toLocaleLowerCase()))throw Error('Esse apelido já está em uso neste navegador.');
       p.nickname=name;if(COLORS.includes(data.color))p.color=data.color;
+      if(typeof data.teamName==='string')p.teamName=data.teamName.trim().slice(0,28);
+      if(TEAM_FLAGS.some(flag=>flag.id===data.teamFlag))p.teamFlag=data.teamFlag;
+    }else if(action==='purchaseSticker'){
+      const sticker=STICKERS.find(item=>item.id===data.id);if(!sticker)throw Error('Figurinha não encontrada.');
+      if(p.ownedStickers.includes(sticker.id))throw Error('Você já tem essa figurinha.');
+      if(p.balance<sticker.price)throw Error('Saldo demo insuficiente para esta figurinha.');
+      if(!transaction(p,`sticker:${sticker.id}`,'shop',`Figurinha demo: ${sticker.player}`,-sticker.price))throw Error('Essa compra já foi registrada.');
+      p.ownedStickers.push(sticker.id);if(!p.avatarSticker)p.avatarSticker=sticker.id;
+      activity(p,`Figurinha demo de ${sticker.player} adicionada à coleção.`,'star');
+    }else if(action==='avatarSticker'){
+      if(data.id===null||data.id===''){p.avatarSticker=null;}
+      else if(!STICKERS.some(item=>item.id===data.id)||!p.ownedStickers.includes(data.id))throw Error('Compre esta figurinha antes de usá-la como avatar.');
+      else p.avatarSticker=data.id;
     }else if(action==='favorite'||action==='reminder'){
       if(!MATCHES.some(m=>m.id===data.id))throw Error('Partida não encontrada.');
       const arr=action==='favorite'?p.favorites:p.reminders;
@@ -149,10 +175,13 @@ function normalizeBet(b){
 }
 export function restore(raw,oldProfile=null,oldBets=null){
   const s=emptyState();let d;try{d=typeof raw==='string'?JSON.parse(raw):raw;}catch{}
-  if(d?.version===2&&d.profiles&&typeof d.profiles==='object'){
+  if([2,3].includes(d?.version)&&d.profiles&&typeof d.profiles==='object'){
     for(const value of Object.values(d.profiles).slice(0,50)){
       if(!value||typeof value.id!=='string'||!value.id||['__proto__','constructor','prototype'].includes(value.id)||typeof value.nickname!=='string'||!value.nickname.trim())continue;
       const p=profile(text(value.nickname,20),value.color);p.id=text(value.id,80);p.createdAt=text(value.createdAt,40)||stamp();p.balance=safeBalance(value.balance);
+      p.teamName=text(value.teamName,28).trim();p.teamFlag=TEAM_FLAGS.some(flag=>flag.id===value.teamFlag)?value.teamFlag:'green';
+      p.ownedStickers=[...new Set(array(value.ownedStickers).filter(id=>STICKERS.some(item=>item.id===id)))];
+      p.avatarSticker=p.ownedStickers.includes(value.avatarSticker)?value.avatarSticker:null;
       p.bets=array(value.bets).map(normalizeBet).filter(Boolean).slice(0,1000);
       p.transactions=array(value.transactions).filter(t=>t&&Number.isSafeInteger(t.amount)&&typeof t.ref==='string').map(t=>({id:text(String(t.id),80),ref:text(t.ref,150),kind:text(t.kind,30),label:text(t.label),amount:t.amount,date:text(t.date,40)||stamp()})).slice(0,3000);
       p.friends=[...new Set(array(value.friends).filter(id=>PEOPLE.some(w=>w.id===id)))];
@@ -165,7 +194,7 @@ export function restore(raw,oldProfile=null,oldBets=null){
       p.activity=array(value.activity).filter(a=>a&&typeof a.text==='string').slice(0,100).map(a=>({id:text(a.id,80),text:text(a.text,220),icon:text(a.icon,20),date:text(a.date,40)}));p.unread=Math.max(0,Math.min(99,finite(value.unread)));
       s.profiles[p.id]=p;
     }
-    s.activeProfileId=Object.hasOwn(s.profiles,d.activeProfileId)?d.activeProfileId:null;
+    s.version=3;s.activeProfileId=Object.hasOwn(s.profiles,d.activeProfileId)?d.activeProfileId:null;
     for(const m of MATCHES)if(['home','away'].includes(d.results?.[m.id]?.winner))s.results[m.id]={winner:d.results[m.id].winner,date:text(d.results[m.id].date,40)};
     s.legacyArchive=array(d.legacyArchive).map(normalizeBet).filter(Boolean);return s;
   }

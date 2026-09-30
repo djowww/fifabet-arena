@@ -90,6 +90,19 @@ Abra `http://192.168.1.20:4174` nos dois dispositivos. O firewall do computador 
 
 Para colocar a API online, será necessário um serviço Node.js com HTTPS, armazenamento persistente e uma origem própria. A interface e a API devem ser entregues na mesma origem porque as sessões usam cookies `HttpOnly` e o cliente não aceita uma URL de API arbitrária. Configure `FIFABET_PUBLIC_ORIGIN` com a origem HTTPS exata; o cookie recebe `Secure` nessa configuração. A aplicação pode escutar uma porta interna via `FIFABET_PORT`.
 
+Ao usar Nginx no mesmo servidor, mantenha a aplicação somente em `127.0.0.1:4174` e configure estas variáveis no serviço:
+
+```text
+FIFABET_HOST=127.0.0.1
+FIFABET_PORT=4174
+FIFABET_PUBLIC_ORIGIN=https://betfifa.com.br
+FIFABET_TRUST_PROXY_LOOPBACK=1
+```
+
+O Nginx deve sobrescrever o cabeçalho com `proxy_set_header X-Real-IP $remote_addr;`. A opção de confiança fica desligada por padrão. Quando habilitada (também por `options.trustProxyLoopback === true`), os limites de requisições usam `X-Real-IP` somente se a conexão vier de `127.0.0.1`, `::1` ou `::ffff:127.0.0.1` e o valor for um único IP válido. Cabeçalhos inválidos, arrays e conexões externas usam o endereço do socket. Autenticação, CSRF e limites permanecem iguais.
+
+O healthcheck `GET /api/v1/status` é somente leitura: retorna os mesmos metadados de disponibilidade, versão, ambiente de teste e configuração da revisão, sem entrar na fila de operações, expirar convites/sessões nem gravar dados. Continua sujeito ao limite geral de requisições e aos cabeçalhos de resposta da aplicação.
+
 Este protótipo grava JSON atomicamente e serializa as operações. Ele só pode ter uma instância por pasta de dados: `instance.lock` impede processos concorrentes. Se houver encerramento inesperado, confirme que o processo parou antes de remover o lock. Para múltiplas instâncias, escala maior ou lançamento comercial, migre para um banco com transações, backup automatizado, monitoramento, política de retenção de imagens e recuperação de conta. Não anuncie este armazenamento como infraestrutura final.
 
 Faça backup da pasta de dados completa com o servidor parado para manter JSON e fotos consistentes. As imagens não são removidas automaticamente neste protótipo. Nunca publique backups, logs com credenciais ou arquivos de dados como arquivos estáticos.

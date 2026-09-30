@@ -1,4 +1,5 @@
 import {createServer} from 'node:http';
+import {isIP} from 'node:net';
 import {randomBytes,randomUUID,createHash,scrypt as scryptCallback,timingSafeEqual} from 'node:crypto';
 import {promisify} from 'node:util';
 import {readFile,writeFile,mkdir,rename,open,unlink} from 'node:fs/promises';
@@ -135,6 +136,7 @@ export async function createArenaServer(options={}){
   if(publicOrigin&&(new URL(publicOrigin).origin!==publicOrigin||!/^https?:\/\//.test(publicOrigin)))throw Error('FIFABET_PUBLIC_ORIGIN deve conter somente a origem, sem caminho.');
   const reviewerIds=new Set(options.reviewerIds||String(process.env.FIFABET_REVIEWER_IDS||'').split(',').map(v=>v.trim()).filter(Boolean));
   const secureCookie=publicOrigin.startsWith('https://')||options.secureCookie===true;
+  const trustProxyLoopback=options.trustProxyLoopback===true||process.env.FIFABET_TRUST_PROXY_LOOPBACK==='1';
   const maxEvidenceBytes=Number(options.maxEvidenceBytes||process.env.FIFABET_MAX_EVIDENCE_BYTES||200*1024*1024);
   if(!Number.isSafeInteger(maxEvidenceBytes)||maxEvidenceBytes<MAX_IMAGE)throw Error('FIFABET_MAX_EVIDENCE_BYTES deve ser um número inteiro de pelo menos 5 MiB.');
   await mkdir(dataDir,{recursive:true,mode:0o700});
@@ -164,8 +166,13 @@ export async function createArenaServer(options={}){
   let tail=Promise.resolve();
   const serial=fn=>{const next=tail.then(fn,fn);tail=next.catch(()=>{});return next;};
   const limits=new Map();
+  function rateLimitAddress(request){
+    const peer=request.socket.remoteAddress,forwarded=request.headers['x-real-ip'];
+    if(trustProxyLoopback&&['127.0.0.1','::1','::ffff:127.0.0.1'].includes(peer)&&typeof forwarded==='string'&&isIP(forwarded))return forwarded;
+    return peer;
+  }
   function rateLimit(request,kind,max,window){
-    const key=`${request.socket.remoteAddress}:${kind}`,time=Date.now();
+    const key=`${rateLimitAddress(request)}:${kind}`,time=Date.now();
     let bucket=limits.get(key);
     if(!bucket||time>bucket.until){bucket={count:0,until:time+window};limits.set(key,bucket);}
     if(++bucket.count>max)fail(429,'Muitas tentativas. Aguarde alguns minutos.','rate_limited');
@@ -222,9 +229,10 @@ export async function createArenaServer(options={}){
   }
   const mimeTypes={'.html':'text/html; charset=utf-8','.js':'text/javascript; charset=utf-8','.mjs':'text/javascript; charset=utf-8','.css':'text/css; charset=utf-8','.png':'image/png','.jpg':'image/jpeg','.webp':'image/webp','.svg':'image/svg+xml'};
   const publicFiles=new Set(['index.html','legacy.html','colecao.html','app.js','play.js','arena-app.js','backend-client.mjs','model.mjs','clubs.mjs','football-trophies.mjs','rivalry-section.mjs','styles.css','arena.css','shop.css','profile.css','achievements.css','rivalry.css','competitive-modes.css','practical.css','lobby.css','wizard.css','arena-app.css']);
+  const serverStatus=()=>({available:true,mode:'shared-prototype',paymentMode:'demo',realMoney:false,noRealMoney:true,apiVersion:1,reviewerConfigured:reviewerIds.size>0});
   async function route(draft,request,response,url){
     const path=url.pathname,method=request.method;
-    if(method==='GET'&&path==='/api/v1/status')return {available:true,mode:'shared-prototype',paymentMode:'demo',realMoney:false,noRealMoney:true,apiVersion:1,reviewerConfigured:reviewerIds.size>0};
+    if(method==='GET'&&path==='/api/v1/status')return serverStatus();
     if(method==='GET'&&path==='/api/v1/session'){
       const session=sessionFor(draft,request),user=session&&draft.users[session.userId];
       return user&&session.expiresAt>Date.now()?{user:{...publicPlayer(user),balance:user.balance,isReviewer:reviewer(user)},csrfToken:session.csrfToken}:{user:null,csrfToken:null};
@@ -508,6 +516,10 @@ export async function createArenaServer(options={}){
       try{url=new URL(request.url||'/',publicOrigin||'http://localhost');}
       catch{fail(400,'Endereço inválido.');}
       rateLimit(request,'requests',500,60*1000);
+      if(request.method==='GET'&&url.pathname==='/api/v1/status'){
+        response.writeHead(200,{'Content-Type':'application/json; charset=utf-8'});response.end(JSON.stringify(serverStatus()));
+        return;
+      }
       if(url.pathname.startsWith('/api/')){
         await serial(async()=>{
           const draft=structuredClone(state);expireInvites(draft);

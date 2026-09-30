@@ -1,0 +1,51 @@
+# Dedicated Fifa GO service. Install only after creating the fifago user,
+# private data directory, portable Node runtime and environment file.
+[Unit]
+Description=Fifa GO private demo backend
+After=network.target
+StartLimitIntervalSec=120
+StartLimitBurst=3
+
+[Service]
+Type=simple
+User=fifago
+Group=fifago
+WorkingDirectory=/opt/fifago/current
+EnvironmentFile=/etc/fifago/fifago.env
+ExecStart=/opt/fifago/runtime/bin/node /opt/fifago/current/backend/server.mjs
+Restart=on-failure
+RestartSec=5s
+TimeoutStopSec=45s
+KillSignal=SIGTERM
+UMask=0077
+
+# Shared VPS: keep this application below the existing game server priority.
+Nice=10
+CPUQuota=20%
+MemoryHigh=384M
+MemoryMax=512M
+TasksMax=32
+IOWeight=10
+
+# Code/runtime are read-only; only the application's private data may change.
+NoNewPrivileges=true
+PrivateTmp=true
+PrivateDevices=true
+ProtectSystem=strict
+ProtectHome=true
+ReadWritePaths=/var/lib/fifago
+ProtectKernelTunables=true
+ProtectKernelModules=true
+ProtectControlGroups=true
+RestrictSUIDSGID=true
+CapabilityBoundingSet=
+
+# Journal rate limits apply to this unit, without changing global logging.
+StandardOutput=journal
+StandardError=journal
+SyslogIdentifier=fifago
+LogRateLimitIntervalSec=30s
+LogRateLimitBurst=100
+
+[Install]
+WantedBy=multi-user.target

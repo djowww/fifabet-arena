@@ -1,0 +1,60 @@
+{
+  "verifiedAt": "2026-09-29",
+  "purpose": "Fotografias editoriais de referência ao futebol. Não representam parceria, endosso, autógrafo ou produto oficial.",
+  "assets": [
+    {
+      "id": "haaland",
+      "name": "Erling Haaland",
+      "file": "assets/players/haaland.jpg",
+      "width": 960,
+      "height": 1200,
+      "title": "Erling Haaland 2023",
+      "author": "Jacek Stanislawek",
+      "authorUrl": "https://commons.wikimedia.org/wiki/User:Jacek.stanislawek",
+      "sourceUrl": "https://commons.wikimedia.org/wiki/File:Erling_Haaland_2023.jpg",
+      "downloadUrl": "https://thumb.wikimedia.org/wikipedia/commons/thumb/1/10/Erling_Haaland_2023.jpg/960px-Erling_Haaland_2023.jpg",
+      "license": "CC BY-SA 4.0",
+      "licenseUrl": "https://creativecommons.org/licenses/by-sa/4.0/",
+      "attribution": "Erling Haaland 2023 — Jacek Stanislawek / Wikimedia Commons, CC BY-SA 4.0",
+      "context": "Manchester City x RB Leipzig, 22 de fevereiro de 2023.",
+      "changes": "Miniatura reduzida pelo Wikimedia Commons. A interface pode aplicar enquadramento e sobreposição de gradiente; essas adaptações da fotografia são disponibilizadas sob CC BY-SA 4.0.",
+      "suggestedPosition": "50% 38%"
+    },
+    {
+      "id": "putellas",
+      "name": "Alexia Putellas",
+      "file": "assets/players/putellas.jpg",
+      "width": 960,
+      "height": 1289,
+      "title": "Brann - Barça Femení CG3A5851 (cropped)",
+      "author": "MichaelEmilio; recorte e ajuste de exposição por Kingsif",
+      "authorUrl": "https://commons.wikimedia.org/wiki/User:MichaelEmilio",
+      "sourceUrl": "https://commons.wikimedia.org/wiki/File:Brann_-_Bar%C3%A7a_Femen%C3%AD_CG3A5851_(cropped).jpg",
+      "downloadUrl": "https://thumb.wikimedia.org/wikipedia/commons/thumb/0/06/Brann_-_Bar%C3%A7a_Femen%C3%AD_CG3A5851_%28cropped%29.jpg/960px-Brann_-_Bar%C3%A7a_Femen%C3%AD_CG3A5851_%28cropped%29.jpg",
+      "license": "CC BY-SA 4.0",
+      "licenseUrl": "https://creativecommons.org/licenses/by-sa/4.0/",
+      "attribution": "Alexia Putellas — MichaelEmilio / Wikimedia Commons; recorte e exposição: Kingsif, CC BY-SA 4.0",
+      "context": "Aquecimento antes de Brann x Barcelona, 20 de março de 2024.",
+      "changes": "Miniatura reduzida pelo Wikimedia Commons de recorte preexistente. A interface pode aplicar enquadramento e sobreposição de gradiente; essas adaptações da fotografia são disponibilizadas sob CC BY-SA 4.0.",
+      "suggestedPosition": "50% 25%"
+    },
+    {
+      "id": "mbappe",
+      "name": "Kylian Mbappé",
+      "file": "assets/players/mbappe.jpg",
+      "width": 748,
+      "height": 1129,
+      "title": "Kylian Mbappe - France v Senegal - 16 June 2026",
+      "author": "Bryan Berlin / WikiPortraits; recorte por Iojhug",
+      "authorUrl": "https://commons.wikimedia.org/wiki/User:Berlination",
+      "sourceUrl": "https://commons.wikimedia.org/wiki/File:Kylian_Mbappe_-_France_v_Senegal_-_16_June_2026.jpg",
+      "downloadUrl": "https://upload.wikimedia.org/wikipedia/commons/9/93/Kylian_Mbappe_-_France_v_Senegal_-_16_June_2026.jpg",
+      "license": "CC BY-SA 4.0",
+      "licenseUrl": "https://creativecommons.org/licenses/by-sa/4.0/",
+      "attribution": "Kylian Mbappé — Bryan Berlin / WikiPortraits, via Wikimedia Commons; recorte: Iojhug, CC BY-SA 4.0",
+      "context": "França x Senegal, 16 de junho de 2026.",
+      "changes": "Arquivo do recorte preexistente preservado. A interface pode aplicar enquadramento e sobreposição de gradiente; essas adaptações da fotografia são disponibilizadas sob CC BY-SA 4.0.",
+      "suggestedPosition": "50% 20%"
+    }
+  ]
+}

@@ -28,6 +28,17 @@ test('create/profile buttons render every route without runtime errors',()=>{
 test('route aliases used by challenge and trophy buttons reach their views',()=>{
  const h=harness();h.api.go('amigos');assert.equal(h.location.hash,'amigos');h.location.hash='#arena';h.api.go('conquistas');assert.equal(h.location.hash,'trofeus');h.location.hash='#arena';h.api.go('ranking');assert.equal(h.location.hash,'ranking');
 });
+test('EA ID dialog saves, displays and removes an unverified account without claiming sync',async()=>{
+ const h=harness();h.submit('create','Ricardo');h.click('gameAccount');
+ assert.match(h.nodes.modalContent.innerHTML,/CONEXÃO OFICIAL INDISPONÍVEL/);
+ await h.submit('gameAccount','',{eaId:'DjowFC',platform:'pc'});
+ assert.equal(model.current(h.api.getState()).gameAccount.eaId,'DjowFC');
+ assert.match(h.nodes.modalContent.innerHTML,/ID NÃO VERIFICADO/);assert.match(h.nodes.modalContent.innerHTML,/Últimas partidas da arena/);
+ assert.match(h.nodes.screen.innerHTML,/EA ID cadastrado/);
+ h.click('unlinkGameAccount');assert.equal(model.current(h.api.getState()).gameAccount,null);
+ assert.match(h.nodes.modalContent.innerHTML,/CONEXÃO OFICIAL INDISPONÍVEL/);
+ h.click('closeDialog');h.click('credits');assert.match(h.nodes.modalContent.innerHTML,/Jacek Stanislawek/);assert.match(h.nodes.modalContent.innerHTML,/CC BY-SA 4.0/);
+});
 test('legacy bet history still records results in the account',()=>{
  const h=harness();h.submit('create','Ricardo');h.click('pick',{id:'m1',side:'away'});h.click('reviewBet');assert.match(h.nodes.modalContent.innerHTML,/220 pts/);h.click('confirmBet');assert.equal(model.current(h.api.getState()).balance,900);assert.equal(model.current(h.api.getState()).bets.length,1);assert.equal(h.api.getUI().pick,null);
  h.click('settle',{id:'m1'});h.click('settleResult',{id:'m1',side:'away'});assert.equal(model.current(h.api.getState()).balance,1120);assert.equal(model.current(h.api.getState()).bets[0].status,'won');h.api.getUI().view='bets';h.api.render();assert.match(h.nodes.screen.innerHTML,/LucasD10/);assert.match(h.nodes.screen.innerHTML,/Vencedor/);
@@ -53,5 +64,7 @@ test('challenge results require photo evidence and fraud reports block ranking p
  const image={type:'image/png',size:50000,name:'placar.png'};await h.submit('challengeResult','',{id:challenge.id,winner:'you',evidence:image});p=model.current(h.api.getState());assert.equal(p.challenges[0].status,'review');assert.equal(p.challenges[0].winner,'');assert.equal(p.challenges[0].reportedWinner,'you');assert.equal(p.balance,1000);
  h.api.getUI().view='ranking';h.api.render();assert.match(h.nodes.screen.innerHTML,/Ricardo/);h.click('challengeEvidence',{id:challenge.id});assert.match(h.nodes.modalContent.innerHTML,/data:image\/jpeg/);h.click('closeDialog');
  h.click('reportFraud',{id:challenge.id});assert.match(h.nodes.modalContent.innerHTML,/Sinalizar suspeita de fraude/);await h.submit('fraudReport','',{id:challenge.id,winner:'friend',reason:'Placar não confere',evidence:image});p=model.current(h.api.getState());assert.equal(p.challenges[0].status,'disputed');assert.equal(p.challenges[0].fraudReason,'Placar não confere');assert.equal(p.balance,1000);
- h.click('challenge',{id:'bia'});h.submit('challenge','',{id:'bia',mode:'1v1',stake:'100'});p=model.current(h.api.getState());challenge=p.challenges.find(c=>c.personId==='bia'&&c.status==='sent');h.click('cancelChallenge',{id:challenge.id});assert.equal(model.current(h.api.getState()).challenges.some(c=>c.id===challenge.id),false);h.click('removeFriend',{id:'leo'});h.click('removeFriendConfirm',{id:'leo'});assert.equal(model.current(h.api.getState()).friends.includes('leo'),false);
+ h.click('challenge',{id:'bia'});h.submit('challenge','',{id:'bia',mode:'1v1',stake:'100'});p=model.current(h.api.getState());challenge=p.challenges.find(c=>c.personId==='bia'&&c.status==='sent');h.click('cancelChallenge',{id:challenge.id});assert.equal(model.current(h.api.getState()).challenges.some(c=>c.id===challenge.id),false);h.click('removeFriend',{id:'leo'});h.click('removeFriendConfirm',{id:'leo'});assert.equal(model.current(h.api.getState()).friends.includes('leo'),true);assert.match(h.nodes.dialogError.textContent,/desafio/i);
+ h.click('closeDialog');h.click('challengeEvidence',{id:model.current(h.api.getState()).challenges.find(c=>c.personId==='leo').id});assert.match(h.nodes.modalContent.innerHTML,/Envio original/);assert.match(h.nodes.modalContent.innerHTML,/Evidência da denúncia/);
+ h.api.getUI().view='arena';h.api.render();assert.match(h.nodes.screen.innerHTML,/Fraude sinalizada/);h.api.getUI().view='bets';h.api.render();assert.match(h.nodes.screen.innerHTML,/Fraude sinalizada/);
 });

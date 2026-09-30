@@ -3,6 +3,27 @@ import assert from 'node:assert/strict';
 import {emptyState,current,change,restore,validStake,payout,VIEWS,STICKERS} from './model.mjs';
 const create=(name='Ricardo')=>change(emptyState(),'create',{nickname:name});
 const bet=(s,opts={})=>change(s,'bet',{matchId:'m1',side:'home',stake:100,operationId:'b1',...opts});
+
+test('EA ID is a local unverified reference, isolated by profile and removable',()=>{
+ let s=create();const first=s.activeProfileId;
+ assert.equal(current(s).gameAccount,null);
+ s=change(s,'saveGameAccount',{eaId:' DjowFC_10 ',platform:'playstation'});
+ assert.equal(current(s).gameAccount.eaId,'DjowFC_10');assert.equal(current(s).gameAccount.status,'unverified');
+ s=change(s,'create',{nickname:'OutroJogador'});assert.equal(current(s).gameAccount,null);
+ s=change(s,'login',{id:first});assert.equal(current(s).gameAccount.platform,'playstation');
+ s=change(s,'saveGameAccount',{eaId:'DjowNovo',platform:'pc'});assert.equal(current(s).gameAccount.platform,'pc');
+ const saved=restore(JSON.stringify(s));assert.deepEqual(current(saved).gameAccount,current(s).gameAccount);
+ s=change(s,'unlinkGameAccount');assert.equal(current(s).gameAccount,null);assert.equal(current(s).balance,1000);
+});
+test('EA ID validation and migration never grant a verified state or preserve tokens',()=>{
+ let s=create();
+ for(const eaId of ['', 'abc','abcdefghijklmnopq','mail@example.com','two ids','<script>','a\u0000bc'])assert.throws(()=>change(s,'saveGameAccount',{eaId,platform:'pc'}),/EA ID/);
+ assert.throws(()=>change(s,'saveGameAccount',{eaId:'ValidID',platform:'unknown'}),/plataforma/i);
+ current(s).gameAccount={eaId:'ValidID',platform:'xbox',status:'verified',accessToken:'fake-token',matches:[{winner:'you'}]};
+ const saved=restore(s);assert.equal(current(saved).gameAccount.status,'unverified');assert.equal(current(saved).gameAccount.accessToken,undefined);assert.equal(current(saved).gameAccount.matches,undefined);
+ delete current(s).gameAccount;s.version=4;assert.equal(current(restore(s)).gameAccount,null);
+ current(s).gameAccount={eaId:'Invalid ID',platform:'pc'};assert.equal(current(restore(s)).gameAccount,null);
+});
 test('logout and login preserve account data; second profile stays isolated',()=>{
  let s=create();const a=s.activeProfileId;s=bet(s);s=change(s,'accept',{id:'bia'});s=change(s,'logout');assert.equal(current(s),null);
  s=change(s,'create',{nickname:'Jogador B'});const b=s.activeProfileId;assert.equal(current(s).balance,1000);assert.equal(current(s).bets.length,0);assert.equal(current(s).friends.length,0);
@@ -46,14 +67,20 @@ test('challenge results and fraud reports require image evidence and stay unawar
  let s=create();s=change(s,'accept',{id:'bia'});s=change(s,'challenge',{id:'bia',stake:100,mode:'1v1'});const id=current(s).challenges[0].id;
  s=change(s,'acceptChallenge',{id});assert.throws(()=>change(s,'resolveChallenge',{id,winner:'you'}),/sem foto e revisão/);
  assert.throws(()=>change(s,'submitChallengeResult',{id,winner:'you'}),/foto válida/);
+ assert.throws(()=>change(s,'removeFriend',{id:'bia'}),/desafio/i);
+ assert.throws(()=>change(s,'cancelChallenge',{id}),/convite/i);
  const evidence='data:image/jpeg;base64,dGVzdA==';s=change(s,'submitChallengeResult',{id,winner:'you',evidenceDataUrl:evidence,evidenceName:'placar.jpg'});
  assert.equal(current(s).challenges[0].status,'review');assert.ok(!current(s).challenges[0].winner);assert.equal(current(s).challenges[0].reportedWinner,'you');assert.equal(current(s).balance,1000);
  assert.throws(()=>change(s,'challenge',{id:'bia',stake:50}),/pendente/);
  assert.throws(()=>change(s,'reportFraud',{id,winner:'friend',reason:'placar diferente'}),/foto válida/);
- s=change(s,'reportFraud',{id,winner:'friend',reason:'Placar não bateu',evidenceDataUrl:evidence,evidenceName:'tela-final.jpg'});
+ const fraudEvidence='data:image/jpeg;base64,ZnJhdWQ=';
+ s=change(s,'reportFraud',{id,winner:'friend',reason:'Placar não bateu',evidenceDataUrl:fraudEvidence,evidenceName:'tela-final.jpg'});
  assert.equal(current(s).challenges[0].status,'disputed');assert.equal(current(s).challenges[0].reportedWinner,'friend');assert.equal(current(s).challenges[0].fraudReason,'Placar não bateu');assert.equal(current(s).balance,1000);
  assert.throws(()=>change(s,'submitChallengeResult',{id,winner:'you',evidenceDataUrl:evidence}),/desafio confirmado/);
- const saved=restore(JSON.stringify(s));assert.equal(current(saved).challenges[0].status,'disputed');assert.equal(current(saved).challenges[0].evidenceDataUrl,evidence);
+ assert.throws(()=>change(s,'removeFriend',{id:'bia'}),/desafio/i);
+ assert.throws(()=>change(s,'cancelChallenge',{id}),/convite/i);
+ const saved=restore(JSON.stringify(s));assert.equal(current(saved).challenges[0].status,'disputed');assert.equal(current(saved).challenges[0].evidenceDataUrl,fraudEvidence);
+ assert.equal(current(saved).challenges[0].originalReport.evidenceDataUrl,evidence);assert.equal(current(saved).challenges[0].originalReport.reportedWinner,'you');assert.equal(current(saved).challenges[0].originalReport.evidenceName,'placar.jpg');
 });
 test('old unverified challenge winners are reopened for photo review',()=>{
  let s=create();s=change(s,'accept',{id:'bia'});s=change(s,'challenge',{id:'bia'});const profile=current(s),id=profile.challenges[0].id;

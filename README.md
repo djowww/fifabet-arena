@@ -14,10 +14,13 @@ Protótipo front-end de uma arena para desafiar amigos no EA SPORTS FC, combinar
 - Simular o aceite do desafio e enviar uma foto do placar para deixar o resultado pendente de revisão.
 - Sinalizar suspeita de fraude com descrição e foto; resultados pendentes não contam no ranking.
 - Ver um ranking ilustrativo, histórico local e coleção de medalhas.
+- Cadastrar EA ID e plataforma como referência **não verificada**, editar ou remover o cadastro.
+- Consultar partidas locais pelo histórico ou painel de EA ID.
+- Explorar a direção visual com fotos reais de Haaland, Alexia Putellas e Mbappé, com créditos acessíveis.
 
 Os jogadores, convites e números do ranking são demonstrativos. Os dados ficam no navegador; ainda não há contas compartilhadas, sincronização entre dispositivos, servidor de partidas ou apostas e pagamentos reais. Os pontos simbólicos não são descontados, transferidos nem convertidos em dinheiro.
 
-As figurinhas atuais têm personagens e rubricas fictícias, feitas para a demonstração. Fotos de atletas e assinaturas oficiais precisam de ativos licenciados antes de serem incluídas.
+As figurinhas atuais têm personagens e rubricas fictícias, feitas para a demonstração. As fotografias editoriais da arena possuem atribuição e licença CC BY-SA 4.0 em [THIRD_PARTY_NOTICES.md](THIRD_PARTY_NOTICES.md). Não representam endosso nem são vendidas como avatares.
 
 ## Revisão de resultados
 
@@ -40,6 +43,12 @@ Depois, acesse http://127.0.0.1:4173. Mantenha o terminal aberto enquanto usa a 
 
 ## Arquivos
 
-- `index.html`, `styles.css`, `app.js` e `model.mjs` — aplicação estática servida pelo GitHub Pages.
+- `index.html`, `styles.css`, `arena.css`, `app.js` e `model.mjs` — aplicação estática servida pelo GitHub Pages.
 - `model.test.mjs` e `ui-flows.test.mjs` — testes das regras e dos fluxos da demonstração.
 - `package.json` — comandos do projeto, sem dependências externas.
+
+## EA ID e licença
+
+O cadastro manual do EA ID não autentica a conta. A API oficial exige acesso aprovado e não há integração de histórico de partidas disponível neste app. Nenhuma senha ou token EA é solicitado. Consulte [PLANO_INTEGRACAO_EAFC.md](PLANO_INTEGRACAO_EAFC.md) para o caminho de banco próprio, autenticação e integração autorizada.
+
+O código original segue a [licença proprietária](LICENSE) de Ricardo Zordan (Djow). As fotos mantêm suas licenças separadas. O [guia de publicação](docs/LICENCA_E_PUBLICACAO.md) descreve o que ainda falta para as lojas Android e iOS.

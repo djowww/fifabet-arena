@@ -17,6 +17,12 @@ export const PEOPLE = [
   {id:'nina',name:'NinaFut',initials:'NF',color:'pink',online:true,level:6,tag:'Futebol até no controle',wins:15,trophies:4}
 ];
 export const COLORS = ['mint','violet','blue','amber','pink'];
+export const GAME_PLATFORMS = [
+  {id:'playstation',label:'PlayStation'},
+  {id:'xbox',label:'Xbox'},
+  {id:'pc',label:'PC'},
+  {id:'switch',label:'Nintendo Switch'}
+];
 export const TEAM_FLAGS = [
   {id:'green',name:'Verde em faixas'},
   {id:'blue',name:'Azul em faixas'},
@@ -41,7 +47,7 @@ export const TROPHIES = [
 const stamp=()=>new Date().toISOString();
 const uid=()=>globalThis.crypto?.randomUUID?.() || `demo-${Date.now()}-${Math.random().toString(36).slice(2,9)}`;
 const copy=x=>JSON.parse(JSON.stringify(x));
-export const emptyState=()=>({version:4,activeProfileId:null,profiles:{},results:{},legacyArchive:[]});
+export const emptyState=()=>({version:5,activeProfileId:null,profiles:{},results:{},legacyArchive:[]});
 export const current=s=>Object.hasOwn(s.profiles,s.activeProfileId)?s.profiles[s.activeProfileId]:null;
 export const points=n=>Number(n||0).toLocaleString('pt-BR');
 export const payout=(stake,odd)=>Math.round(stake*odd);
@@ -58,9 +64,22 @@ function nickname(value){
   if(n.length<2||n.length>20||!/^[\p{L}\p{N}_ .-]+$/u.test(n)) throw Error('Use de 2 a 20 letras, números, espaços, ponto, hífen ou _.');
   return n;
 }
+function eaId(value){
+  const id=typeof value==='string'?value.trim():'';
+  if(id.length<4||id.length>16||/[\s\p{C}<>"'&@/\\]/u.test(id))throw Error('Informe seu EA ID público com 4 a 16 caracteres, sem espaços. Não use e-mail ou senha.');
+  return id;
+}
+function gameAccount(value){
+  if(!value||!GAME_PLATFORMS.some(item=>item.id===value.platform))return null;
+  try{
+    const savedAt=typeof value.savedAt==='string'&&Number.isFinite(Date.parse(value.savedAt))?new Date(value.savedAt).toISOString():stamp();
+    // A local identifier never proves EA account ownership, even after a storage edit.
+    return {eaId:eaId(value.eaId),platform:value.platform,status:'unverified',savedAt};
+  }catch{return null;}
+}
 function profile(name,color='mint'){
   const date=stamp();
-  return {id:uid(),nickname:name,color:COLORS.includes(color)?color:'mint',teamName:'',teamFlag:'green',avatarSticker:null,ownedStickers:[],createdAt:date,balance:1000,bets:[],transactions:[{id:uid(),ref:'welcome',kind:'bonus',label:'Boas-vindas à arena',amount:1000,date}],friends:[],requests:[{personId:'bia',direction:'in'}],challenges:[],favorites:[],reminders:[],achievements:{},visited:[],activity:[],unread:0};
+  return {id:uid(),nickname:name,color:COLORS.includes(color)?color:'mint',teamName:'',teamFlag:'green',avatarSticker:null,ownedStickers:[],gameAccount:null,createdAt:date,balance:1000,bets:[],transactions:[{id:uid(),ref:'welcome',kind:'bonus',label:'Boas-vindas à arena',amount:1000,date}],friends:[],requests:[{personId:'bia',direction:'in'}],challenges:[],favorites:[],reminders:[],achievements:{},visited:[],activity:[],unread:0};
 }
 function activity(p,text,icon='bell'){
   p.activity.unshift({id:uid(),text,icon,date:stamp()});
@@ -96,6 +115,13 @@ export function change(input,action,data={}){
       p.nickname=name;if(COLORS.includes(data.color))p.color=data.color;
       if(typeof data.teamName==='string')p.teamName=data.teamName.trim().slice(0,28);
       if(TEAM_FLAGS.some(flag=>flag.id===data.teamFlag))p.teamFlag=data.teamFlag;
+    }else if(action==='saveGameAccount'){
+      const id=eaId(data.eaId);
+      if(!GAME_PLATFORMS.some(item=>item.id===data.platform))throw Error('Escolha a plataforma em que você joga.');
+      p.gameAccount={eaId:id,platform:data.platform,status:'unverified',savedAt:stamp()};
+      activity(p,'EA ID salvo neste perfil como não verificado. A conexão oficial ainda não está disponível.','gamepad');
+    }else if(action==='unlinkGameAccount'){
+      p.gameAccount=null;
     }else if(action==='purchaseSticker'){
       const sticker=STICKERS.find(item=>item.id===data.id);if(!sticker)throw Error('Figurinha não encontrada.');
       if(p.ownedStickers.includes(sticker.id))throw Error('Você já tem essa figurinha.');
@@ -145,7 +171,8 @@ export function change(input,action,data={}){
       if(!p.requests.some(r=>r.personId===who.id&&r.direction===dir))throw Error('Este convite não está mais pendente.');
       if(!p.friends.includes(who.id))p.friends.push(who.id);p.requests=p.requests.filter(r=>r.personId!==who.id);activity(p,`${who.name} entrou na sua lista de amigos demo.`,'users');
     }else if(action==='removeFriend'){
-      p.friends=p.friends.filter(id=>id!==data.id);p.challenges=p.challenges.filter(c=>c.personId!==data.id);
+      if(p.challenges.some(c=>c.personId===data.id&&['accepted','review','disputed'].includes(c.status)))throw Error('Conclua a revisão do desafio antes de remover este amigo. As evidências precisam ser preservadas.');
+      p.friends=p.friends.filter(id=>id!==data.id);p.challenges=p.challenges.filter(c=>c.personId!==data.id||c.status!=='sent');
     }else if(action==='challenge'){
       const who=person(data.id);if(!p.friends.includes(who.id))throw Error('Adicione esse jogador aos amigos primeiro.');
       if(p.challenges.some(c=>c.personId===who.id&&['sent','accepted','review','disputed'].includes(c.status)))throw Error('Já existe um desafio demo pendente para esse amigo.');
@@ -165,11 +192,16 @@ export function change(input,action,data={}){
       const c=p.challenges.find(item=>item.id===data.id&&['accepted','review'].includes(item.status));if(!c)throw Error('Este desafio não está disponível para sinalização.');
       if(!['you','friend'].includes(data.winner)||!validEvidence(data.evidenceDataUrl))throw Error('Informe o possível vencedor e anexe uma foto válida do placar.');
       const reason=text(data.reason,300).trim();if(reason.length<8)throw Error('Explique a suspeita em pelo menos 8 caracteres.');
+      if(c.status==='review')c.originalReport=normalizeResultReport(c);
       c.status='disputed';c.reportedWinner=data.winner;c.evidenceDataUrl=data.evidenceDataUrl;c.evidenceName=text(data.evidenceName,100)||'Foto do resultado';c.fraudReason=reason;c.flaggedAt=stamp();
       activity(p,`Suspeita de fraude sinalizada no desafio contra ${person(c.personId).name}. Pontos seguem bloqueados.`,'shield');
     }else if(action==='resolveChallenge'){
       throw Error('O resultado não pode ser concluído sem foto e revisão da equipe.');
-    }else if(action==='cancelChallenge'){p.challenges=p.challenges.filter(c=>c.id!==data.id);}
+    }else if(action==='cancelChallenge'){
+      const c=p.challenges.find(item=>item.id===data.id);
+      if(!c||c.status!=='sent')throw Error('Somente um convite ainda não aceito pode ser cancelado.');
+      p.challenges=p.challenges.filter(item=>item.id!==data.id);
+    }
     else if(action==='readActivity'){p.unread=0;}
     else throw Error('Ação desconhecida.');
   }
@@ -180,19 +212,24 @@ const finite=(x,fallback=0)=>Number.isFinite(Number(x))?Number(x):fallback;
 const safeBalance=x=>Math.max(0,Math.min(1e9,Math.floor(finite(x))));
 const text=(x,max=120)=>typeof x==='string'?x.slice(0,max):'';
 const validEvidence=x=>typeof x==='string'&&x.length<=450000&&/^data:image\/(?:jpeg|png|webp);base64,[A-Za-z0-9+/]{4,}={0,2}$/.test(x);
+function normalizeResultReport(value){
+  if(!value||!['you','friend'].includes(value.reportedWinner)||!validEvidence(value.evidenceDataUrl))return null;
+  return {reportedWinner:value.reportedWinner,evidenceDataUrl:value.evidenceDataUrl,evidenceName:text(value.evidenceName,100)||'Foto do resultado',submittedAt:text(value.submittedAt,40)};
+}
 function normalizeBet(b){
   if(!b||!Number.isSafeInteger(b.stake)||b.stake<10||b.stake>1e9||!Number.isFinite(b.odd)||b.odd<=1||!Number.isSafeInteger(payout(b.stake,b.odd)))return null;
   return {id:text(String(b.id),80)||uid(),matchId:text(b.matchId,20),home:text(b.home,30),away:text(b.away,30),league:text(b.league),side:b.side==='away'?'away':'home',selection:text(b.selection,30),stake:b.stake,odd:b.odd,potential:payout(b.stake,b.odd),status:['pending','won','lost'].includes(b.status)?b.status:'pending',date:text(b.date,40)||stamp(),settledAt:text(b.settledAt,40)};
 }
 export function restore(raw,oldProfile=null,oldBets=null){
   const s=emptyState();let d;try{d=typeof raw==='string'?JSON.parse(raw):raw;}catch{}
-  if([2,3,4].includes(d?.version)&&d.profiles&&typeof d.profiles==='object'){
+  if([2,3,4,5].includes(d?.version)&&d.profiles&&typeof d.profiles==='object'){
     for(const value of Object.values(d.profiles).slice(0,50)){
       if(!value||typeof value.id!=='string'||!value.id||['__proto__','constructor','prototype'].includes(value.id)||typeof value.nickname!=='string'||!value.nickname.trim())continue;
       const p=profile(text(value.nickname,20),value.color);p.id=text(value.id,80);p.createdAt=text(value.createdAt,40)||stamp();p.balance=safeBalance(value.balance);
       p.teamName=text(value.teamName,28).trim();p.teamFlag=TEAM_FLAGS.some(flag=>flag.id===value.teamFlag)?value.teamFlag:'green';
       p.ownedStickers=[...new Set(array(value.ownedStickers).filter(id=>STICKERS.some(item=>item.id===id)))];
       p.avatarSticker=p.ownedStickers.includes(value.avatarSticker)?value.avatarSticker:null;
+      p.gameAccount=gameAccount(value.gameAccount);
       p.bets=array(value.bets).map(normalizeBet).filter(Boolean).slice(0,1000);
       p.transactions=array(value.transactions).filter(t=>t&&Number.isSafeInteger(t.amount)&&typeof t.ref==='string').map(t=>({id:text(String(t.id),80),ref:text(t.ref,150),kind:text(t.kind,30),label:text(t.label),amount:t.amount,date:text(t.date,40)||stamp()})).slice(0,3000);
       p.friends=[...new Set(array(value.friends).filter(id=>PEOPLE.some(w=>w.id===id)))];
@@ -204,7 +241,7 @@ export function restore(raw,oldProfile=null,oldBets=null){
         const reportedWinner=['you','friend'].includes(c.reportedWinner)?c.reportedWinner:'';
         if(status==='completed'&&(!reviewedAt||!evidence)){status=evidence?'review':'accepted';winner='';reviewedAt='';}
         if(['review','disputed'].includes(status)&&(!evidence||!reportedWinner))status='accepted';
-        return {id:text(c.id,80),personId:c.personId,date:text(c.date,40),stake:[50,100,250,500].includes(Number(c.stake))?Number(c.stake):0,mode:['1v1','Ultimate Team','Clubes'].includes(c.mode)?c.mode:'1v1',status,winner:status==='completed'?winner:'',completedAt:status==='completed'?text(c.completedAt,40):'',reportedWinner,evidenceDataUrl:evidence,evidenceName:text(c.evidenceName,100),submittedAt:text(c.submittedAt,40),fraudReason:text(c.fraudReason,300),flaggedAt:text(c.flaggedAt,40),reviewedAt};
+        return {id:text(c.id,80),personId:c.personId,date:text(c.date,40),stake:[50,100,250,500].includes(Number(c.stake))?Number(c.stake):0,mode:['1v1','Ultimate Team','Clubes'].includes(c.mode)?c.mode:'1v1',status,winner:status==='completed'?winner:'',completedAt:status==='completed'?text(c.completedAt,40):'',reportedWinner,evidenceDataUrl:evidence,evidenceName:text(c.evidenceName,100),submittedAt:text(c.submittedAt,40),fraudReason:text(c.fraudReason,300),flaggedAt:text(c.flaggedAt,40),reviewedAt,originalReport:normalizeResultReport(c.originalReport)};
       });
       p.favorites=[...new Set(array(value.favorites).filter(id=>MATCHES.some(m=>m.id===id)))];
       p.reminders=[...new Set(array(value.reminders).filter(id=>MATCHES.some(m=>m.id===id)))];
@@ -213,7 +250,7 @@ export function restore(raw,oldProfile=null,oldBets=null){
       p.activity=array(value.activity).filter(a=>a&&typeof a.text==='string').slice(0,100).map(a=>({id:text(a.id,80),text:text(a.text,220),icon:text(a.icon,20),date:text(a.date,40)}));p.unread=Math.max(0,Math.min(99,finite(value.unread)));
       s.profiles[p.id]=p;
     }
-    s.version=4;s.activeProfileId=Object.hasOwn(s.profiles,d.activeProfileId)?d.activeProfileId:null;
+    s.version=5;s.activeProfileId=Object.hasOwn(s.profiles,d.activeProfileId)?d.activeProfileId:null;
     for(const m of MATCHES)if(['home','away'].includes(d.results?.[m.id]?.winner))s.results[m.id]={winner:d.results[m.id].winner,date:text(d.results[m.id].date,40)};
     s.legacyArchive=array(d.legacyArchive).map(normalizeBet).filter(Boolean);return s;
   }

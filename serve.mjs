@@ -8,6 +8,7 @@ const files = new Map([
   ["/app.js", ["app.js", "text/javascript; charset=utf-8"]],
   ["/model.mjs", ["model.mjs", "text/javascript; charset=utf-8"]],
   ["/styles.css", ["styles.css", "text/css; charset=utf-8"]],
+  ["/arena.css", ["arena.css", "text/css; charset=utf-8"]],
 ]);
 
 const server = createServer(async (request, response) => {
@@ -26,7 +27,8 @@ const server = createServer(async (request, response) => {
     return;
   }
 
-  const file = files.get(pathname);
+  const playerAsset = /^\/assets\/players\/[a-z0-9-]+\.jpg$/.test(pathname);
+  const file = files.get(pathname) || (playerAsset ? [pathname.slice(1), "image/jpeg"] : null);
   if (!file) {
     response.writeHead(404, { "Cache-Control": "no-store" });
     response.end("Not Found");

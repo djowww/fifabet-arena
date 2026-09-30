@@ -2,7 +2,13 @@
 
 Partidas entre amigos no EA SPORTS FC, com ID próprio do FifaBet, carteira de créditos de teste, foto do placar e revisão pela equipe.
 
-**Interface pública:** https://djowww.github.io/fifabet-arena/
+**Domínio público:** https://betfifa.com.br/
+
+**Repositório:** https://github.com/djowww/fifabet-arena
+
+O frontend usa GitHub Pages. O domínio é administrado na Hostinger e aponta para essa publicação; não usa o VPS do Tibia. O endereço `djowww.github.io/fifabet-arena/` passa a redirecionar para o domínio personalizado.
+
+Os perfis e créditos da demonstração local são salvos por origem no navegador. Os dados do endereço antigo não migram automaticamente para o domínio novo. A API de contas compartilhadas continua dependendo da hospedagem do servidor descrita abaixo.
 
 ## Fluxo principal
 

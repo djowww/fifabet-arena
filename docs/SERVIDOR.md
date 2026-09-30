@@ -2,7 +2,15 @@
 
 O servidor `backend/server.mjs` transforma os desafios de pontos fictícios em dados compartilhados: cada pessoa entra com apelido ou ID e senha, os dois lados usam o mesmo desafio, a foto fica privada e o saldo é controlado pelo servidor. A carteira oferece pedidos de créditos demonstrativos por cartão, Pix e transferência. Nenhuma dessas ações cobra dinheiro, movimenta uma conta bancária ou consulta um gateway. O servidor também entrega os arquivos da interface pela mesma origem. Saques e consulta a partidas da EA não estão integrados.
 
-O GitHub Pages continua sendo hospedagem estática. Ele não executa este servidor e não cria contas compartilhadas: a interface detecta a API e identifica a demonstração local quando ela não está disponível. Publicar os arquivos no GitHub não publica um banco de dados nem uma API. Nenhum serviço externo foi contratado ou configurado e nenhuma infraestrutura de Tibia/Hostinger foi alterada.
+O GitHub Pages continua sendo hospedagem estática, com domínio personalizado `betfifa.com.br` administrado na Hostinger. Ele não executa este servidor e não cria contas compartilhadas: a interface detecta a API e identifica a demonstração local quando ela não está disponível. Publicar os arquivos no GitHub ou apontar o domínio não publica um banco de dados nem uma API. Nenhum serviço de hospedagem foi contratado nesta etapa e nenhuma infraestrutura de Tibia foi alterada.
+
+## Domínio do frontend
+
+O arquivo `CNAME` na raiz mantém `betfifa.com.br` como domínio do GitHub Pages. A zona DNS desse domínio na Hostinger utiliza quatro registros A em `@`: `185.199.108.153`, `185.199.109.153`, `185.199.110.153` e `185.199.111.153`. O CNAME `www` aponta para `djowww.github.io`, sem nome do repositório. Os nameservers continuam `aster.dns-parking.com` e `helios.dns-parking.com`.
+
+Antes do apontamento, a zona continha apenas A `@` → `2.57.91.91` (TTL 50) e CNAME `www` → `betfifa.com.br` (TTL 300), usados pela página padrão da Hostinger. A publicação troca somente os destinos web desse domínio. O certificado HTTPS é administrado pelo GitHub Pages; não é necessário instalar SSL no VPS.
+
+Referências: [domínio personalizado no GitHub Pages](https://docs.github.com/en/pages/configuring-a-custom-domain-for-your-github-pages-site/managing-a-custom-domain-for-your-github-pages-site) e [registros DNS da Hostinger](https://www.hostinger.com/support/1583249-how-to-manage-dns-records-at-hostinger/).
 
 ## Executar no computador
 

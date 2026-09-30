@@ -1,0 +1,48 @@
+/* Original game and rivalry editorial. Uses the arena's EA SPORTS FC palette. */
+.rivalry-section{margin:36px 0 30px;--rivalry-green:#07f468;--rivalry-dark:#151616;color:#fafafa}
+.rivalry-heading{display:flex;align-items:end;justify-content:space-between;gap:24px;margin-bottom:21px}
+.rivalry-heading .eyebrow{margin-bottom:13px;font-size:9px;letter-spacing:2px;color:var(--rivalry-green)}
+.rivalry-heading h2{margin:0;font-family:'Arial Black','Segoe UI',sans-serif;font-size:clamp(32px,3.1vw,47px);font-weight:900;line-height:1.02;letter-spacing:-1.9px}
+.rivalry-heading h2 em{font-style:normal;color:var(--rivalry-green)}
+.rivalry-heading>p{margin:0 0 4px;max-width:200px;font-size:13px;line-height:1.6;color:#b8c2bc}
+.rivalry-grid{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:16px}
+.rivalry-card{position:relative;isolation:isolate;display:flex;flex-direction:column;min-width:0;overflow:hidden;border:1px solid #415047;border-radius:8px;background:#18201b}
+.rivalry-card::before{position:absolute;content:'';inset:0;z-index:-1;pointer-events:none;background:linear-gradient(123deg,transparent 33%,#ffffff05 33% 49%,transparent 49% 65%,#ffffff05 65% 79%,transparent 79%)}
+.rivalry-game{background:radial-gradient(ellipse at 50% 22%,#23402d,transparent 65%),#17201b}
+.rivalry-review{background:radial-gradient(ellipse at 80% 12%,#26382e,transparent 55%),#1a1e1c}
+.rivalry-card-top{display:flex;align-items:center;justify-content:space-between;gap:10px;min-height:46px;padding:18px 21px 7px;font-size:8px;font-weight:750;letter-spacing:1.4px;color:#d9e1dc}
+.rivalry-card-top>span:last-child{color:#8caa96;font-size:7px}
+.rivalry-art-stage{position:relative;width:100%;height:231px;flex:none;overflow:hidden}
+.rivalry-fc-logo{position:absolute;top:9px;left:50%;width:116px;height:55px;transform:translateX(-50%);object-fit:contain}
+.rivalry-fc-fallback{position:absolute;top:21px;left:0;right:0;text-align:center;font-size:18px;letter-spacing:-1px}
+.rivalry-duel-art{position:absolute;inset:18px 0 0;width:100%;height:225px}
+.rivalry-duel-vs{position:absolute;top:101px;left:50%;z-index:1;transform:translateX(-50%) rotate(-8deg);font-family:'Arial Black','Segoe UI',sans-serif;font-size:25px;font-style:italic;font-weight:900;letter-spacing:-2px;color:var(--rivalry-green);text-shadow:0 2px 14px #09180f}
+.rivalry-card-copy{flex:1;padding:7px 21px 18px}
+.rivalry-card-kicker{margin:0 0 12px;color:var(--rivalry-green);font-size:7px;font-weight:800;letter-spacing:1.2px;line-height:1.5}
+.rivalry-card-copy h3{margin:0 0 13px;font-size:clamp(22px,2.1vw,29px);font-weight:850;line-height:1.06;letter-spacing:-.95px}
+.rivalry-card-copy>p:last-child{margin:0;color:#b8c6bd;font-size:12px;line-height:1.65}
+.rivalry-card-bottom{margin:0 21px;padding:14px 0 16px;border-top:1px solid #80958a33;font-size:10px;color:#c2d1c8}
+.rivalry-card-bottom>span{display:flex;align-items:center;gap:8px}
+.rivalry-card-bottom .icon{width:16px;height:16px;color:var(--rivalry-green)}
+.rivalry-wager{border-color:var(--rivalry-green);background:var(--rivalry-green);color:var(--rivalry-dark)}
+.rivalry-wager::before{background:linear-gradient(123deg,transparent 30%,#15161606 30% 49%,transparent 49% 65%,#15161605 65% 79%,transparent 79%)}
+.rivalry-wager .rivalry-card-top{color:#133321}.rivalry-wager .rivalry-card-top>span:last-child{color:#205136}
+.rivalry-stake-art{position:relative;display:flex;height:100%;flex-direction:column;align-items:center;justify-content:center;gap:12px;padding:0 16px;color:var(--rivalry-dark)}
+.rivalry-money-lines{position:absolute;inset:0;width:100%;height:100%;pointer-events:none}
+.rivalry-stake-caption{z-index:1;font-size:7px;letter-spacing:1.6px;font-weight:850}
+.rivalry-stake-value{position:relative;display:flex;align-items:baseline;gap:6px;font-family:'Arial Black','Segoe UI',sans-serif;line-height:.9;letter-spacing:-4px;white-space:nowrap}
+.rivalry-stake-value>span{font-size:29px;font-weight:900;letter-spacing:-2px}.rivalry-stake-value strong{font-size:clamp(67px,7.3vw,103px);font-weight:950}
+.rivalry-stake-split{z-index:1;display:flex;align-items:center;justify-content:center;gap:12px;margin-top:7px;padding:10px 20px;border:1px solid #133b2538;border-radius:999px;background:#ffffff16}
+.rivalry-stake-split>span{font-size:8px;font-weight:600;line-height:1.4}.rivalry-stake-split b{display:block;font-size:14px;font-weight:850;letter-spacing:-.4px}.rivalry-stake-split>i{font-style:normal;font-size:18px;color:#245b38}
+.rivalry-wager .rivalry-card-kicker{color:#184c2a}.rivalry-wager h3{color:var(--rivalry-dark)}.rivalry-wager .rivalry-card-copy>p:last-child{color:#1d442a}
+.rivalry-wager .rivalry-card-bottom{border-color:#153b252e;color:#19442b}.rivalry-wager .rivalry-card-bottom .icon{color:#173c26}
+.rivalry-evidence-art{position:relative;height:100%;padding:0 7px}.rivalry-result-screen{width:100%;height:225px;position:absolute;inset:0}
+.rivalry-evidence-status{position:absolute;z-index:1;bottom:34px;left:50%;transform:translateX(-50%);display:flex;align-items:center;gap:6px;white-space:nowrap;max-width:calc(100% - 28px);border:1px solid #b3a36566;border-radius:4px;padding:6px 9px;background:#2c2b1d;color:#efdfa7;font-size:9px;font-weight:650;box-shadow:0 4px 16px #0004}
+.rivalry-evidence-status .icon{width:13px;height:13px}.rivalry-evidence-caption{position:absolute;bottom:13px;left:0;right:0;text-align:center;color:#9aac9f;font-size:7px;letter-spacing:1.3px}
+.rivalry-bottom{display:flex;align-items:center;justify-content:space-between;gap:24px;margin-top:17px;padding-top:3px}
+.rivalry-prototype-note{max-width:490px;font-size:10px;line-height:1.65;color:#a9b4ad;margin:0}
+.rivalry-actions{display:flex;align-items:center;justify-content:end;flex-wrap:wrap;gap:9px;flex:none}
+.rivalry-actions .btn{font-size:11px;min-height:43px;padding:10px 16px;gap:12px}.rivalry-actions .icon{width:16px;height:16px}
+@media(max-width:1100px) and (min-width:601px){.rivalry-grid{gap:12px}.rivalry-card-top{padding-left:17px;padding-right:17px;letter-spacing:1px;font-size:7px}.rivalry-card-top>span:last-child{letter-spacing:.7px}.rivalry-card-copy{padding-left:17px;padding-right:17px}.rivalry-card-bottom{margin-inline:17px;font-size:9px}.rivalry-card-copy h3{font-size:24px}.rivalry-card-kicker{font-size:6.5px;letter-spacing:1px}.rivalry-card-copy>p:last-child{font-size:11px}.rivalry-art-stage{height:209px}.rivalry-duel-art{height:200px;top:13px}.rivalry-duel-vs{top:87px;font-size:22px}.rivalry-fc-logo{top:9px;width:105px;height:49px}.rivalry-result-screen{height:200px}.rivalry-evidence-status{bottom:33px;font-size:8px;padding:5px 7px}.rivalry-stake-caption{font-size:6px;letter-spacing:1.2px}.rivalry-stake-value strong{font-size:clamp(63px,7vw,83px)}.rivalry-stake-value>span{font-size:25px}.rivalry-stake-split{padding:8px 13px;gap:11px}.rivalry-stake-split>span{font-size:7px}.rivalry-stake-split b{font-size:12px}.rivalry-bottom{align-items:start;gap:18px}.rivalry-actions{flex-direction:column;align-items:stretch}.rivalry-prototype-note{max-width:360px}}
+@media(max-width:600px){.rivalry-section{margin-top:29px}.rivalry-heading{display:block;margin-bottom:19px}.rivalry-heading .eyebrow{font-size:8px;letter-spacing:1.6px;margin-bottom:12px}.rivalry-heading h2{font-size:clamp(32px,9vw,44px);letter-spacing:-1.6px}.rivalry-heading>p{margin-top:13px;max-width:none;font-size:12px}.rivalry-heading>p br{display:none}.rivalry-grid{grid-template-columns:1fr;gap:14px}.rivalry-card-top{padding:18px 22px 7px;font-size:8px}.rivalry-card-copy{padding:7px 22px 20px}.rivalry-card-copy h3{font-size:30px;letter-spacing:-1px}.rivalry-card-copy h3 br{display:none}.rivalry-card-kicker{font-size:8px;margin-bottom:10px}.rivalry-card-copy>p:last-child{font-size:13px;max-width:430px}.rivalry-card-bottom{margin-inline:22px;padding:15px 0 17px;font-size:11px}.rivalry-art-stage{height:241px}.rivalry-fc-logo{top:7px;width:125px;height:59px}.rivalry-duel-art{top:13px;height:240px}.rivalry-duel-vs{top:107px;font-size:27px}.rivalry-result-screen{height:232px}.rivalry-evidence-status{bottom:34px;padding:7px 10px;font-size:10px}.rivalry-evidence-caption{bottom:13px;font-size:8px}.rivalry-stake-caption{font-size:8px}.rivalry-stake-value strong{font-size:102px}.rivalry-stake-value>span{font-size:34px}.rivalry-stake-split{padding:10px 22px}.rivalry-stake-split>span{font-size:9px}.rivalry-stake-split b{font-size:15px}.rivalry-bottom{flex-direction:column;align-items:stretch;gap:18px;margin-top:19px}.rivalry-prototype-note{max-width:none;font-size:11px}.rivalry-actions{justify-content:start;flex:none;gap:8px}.rivalry-actions .btn{flex:1;min-width:0;font-size:11px;padding:10px 13px;gap:9px}}
+@media(prefers-reduced-motion:reduce){.rivalry-section *{transition:none!important}}

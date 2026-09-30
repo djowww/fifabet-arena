@@ -17,11 +17,18 @@ Protótipo front-end de uma arena para desafiar amigos no EA SPORTS FC, combinar
 - Ver um ranking ilustrativo, histórico local e uma sala de troféus com seis peças originais inspiradas na cultura do futebol brasileiro e europeu.
 - Cadastrar EA ID e plataforma como referência **não verificada**, editar ou remover o cadastro.
 - Consultar partidas locais pelo histórico ou painel de EA ID.
-- Explorar a direção visual com fotos reais de Haaland, Alexia Putellas e Mbappé, com créditos acessíveis.
+- Explorar a arena com Haaland na capa e uma seção visual sobre desafiar um amigo no EA SPORTS FC, combinar um valor e registrar o placar.
+- Ver o símbolo oficial EA SPORTS FC e um exemplo de R$50 por jogador, identificado como conceito: dinheiro real ainda não está disponível no protótipo.
 - Selecionar 1 contra 1, Ultimate Team ou Clubes na arena para abrir um desafio com o modo escolhido.
 - Acessar classificações, estatísticas de atletas e FC Pro nos canais oficiais da EA.
 
 Os perfis de oponentes, convites e números do ranking são demonstrativos. Os dados ficam no navegador; ainda não há contas compartilhadas, sincronização entre dispositivos, servidor de partidas ou apostas e pagamentos reais. As compras da loja descontam somente o saldo fictício local. Nos desafios, os pontos combinados não são transferidos, e nenhum ponto pode ser convertido em dinheiro.
+
+## Desafio entre amigos
+
+A antiga vitrine editorial com três fotografias foi substituída por três peças sobre o próprio jogo: confronto no EA SPORTS FC, valor combinado entre amigos e registro do placar. O exemplo de R$50 por jogador e R$100 no confronto apresenta a direção futura do produto; não cria um saldo, uma cobrança ou uma premiação real. O botão de desafio abre o fluxo existente com pontos de demonstração.
+
+O logotipo genérico EA SPORTS FC foi obtido da página oficial do jogo, com procedência em [assets/brand/credits.json](assets/brand/credits.json). A marca pertence à Electronic Arts; o aplicativo permanece independente.
 
 ## Perfil e clube do coração
 
@@ -82,6 +89,8 @@ Depois, acesse http://127.0.0.1:4173. Mantenha o terminal aberto enquanto usa a 
 - `index.html`, `styles.css`, `arena.css`, `shop.css`, `app.js` e `model.mjs` — aplicação estática servida pelo GitHub Pages.
 - `clubs.mjs` e `profile.css` — catálogo de clubes e apresentação da personalização de perfil.
 - `football-trophies.mjs` e `achievements.css` — sala de troféus e apresentação das seis conquistas.
+- `rivalry-section.mjs` e `rivalry.css` — apresentação dos desafios entre amigos e do conceito de valor combinado.
+- `assets/brand/` — símbolo EA SPORTS FC e registro de procedência.
 - `assets/avatars/`, `assets/signatures/` e `assets/players/` — caricaturas, reproduções de assinaturas e fotografias editoriais, com créditos separados.
 - `assets/clubs/` — brasões com manifesto de fontes; `assets/trophies/` — seis ilustrações SVG originais da arena.
 - `model.test.mjs` e `ui-flows.test.mjs` — testes das regras e dos fluxos da demonstração.

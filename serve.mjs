@@ -14,6 +14,9 @@ const files = new Map([
   ["/achievements.css", ["achievements.css", "text/css; charset=utf-8"]],
   ["/clubs.mjs", ["clubs.mjs", "text/javascript; charset=utf-8"]],
   ["/football-trophies.mjs", ["football-trophies.mjs", "text/javascript; charset=utf-8"]],
+  ["/rivalry-section.mjs", ["rivalry-section.mjs", "text/javascript; charset=utf-8"]],
+  ["/rivalry.css", ["rivalry.css", "text/css; charset=utf-8"]],
+  ["/assets/brand/ea-sports-fc.svg", ["assets/brand/ea-sports-fc.svg", "image/svg+xml"]],
 ]);
 
 const server = createServer(async (request, response) => {

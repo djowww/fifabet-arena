@@ -5,6 +5,7 @@ import fs from 'node:fs';
 import crypto from 'node:crypto';
 import * as model from './model.mjs';
 import {renderFootballTrophies,FOOTBALL_TROPHY_DESIGNS} from './football-trophies.mjs';
+import {renderRivalrySection} from './rivalry-section.mjs';
 const source=fs.readFileSync(new URL('./app.js',import.meta.url),'utf8');
 function harness(){
  const nodes={},listeners={},windowListeners={},timers=new Map();let timerId=0;
@@ -13,7 +14,7 @@ function harness(){
  const storage=()=>{const m=new Map();return {getItem:k=>m.get(k)??null,setItem:(k,v)=>m.set(k,String(v)),removeItem:k=>m.delete(k)};};
  const localStorage=storage(),sessionStorage=storage(),location={hash:'#arena'};
  const window={addEventListener:(n,f)=>windowListeners[n]=f,scrollTo(){}};
- const ctx={...model,renderFootballTrophies,document,window,location,localStorage,sessionStorage,crypto,console,createImageBitmap:async()=>({width:1280,height:720,close(){}}),URL:{createObjectURL:()=> 'blob:demo-evidence'},requestAnimationFrame:f=>f(),setTimeout:(f,ms)=>{const id=++timerId;timers.set(id,{f,ms});return id;},clearTimeout:id=>timers.delete(id),FormData:class{constructor(f){this.values=f.values;}get(k){return this.values[k];}}};
+ const ctx={...model,renderFootballTrophies,renderRivalrySection,document,window,location,localStorage,sessionStorage,crypto,console,createImageBitmap:async()=>({width:1280,height:720,close(){}}),URL:{createObjectURL:()=> 'blob:demo-evidence'},requestAnimationFrame:f=>f(),setTimeout:(f,ms)=>{const id=++timerId;timers.set(id,{f,ms});return id;},clearTimeout:id=>timers.delete(id),FormData:class{constructor(f){this.values=f.values;}get(k){return this.values[k];}}};
  vm.createContext(ctx);
  vm.runInContext(source.replace(/^import .*?;\r?\n/gm,'')+`\nglobalThis.api={getState:()=>state,getUI:()=>ui,commit,render,go,showAuth,readSlip,renderWallet,renderFriends,renderTrophies,renderBets,slipHTML,showMatch};`,ctx);
  const click=(action,data={})=>listeners.click({target:{closest(selector){if(selector==='.skip-link')return null;return {dataset:{action,...data},disabled:false};}}});

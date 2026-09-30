@@ -64,6 +64,12 @@ As seis peças de `assets/trophies/` foram desenhadas em SVG para a FifaBet Aren
 
 São ilustrações originais inspiradas na cultura do futebol brasileiro e europeu, sujeitas à [licença proprietária do projeto](LICENSE). Não são reproduções de troféus oficiais, não usam uma licença de organizadores de competições e não certificam títulos ou premiações reais. As conquistas correspondem às seis regras locais de demonstração já existentes no aplicativo.
 
+## Símbolo EA SPORTS FC
+
+O arquivo `assets/brand/ea-sports-fc.svg` contém o logotipo genérico branco EA SPORTS + FC, obtido diretamente do ativo publicado na [página oficial do jogo](https://www.ea.com/pt-br/games/ea-sports-fc). Não é o símbolo da federação FIFA. A geometria foi preservada; o arquivo não contém scripts ou referências externas. O registro de procedência, URL do ativo, data de consulta e SHA-256 está em [assets/brand/credits.json](assets/brand/credits.json).
+
+EA SPORTS FC e seu logotipo pertencem à Electronic Arts. A publicação na fonte oficial não concede uma licença comercial, e a licença do código não abrange essa marca. Seu uso identifica o jogo referido pelo protótipo, sem parceria, aprovação ou endosso da EA. O exemplo monetário da nova seção não ativa apostas ou pagamentos reais.
+
 ## Limites das licenças
 
 As licenças Creative Commons acima cobrem direitos autorais das fotografias nos termos de cada fonte. Elas não concedem automaticamente autorização de uso de marca, direito de imagem para publicidade, endosso ou merchandising. Um lançamento comercial com atletas como embaixadores, avatares vendidos ou peças de campanha exige a revisão dos direitos específicos correspondentes. Consulte também a seção “Other Rights” da [CC BY-SA 4.0](https://creativecommons.org/licenses/by-sa/4.0/legalcode.en).

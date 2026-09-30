@@ -87,12 +87,12 @@ async function validateDuelDraft(includeCredits=false){
  if(online&&code){
   if(!/^FBA-[A-F0-9]{10}$/.test(code))throw Error('Confira o ID do amigo: use FBA- seguido de 10 letras ou números.');
   const data=await API.findPlayer(code);other=data.player||data.user||data;
-  if(!other?.id||other.publicPlayerId!==code)throw Error('Jogador não encontrado. Confira o ID ou crie um convite por link.');
+  if(!other?.publicPlayerId||other.publicPlayerId!==code)throw Error('Jogador não encontrado. Confira o ID ou crie um convite por link.');
  }else if(!online){
   const latest=read();other=M.findProfileByPlayerId(latest,code);
   if(!other)throw Error('Selecione um amigo cadastrado neste navegador.');
  }
- if(other?.id===owner)throw Error('Escolha outro jogador para receber seu desafio.');
+ if((online&&other?.publicPlayerId===profile()?.publicPlayerId)||(!online&&other?.id===owner))throw Error('Escolha outro jogador para receber seu desafio.');
  if(profile()?.id!==owner||ui.duelRevision!==revision)throw Error('Os dados mudaram durante a conferência. Revise a partida e continue novamente.');
  ensureDuelOwner();
  if(includeCredits){
@@ -239,7 +239,7 @@ function rankingView(){
 async function sharedRankingView(){
  if(!profile())return intro('Ranking dos jogadores.','Entre para consultar os resultados revisados.')+`<button class='btn primary' data-action='login'>Entrar na arena</button>`;
  const data=await API.getLeaderboard(),items=data.entries||[];
- const rows=items.map((e,i)=>`<tr><td>${i+1}</td><td><div class='row'>${avatar(e.player)}<div><strong>${esc(e.player.nickname)}${e.player.id===profile().id?' · você':''}</strong><small>${esc(e.player.publicPlayerId)}</small></div></div></td><td>${e.played}</td><td>${e.wins}</td><td>${e.draws}</td><td>${e.losses}</td></tr>`).join('');
+ const rows=items.map((e,i)=>`<tr><td>${i+1}</td><td><div class='row'>${avatar(e.player)}<div><strong>${esc(e.player.nickname)}${e.player.publicPlayerId===profile().publicPlayerId?' · você':''}</strong><small>${esc(e.player.publicPlayerId)}</small></div></div></td><td>${e.played}</td><td>${e.wins}</td><td>${e.draws}</td><td>${e.losses}</td></tr>`).join('');
  const content=items.length?`<div class='history-table'><table><thead><tr><th>POSIÇÃO</th><th>JOGADOR</th><th>JOGOS</th><th>VITÓRIAS</th><th>EMPATES</th><th>DERROTAS</th></tr></thead><tbody>${rows}</tbody></table></div>`:`<h2 style='margin-top:20px'>A primeira vitória ainda está em jogo.</h2><p class='muted'>Partidas em análise aparecem no histórico. Entram no ranking após a revisão.</p>`;
  return intro('Ranking dos jogadores.','Vitórias e empates de partidas revisadas pela equipe.')+`<section class='card pad'><p class='meta'>Ordem: vitórias, depois empates. Apenas jogadores com partidas aprovadas.</p>${content}</section>`;
 }
@@ -529,10 +529,10 @@ async function start(){
  serviceUnavailable=false;backendStatus=await API.detectBackend();online=!!backendStatus;
  if(!online&&productionHost()){serviceUnavailable=true;arena=null;closeModal();render();return;}
  if(online){const session=await API.loadSession();arena=session.user?await API.getArena():null;}else save();
- const url=new URL(location.href),auth=url.searchParams.get('auth'),authError=url.searchParams.get('auth_error');
- if(auth||authError){restoreAuthIntent();url.searchParams.delete('auth');url.searchParams.delete('auth_error');history.replaceState(null,'',url.href);}
+ const url=new URL(location.href),auth=url.searchParams.get('auth'),authError=url.searchParams.get('auth_error'),token=url.searchParams.get('convite');
+ if(auth||authError)restoreAuthIntent();
+ if(auth||authError||token){url.searchParams.delete('auth');url.searchParams.delete('auth_error');url.searchParams.delete('convite');history.replaceState(null,'',url.href);}
  render();if(auth==='success'&&profile())toast('Você entrou na arena.');else if(authError)toast(authErrors[authError]||'Não foi possível concluir o login. Use sua conta Fifa GO ou tente novamente.');
- const token=url.searchParams.get('convite');
  if(token&&online)invite={token};
  if(invite&&online)await showInvite();
  else if(token)inviteNotice('Este convite precisa da versão conectada. Nesta demonstração, use um código entre perfis neste navegador.');

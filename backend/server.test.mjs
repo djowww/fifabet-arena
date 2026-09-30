@@ -9,7 +9,7 @@ import {createArenaServer} from './server.mjs';
 const PNG=Buffer.from('iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mP8/x8AAusB9Y9Zl1sAAAAASUVORK5CYII=','base64');
 async function harness(t){
   const dataDir=await mkdtemp(join(tmpdir(),'fifabet-backend-test-'));
-  const arena=await createArenaServer({dataDir});
+  const arena=await createArenaServer({dataDir,paymentMode:'demo'});
   await new Promise(resolve=>arena.server.listen(0,'127.0.0.1',resolve));
   const base=`http://127.0.0.1:${arena.server.address().port}`;
   t.after(async()=>{await arena.close();await rm(dataDir,{recursive:true,force:true});});
@@ -75,7 +75,10 @@ test('only invited player accepts a direct challenge; point reserves cannot over
   const arena=(await host.api('/me')).data;
   assert.equal(arena.user.balance,0);assert.equal(arena.stats.reserved,1000);
   assert.equal(arena.user.friends[0].id,guestUser.id);
-  assert.equal((await guest.api(`/players/${hostUser.publicPlayerId}`)).data.player.id,hostUser.id);
+  const found=(await guest.api(`/players/${hostUser.publicPlayerId}`)).data.player;
+  assert.deepEqual(Object.keys(found).sort(),['clubId','nickname','publicPlayerId']);
+  assert.equal(found.publicPlayerId,hostUser.publicPlayerId);
+  assert.ok(!JSON.stringify(found).includes(hostUser.id));
 });
 
 test('invite previews require authentication and expose only the authorized invitation terms',async t=>{
@@ -335,16 +338,17 @@ test('shared leaderboard counts only reviewed settlements, orders victories/draw
   const response=await carol.api('/leaderboard');assert.equal(response.status,200);
   const entries=response.data.entries;
   assert.deepEqual(entries.map(entry=>entry.player.nickname),['Alice','Bob','Carol','Dan']);
-  assert.deepEqual(entries.map(({player,...counts})=>({id:player.id,...counts})),[
-    {id:aliceUser.id,played:2,wins:2,draws:0,losses:0},
-    {id:bobUser.id,played:2,wins:0,draws:1,losses:1},
-    {id:carolUser.id,played:1,wins:0,draws:1,losses:0},
-    {id:danUser.id,played:1,wins:0,draws:0,losses:1}
+  assert.deepEqual(entries.map(({player,...counts})=>({publicPlayerId:player.publicPlayerId,...counts})),[
+    {publicPlayerId:aliceUser.publicPlayerId,played:2,wins:2,draws:0,losses:0},
+    {publicPlayerId:bobUser.publicPlayerId,played:2,wins:0,draws:1,losses:1},
+    {publicPlayerId:carolUser.publicPlayerId,played:1,wins:0,draws:1,losses:0},
+    {publicPlayerId:danUser.publicPlayerId,played:1,wins:0,draws:0,losses:1}
   ]);
-  assert.ok(!entries.some(entry=>entry.player.id===reviewer.id)); // An account with no completed games does not appear.
+  assert.ok(!entries.some(entry=>entry.player.publicPlayerId===reviewer.publicPlayerId)); // An account with no completed games does not appear.
   for(const entry of entries){
     assert.deepEqual(Object.keys(entry).sort(),['draws','losses','played','player','wins']);
-    assert.deepEqual(Object.keys(entry.player).sort(),['clubId','createdAt','gameAccount','id','nickname','publicPlayerId']);
+    assert.deepEqual(Object.keys(entry.player).sort(),['clubId','nickname','publicPlayerId']);
+    assert.ok(!JSON.stringify(entry.player).includes(aliceUser.id));
   }
   const serialized=JSON.stringify(response.data);
   for(const sensitive of ['balance','passwordHash','passwordSalt','csrfToken','transactions','isReviewer','a robust testing passphrase',alice.cookie.split('=')[1]])assert.ok(!serialized.includes(sensitive));

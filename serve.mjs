@@ -6,6 +6,7 @@ const files = new Map([
   ["/", ["index.html", "text/html; charset=utf-8"]],
   ["/index.html", ["index.html", "text/html; charset=utf-8"]],
   ["/colecao.html", ["colecao.html", "text/html; charset=utf-8"]],
+  ["/bootstrap.js", ["bootstrap.js", "text/javascript; charset=utf-8"]],
   ["/play.js", ["play.js", "text/javascript; charset=utf-8"]],
   ["/backend-client.mjs", ["backend-client.mjs", "text/javascript; charset=utf-8"]],
   ["/practical.css", ["practical.css", "text/css; charset=utf-8"]],

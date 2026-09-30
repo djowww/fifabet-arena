@@ -121,6 +121,7 @@ function uniquePublicId(records,prefix,field){
   return value;
 }
 function publicPlayer(user){return {id:user.id,publicPlayerId:user.publicPlayerId,nickname:user.nickname,clubId:user.clubId,gameAccount:user.gameAccount,createdAt:user.createdAt};}
+function directoryPlayer(user){return {publicPlayerId:user.publicPlayerId,nickname:user.nickname,clubId:user.clubId};}
 function member(duel,user){return duel.hostId===user.id||duel.guestId===user.id;}
 function expireInvites(state){
   const time=Date.now();let changed=false;
@@ -203,6 +204,8 @@ export async function createArenaServer(options={}){
   let tail=Promise.resolve();
   const serial=fn=>{const next=tail.then(fn,fn);tail=next.catch(()=>{});return next;};
   const limits=new Map();
+  const MAX_RATE_LIMIT_BUCKETS=10_000;
+  let nextRateLimitSweep=0;
   function rateLimitAddress(request){
     const peer=request.socket.remoteAddress,forwarded=request.headers['x-real-ip'];
     if(trustProxyLoopback&&['127.0.0.1','::1','::ffff:127.0.0.1'].includes(peer)&&typeof forwarded==='string'&&isIP(forwarded))return forwarded;
@@ -210,10 +213,14 @@ export async function createArenaServer(options={}){
   }
   function rateLimit(request,kind,max,window){
     const key=`${rateLimitAddress(request)}:${kind}`,time=Date.now();
+    if(time>=nextRateLimitSweep&&(limits.size>2_000||limits.size>=MAX_RATE_LIMIT_BUCKETS)){
+      nextRateLimitSweep=time+60_000;
+      for(const [entry,bucket]of limits)if(bucket.until<=time)limits.delete(entry);
+    }
     let bucket=limits.get(key);
+    if(!bucket&&limits.size>=MAX_RATE_LIMIT_BUCKETS)fail(429,'Limite de tráfego atingido. Tente novamente mais tarde.','rate_limit_capacity');
     if(!bucket||time>bucket.until){bucket={count:0,until:time+window};limits.set(key,bucket);}
     if(++bucket.count>max)fail(429,'Muitas tentativas. Aguarde alguns minutos.','rate_limited');
-    if(limits.size>2000)for(const [k,v]of limits)if(v.until<time)limits.delete(k);
   }
   const sessionFor=(draft,request)=>draft.sessions[sha(readCookie(request))];
   const reviewer=user=>reviewerIds.has(user.id);
@@ -287,7 +294,7 @@ export async function createArenaServer(options={}){
     return duelView(draft,duel,user);
   }
   const mimeTypes={'.html':'text/html; charset=utf-8','.js':'text/javascript; charset=utf-8','.mjs':'text/javascript; charset=utf-8','.css':'text/css; charset=utf-8','.png':'image/png','.jpg':'image/jpeg','.webp':'image/webp','.svg':'image/svg+xml'};
-  const publicFiles=new Set(['index.html','legacy.html','colecao.html','app.js','play.js','arena-app.js','backend-client.mjs','model.mjs','clubs.mjs','football-trophies.mjs','rivalry-section.mjs','styles.css','arena.css','shop.css','profile.css','achievements.css','rivalry.css','competitive-modes.css','practical.css','lobby.css','wizard.css','arena-app.css']);
+  const publicFiles=new Set(['index.html','legacy.html','colecao.html','bootstrap.js','app.js','play.js','arena-app.js','backend-client.mjs','model.mjs','clubs.mjs','football-trophies.mjs','rivalry-section.mjs','styles.css','arena.css','shop.css','profile.css','achievements.css','rivalry.css','competitive-modes.css','practical.css','lobby.css','wizard.css','arena-app.css']);
   const serverStatus=()=>({available:true,mode:'shared',storage:'sqlite',schemaVersion:storage.schemaVersion,paymentMode,realMoney:paymentMode==='pix_manual',noRealMoney:paymentMode!=='pix_manual',paymentsAvailable:paymentMode==='demo'||paymentMode==='pix_manual',authProviders:oauth.status(),apiVersion:1,reviewerConfigured:reviewerIds.size>0});
   async function route(draft,request,response,url){
     const path=url.pathname,method=request.method;
@@ -351,7 +358,7 @@ export async function createArenaServer(options={}){
         const draw=duel.winner==='draw';
         if(!draw&&![duel.hostId,duel.guestId].includes(duel.winnerId))continue;
         for(const id of [duel.hostId,duel.guestId]){
-          if(!ranked.has(id))ranked.set(id,{player:publicPlayer(draft.users[id]),played:0,wins:0,draws:0,losses:0});
+          if(!ranked.has(id))ranked.set(id,{player:directoryPlayer(draft.users[id]),played:0,wins:0,draws:0,losses:0});
           const entry=ranked.get(id);entry.played++;
           if(draw)entry.draws++;else if(duel.winnerId===id)entry.wins++;else entry.losses++;
         }
@@ -452,7 +459,7 @@ export async function createArenaServer(options={}){
     if(method==='GET'&&playerMatch){
       const player=Object.values(draft.users).find(u=>u.publicPlayerId===playerMatch[1]);
       if(!player)fail(404,'Jogador não encontrado. Confira o ID.','not_found');
-      return {player:publicPlayer(player)};
+      return {player:directoryPlayer(player)};
     }
     if(method==='POST'&&path==='/api/v1/duels'){
       const data=await jsonBody(request);
@@ -590,6 +597,8 @@ export async function createArenaServer(options={}){
   }
   const server=createServer(async(request,response)=>{
     response.setHeader('Cache-Control','no-store');response.setHeader('X-Content-Type-Options','nosniff');response.setHeader('Referrer-Policy','no-referrer');response.setHeader('X-Frame-Options','DENY');
+    response.setHeader('Content-Security-Policy',"default-src 'self'; base-uri 'self'; object-src 'none'; script-src 'self'; script-src-attr 'none'; style-src 'self' 'unsafe-inline'; img-src 'self' data: blob:; font-src 'self' data:; connect-src 'self'; form-action 'self'; frame-ancestors 'none'");
+    if(secureCookie)response.setHeader('Strict-Transport-Security','max-age=31536000');
     try{
       let url;
       try{url=new URL(request.url||'/',publicOrigin||'http://localhost');}

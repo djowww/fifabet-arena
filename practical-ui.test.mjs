@@ -137,7 +137,7 @@ test('server invite prompts authentication and becomes accepted only from the au
   const api={detectBackend:async()=>({available:true,apiVersion:1}),loadSession:async()=>({user:null}),loginAccount:async data=>{calls.push(['login',data]);loggedIn=true;return {user};},getArena:async()=>({user:loggedIn?{...user,balance:accepted?900:1000}:null,duels:accepted?[{...duel,guestId:user.id,guest:user,status:'in_progress'}]:[],history:[],stats:{reserved:accepted?100:0}}),getInvite:async token=>{assert.equal(loggedIn,true);calls.push(['invite',token]);return {invite:duel};},acceptInvite:async token=>{assert.equal(loggedIn,true);calls.push(['accept',token]);accepted=true;return {};}};
   const h=await harness({api,url:`https://example.test/?convite=${'t'.repeat(43)}#arena`});
   assert.equal(h.api.isOnline(),true);assert.match(h.nodes.modalContent.innerHTML,/Entre ou crie/);assert.deepEqual(calls,[]);
-  await h.click('login');assert.match(h.nodes.modalContent.innerHTML,/Apelido ou ID FifaBet/);await h.submit('login',{nickname:'Bruna',password:'a secure passphrase'});
+  await h.click('login');assert.match(h.nodes.modalContent.innerHTML,/Apelido ou ID Fifa GO/);await h.submit('login',{nickname:'Bruna',password:'a secure passphrase'});
   assert.equal(h.nodes.modal.open,true);assert.match(h.nodes.modalContent.innerHTML,/Alex te chamou/);assert.match(h.nodes.modalContent.innerHTML,/Aceitar desafio/);
   await h.click('accept-invite');assert.equal(accepted,true);assert.equal(h.location.href,'https://example.test/#arena');
   assert.equal(h.nodes.modal.open,false);assert.match(h.nodes.screen.innerHTML,/Enviar placar/);assert.deepEqual(calls.map(x=>x[0]),['login','invite','accept']);

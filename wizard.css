@@ -43,3 +43,76 @@
  .duel-wizard-actions>.btn{min-height:46px}
  .duel-wizard-actions>.primary{flex:1}
 }
+
+/* Match room: shared state, each participant's reserve, then result evidence. */
+.practical-app .match-room{max-width:1120px;margin-inline:auto}
+.room-heading{display:flex;align-items:center;justify-content:space-between;gap:18px;margin:12px 0 24px}
+.room-heading h1{font-size:2rem;line-height:1.2;letter-spacing:-.03em;margin-bottom:8px}
+.room-heading p{font-size:14px;overflow-wrap:anywhere}
+.room-heading code{color:var(--text);font-size:13px;letter-spacing:.5px}
+.room-layout{display:grid;grid-template-columns:minmax(0,1.6fr) minmax(270px,1fr);gap:28px;align-items:start}
+.room-play,.room-summary{min-width:0}
+.room-participants{padding:4px 0 18px;border-bottom:1px solid var(--line)}
+.room-player{display:flex;align-items:center;gap:12px;padding:12px 0}
+.room-player>div{flex:1;min-width:0}
+.room-player strong{display:block;font-size:15px;overflow-wrap:anywhere}
+.room-player>div>.meta{display:block;margin-top:4px;font-size:12px}
+.room-player-value{flex:none;font-size:18px;font-weight:700;font-variant-numeric:tabular-nums;text-align:right}
+.room-player-value small{display:block;font-size:11px;font-weight:400;color:var(--muted)}
+.room-state{padding:30px 0 26px}
+.room-state h2{font-size:24px;line-height:1.25;letter-spacing:-.02em;margin-bottom:12px}
+.room-state>p{max-width:58ch;line-height:1.65;color:var(--muted)}
+.room-state form>.meta{margin-top:18px}
+.room-state .room-main-action{min-height:56px;margin-top:24px;padding:15px 24px;font-size:16px;font-weight:750}
+.room-state>.text-button{display:flex;margin-top:10px}
+.room-state .room-live-status{display:flex;align-items:center;gap:9px;margin:0 0 20px;color:#c2edd0;font-size:14px;font-weight:650}
+.room-live-status>span{width:7px;height:7px;flex:none;background:var(--lime);border-radius:50%}
+.room-state .room-waiting{margin-top:20px;padding-block:14px;border-block:1px solid var(--line);font-size:14px;color:var(--text)}
+.room-issue-action{min-height:44px;font-size:13px;text-decoration:underline;text-underline-offset:4px}
+.room-summary{padding:24px;border:1px solid var(--line);border-radius:12px;background:var(--card)}
+.room-summary>h2{font-size:18px;margin-bottom:8px}
+.room-economics{margin:0 0 14px}
+.room-economics>div{display:flex;align-items:baseline;justify-content:space-between;flex-wrap:wrap;gap:6px 12px;padding:16px 0;border-bottom:1px solid var(--line)}
+.room-economics dt{font-size:13px;color:var(--muted)}
+.room-economics dd{margin:0;font-size:15px;font-weight:650;font-variant-numeric:tabular-nums;overflow-wrap:anywhere}
+.room-economics .room-net{padding-block:20px}
+.room-economics .room-net dt{color:var(--text);font-weight:650}
+.room-economics .room-net dd{font-size:21px;color:var(--lime)}
+.room-summary>.meta{font-size:12px;line-height:1.65;margin-top:18px}
+.room-friendly{padding:14px 0;color:var(--muted);font-size:14px}
+.room-rules{margin:24px 0 18px;padding-top:20px;border-top:1px solid var(--line)}
+.room-rules h3{font-size:14px;margin-bottom:9px}
+.room-rules p{white-space:pre-wrap;overflow-wrap:anywhere;font-size:13px;line-height:1.65;color:var(--muted)}
+.room-result{margin:0;padding:22px 0;border-top:1px solid var(--line)}
+.room-result figcaption{margin-bottom:16px}
+.room-result figcaption strong{display:block;font-size:18px;line-height:1.5;overflow-wrap:anywhere;font-variant-numeric:tabular-nums}
+.room-result figcaption .meta{display:block;margin-top:7px}
+.room-issues{margin-block:20px;font-size:13px}
+.room-issues summary{min-height:44px;padding:11px 0;cursor:pointer;color:var(--text);font-weight:650}
+.room-issue-report{padding:14px 0;border-bottom:1px solid var(--line)}
+.room-issue-report>p{line-height:1.6;overflow-wrap:anywhere}
+.room-issue-report>.meta,.room-issues>.meta{margin-top:10px}
+.room-issue-report>.btn{margin-top:12px}
+.match-result-form>.btn,.practical-app form[data-form='issue']>.btn,.practical-app form[data-form='issue-review']>.btn{margin-top:20px}
+.result-photo-actions{position:relative;display:flex;flex-wrap:wrap;gap:10px;margin:10px 0 12px}
+.result-photo-actions>.btn{min-height:48px;cursor:pointer;touch-action:manipulation;user-select:none;-webkit-user-select:none}
+.result-file-input{position:absolute;width:1px;height:1px;min-height:0;padding:0;margin:-1px;overflow:hidden;clip-path:inset(50%);white-space:nowrap}
+.result-photo-actions:has(#resultCamera:focus-visible)>label[for='resultCamera'],.result-photo-actions:has(#resultImage:focus-visible)>label[for='resultImage']{outline:3px solid var(--lime);outline-offset:4px}
+.result-photo-picker>.meta{margin-top:9px;font-size:13px;line-height:1.6;overflow-wrap:anywhere}
+.result-recognition{padding:18px 0;margin-block:20px;border-block:1px solid var(--line)}
+.result-recognition>.meta{margin-top:10px;line-height:1.6}
+#recognitionFeedback>p{margin-top:14px;line-height:1.6}
+.recognition-suggestion{margin-top:18px}
+.recognition-suggestion>.meta{margin-top:8px}
+.recognition-suggestion .form-input{width:100%;font-size:16px}
+.result-score-heading{font-size:17px;margin:22px 0 14px}
+.match-result-form .score-entry{margin-bottom:16px}
+.match-result-form .score-entry input{font-size:18px;font-variant-numeric:tabular-nums}
+.match-result-form .score-entry .form-label{overflow-wrap:anywhere}
+.match-room .btn:active:not(:disabled),.match-result-form .btn:active:not(:disabled){transform:translateY(1px)}
+@media(hover:hover) and (pointer:fine){.room-issue-action:hover{color:var(--text)}.result-photo-actions>.btn:hover{background:var(--card2)}}
+@media(max-width:820px){.room-layout{grid-template-columns:minmax(0,1fr);gap:8px}.room-summary{padding:22px}.room-heading{margin-bottom:16px}.room-play{padding-bottom:10px}}
+@media(max-width:480px){.room-heading{align-items:flex-start;gap:12px}.room-heading h1{font-size:27px}.room-heading p{font-size:12px}.room-heading>.text-button{font-size:12px}.room-player{gap:10px}.room-player-value{font-size:16px}.room-player strong{font-size:14px}.room-state{padding:24px 0}.room-state h2{font-size:23px}.room-state .room-main-action{width:100%;min-height:58px}.room-state .room-issue-action{width:100%;justify-content:center}.room-summary{padding:18px}.room-economics>div{gap:8px}.room-economics .room-net dd{font-size:20px}.result-photo-actions>.btn{flex:1;min-width:125px}.match-result-form .score-entry{grid-template-columns:1fr 1fr;gap:12px}}
+@media(prefers-reduced-motion:reduce){.match-room .btn,.match-result-form .btn{transition:none}.match-room .btn:active:not(:disabled),.match-result-form .btn:active:not(:disabled){transform:none}}
+@media(min-width:821px){.room-heading{margin:8px 0 18px}.room-player{padding-block:8px}.room-state{padding-block:20px 18px}.room-state h2{margin-bottom:8px}.room-state .room-live-status{margin-bottom:12px}.room-state .room-main-action{margin-top:16px}}
+@media(max-width:480px){.room-state>p{font-size:16px}.room-heading p,.room-player>div>.meta,.room-player-value small,.room-economics dt,.room-rules p,.room-summary>.meta,.room-issues,.room-issues .meta,.result-photo-picker>.meta,.result-recognition>.meta,.result-recognition .meta{font-size:14px}}

@@ -52,12 +52,16 @@ export const acceptInvite=token=>request(`/invites/${encodeURIComponent(token)}/
 export const getInviteCode=code=>request(`/invites/code/${encodeURIComponent(String(code).trim().toUpperCase())}`);
 export const acceptInviteCode=code=>request(`/invites/code/${encodeURIComponent(String(code).trim().toUpperCase())}/accept`,{method:'POST',data:{}});
 export const acceptDuel=id=>request(`/duels/${encodeURIComponent(id)}/accept`,{method:'POST',data:{}});
+export const fundDuel=(id,stake)=>request(`/duels/${encodeURIComponent(id)}/fund`,{method:'POST',data:{stake}});
+export const reportDuelIssue=(id,reason)=>request(`/duels/${encodeURIComponent(id)}/issue`,{method:'POST',data:{reason}});
 export const cancelDuel=id=>request(`/duels/${encodeURIComponent(id)}/cancel`,{method:'POST',data:{}});
 export const withdrawCancellation=id=>request(`/duels/${encodeURIComponent(id)}/cancel-withdraw`,{method:'POST',data:{}});
 export const uploadEvidence=(file,duelId)=>request(`/evidence?duelId=${encodeURIComponent(duelId)}`,{method:'POST',body:file,contentType:file.type});
+export const recognizeResult=(id,evidenceId)=>request(`/duels/${encodeURIComponent(id)}/recognize`,{method:'POST',data:{evidenceId}});
 export const submitResult=(id,data)=>request(`/duels/${encodeURIComponent(id)}/result`,{method:'POST',data});
 export const confirmResult=(id,reportId)=>request(`/duels/${encodeURIComponent(id)}/confirm`,{method:'POST',data:{reportId}});
 export const disputeResult=(id,data)=>request(`/duels/${encodeURIComponent(id)}/dispute`,{method:'POST',data});
 export const listReviews=()=>request('/reviews');
 export const reviewDuel=(id,data)=>request(`/reviews/${encodeURIComponent(id)}`,{method:'POST',data});
+export const reviewIssue=(id,issueId,data)=>request(`/reviews/${encodeURIComponent(id)}/issues/${encodeURIComponent(issueId)}`,{method:'POST',data});
 export const evidenceUrl=id=>`${prefix}/evidence/${encodeURIComponent(id)}`;

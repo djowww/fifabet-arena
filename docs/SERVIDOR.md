@@ -2,7 +2,7 @@
 
 O servidor `backend/server.mjs` mantém contas e partidas compartilhadas em SQLite privado: cada pessoa entra com apelido ou ID e senha, os dois lados usam o mesmo desafio e a foto fica privada. O login Google/Apple possui fluxo próprio no servidor e depende das credenciais externas de cada provedor. O Google está configurado em um projeto isolado no modo de teste; a API informa o provedor Google disponível e a conta do proprietário consta na lista de testadores. Apple fica desativado. O padrão da carteira continua `unconfigured`, que desativa compras e permite amistosas sem créditos. Há um modo opcional de Pix manual, descrito abaixo, que só funciona após configuração explícita e aprovação humana pelo extrato bancário. Saques e consulta a partidas da EA não estão integrados.
 
-A arquitetura de publicação usa HTTPS em `betfifa.com.br`, pelo VPS e pelo proxy da zona exclusiva do domínio na Cloudflare, com registro na Hostinger. O serviço Fifa GO tem usuário, runtime, código e dados próprios; serviços, arquivos, bancos, domínios e regras de firewall do Tibia devem permanecer preservados. O release `85d0f42` está ativo em `/opt/fifago/current`; API e interface pública foram conferidas após a implantação, e o endpoint de início OAuth redireciona ao Google. O GitHub Pages mantém uma publicação estática que não executa a API; retornar essa versão ao domínio exige reapontar os registros DNS.
+A arquitetura de publicação usa HTTPS em `betfifa.com.br`, pelo VPS e pelo proxy da zona exclusiva do domínio na Cloudflare, com registro na Hostinger. O serviço Fifa GO tem usuário, runtime, código e dados próprios; serviços, arquivos, bancos, domínios e regras de firewall do Tibia devem permanecer preservados. O release ativo está no link `/opt/fifago/current`; consulte esse caminho para identificar a versão publicada. O endpoint de início OAuth redireciona ao Google. O GitHub Pages mantém uma publicação estática que não executa a API; retornar essa versão ao domínio exige reapontar os registros DNS.
 
 ## Domínio e HTTPS
 
@@ -235,7 +235,7 @@ Todas as rotas ficam em `/api/v1`; respostas são JSON, exceto fotos e redirecio
 | Prévia por código público | `GET /invites/code/:publicMatchId` | Sem sessão: código `FG-10HEX`, modo/plataforma, stake/creditMode, estado e prazo; sem nomes, regras em texto livre ou IDs de contas. Com sessão autorizada, inclui `host.nickname` e `rules` |
 | Aceitar código público | `POST /invites/code/:publicMatchId/accept` | Exige sessão/CSRF e destinatário autorizado; retorna a partida privada |
 | Abrir convite secreto | `GET /invites/:token` | Requer conta e convite pendente autorizado; `{invite:{publicMatchId,creditMode,host:{nickname},stake,mode,platform,rules,status,expiresAt}}` |
-| Aceitar link | `POST /invites/:token/accept` | Reserva do convidado e desafio em andamento |
+| Aceitar link | `POST /invites/:token/accept` | Novas salas entram em `awaiting_funds` quando há créditos; amistosas iniciam diretamente |
 | Aceitar pelo ID | `POST /duels/:id/accept` | Somente o destinatário predefinido |
 | Cancelar | `POST /duels/:id/cancel` | Cancelamento antes do aceite ou pedido de concordância dupla |
 | Retirar ou recusar cancelamento | `POST /duels/:id/cancel-withdraw` | Somente participante, desafio em andamento com pedido pendente; não devolve pontos |
@@ -249,7 +249,7 @@ Todas as rotas ficam em `/api/v1`; respostas são JSON, exceto fotos e redirecio
 
 Modos: `1v1`, `Ultimate Team`, `Clubes`. Plataformas: `playstation`, `xbox`, `pc`, `switch`. Em `unconfigured`, novas partidas exigem `stake:0` e são amistosas. No modo demonstrativo local, stake aceita zero ou de 10 a 5.000 pontos por participante, sujeitos ao saldo. Placar inteiro: de 0 a 99. `homeScore` é sempre o anfitrião; `awayScore`, o convidado.
 
-Estados de desafio: `invited`, `in_progress`, `pending_review`, `disputed`, `completed`, `cancelled`, `expired`. O perfil mantém `id` interno e `publicPlayerId` estável; o desafio tem `publicMatchId` permanente e `creditMode:'friendly'|'legacy_demo'|'demo'`. A visualização privada inclui `host`, `guest`, `recipient`, `result`, `reports` e `disputes`. O token secreto só aparece para o criador enquanto o convite estiver pendente. Conta da equipe recebe `isReviewer:true` do servidor.
+Estados de desafio: `invited`, `awaiting_funds`, `in_progress`, `pending_review`, `disputed`, `completed`, `cancelled`, `expired`. O perfil mantém `id` interno e `publicPlayerId` estável; o desafio tem `publicMatchId` permanente e `creditMode:'friendly'|'legacy_demo'|'demo'`. A visualização privada inclui `host`, `guest`, `recipient`, `result`, `reports` e `disputes`. O token secreto só aparece para o criador enquanto o convite estiver pendente. Conta da equipe recebe `isReviewer:true` do servidor.
 
 ### Privacidade e validação dos convites
 
@@ -277,6 +277,12 @@ A proteção também se aplica ao aceite por ID/código: uma partida cancelada/e
 O formulário pode enviar `operationId` UUID estável no `POST /duels`. Essa chave é individual por criador e persiste junto ao desafio. Duas requisições com a mesma chave e os mesmos termos retornam o mesmo desafio e, enquanto pendente, o mesmo token; a reserva ocorre uma única vez. Repetir após o aceite ou encerramento recupera o registro correspondente sem criar outra partida nem devolver um token ativo. Reutilizar a chave com modo, plataforma, adversário, pontos ou regras diferentes retorna `409 operation_conflict`. Formato inválido retorna `400 invalid_operation_id`. A interface deve gerar outra chave quando editar os termos e preservar a chave em um reenvio após falha de rede. Clientes anteriores sem a chave continuam suportados. Somente o criador autenticado recebe `duel.operationId`, inclusive na própria arena, para reconhecer uma criação já concluída após uma falha de rede antes de validar novamente o saldo. O convidado e os resumos de convite não recebem essa chave. Campos de armazenamento e assinaturas internas de comparação não são incluídos nas respostas.
 
 O campo opcional `expectedHostId` contém o ID interno da conta que conferiu o resumo. O servidor compara esse valor com a conta autenticada antes de criar ou recuperar a operação. Se uma troca de sessão ocorrer entre a confirmação e o envio, retorna `409 account_changed` sem criar desafio nem reservar pontos da nova conta. Esse ID pertence somente à requisição autenticada, não faz parte do link nem do resumo de convite. Clientes anteriores que omitem o campo permanecem suportados.
+
+## Salas com reservas individuais
+
+O contrato de novas salas, a taxa de 9%, a leitura local de fotos e a resolução de problemas estão em [SALAS.md](SALAS.md). Criar e aceitar um novo convite não reservam créditos; cada participante confirma sua parte na sala pelo endpoint `/duels/:id/fund`. As descrições de reserva na criação ou no aceite continuam valendo apenas para partidas antigas.
+
+Instale as dependências fixadas antes de iniciar: `pnpm install --frozen-lockfile --ignore-scripts`. A leitura usa o modelo local incluído em `backend/ocr/`; não carrega bibliotecas nem envia fotos a um CDN.
 
 ## Suíte existente
 

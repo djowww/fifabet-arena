@@ -9,6 +9,8 @@ import {fileURLToPath,pathToFileURL} from 'node:url';
 import {CLUBS} from '../clubs.mjs';
 import {openArenaDatabase,normalizeNickname} from './database.mjs';
 import {createOAuthService} from './oauth.mjs';
+import {createResultRecognizer} from './result-recognition.mjs';
+import {createDuelEconomics,duelEconomics,duelFunders,reservedDuelStake,OPEN_DUEL_STATUSES} from './duel-economy.mjs';
 
 const scrypt=promisify(scryptCallback);
 const ROOT=fileURLToPath(new URL('../',import.meta.url));
@@ -144,17 +146,23 @@ function uniquePublicId(records,prefix,field){
 function publicPlayer(user){return {id:user.id,publicPlayerId:user.publicPlayerId,nickname:user.nickname,clubId:user.clubId,gameAccount:user.gameAccount,createdAt:user.createdAt};}
 function directoryPlayer(user){return {publicPlayerId:user.publicPlayerId,nickname:user.nickname,clubId:user.clubId};}
 function member(duel,user){return duel.hostId===user.id||duel.guestId===user.id;}
+function refundDuelReserves(state,duel,reference,label){
+  for(const id of duelFunders(duel))duelBalanceChange(state.users[id],duel,reference,duel.stake,label);
+}
+function needsMatchReview(duel){
+  return ['pending_review','disputed'].includes(duel.status)||duel.status==='in_progress'&&(duel.issueReports||[]).some(issue=>issue.status==='open');
+}
 function expireInvites(state){
   const time=Date.now();let changed=false;
-  for(const duel of Object.values(state.duels))if(duel.status==='invited'&&Date.parse(duel.expiresAt)<=time){
-    duelBalanceChange(state.users[duel.hostId],duel,`expiry:${duel.id}`,duel.stake,'Convite expirado: reserva devolvida');
+  for(const duel of Object.values(state.duels))if(['invited','awaiting_funds'].includes(duel.status)&&Date.parse(duel.expiresAt)<=time){
+    refundDuelReserves(state,duel,`expiry:${duel.id}`,'Sala expirada: reserva devolvida');
     duel.status='expired';duel.closedAt=now();changed=true;
   }
   for(const [id,session]of Object.entries(state.sessions))if(session.expiresAt<=time){delete state.sessions[id];changed=true;}
   return changed;
 }
 function duelView(state,duel,user){
-  const result={...duel,host:publicPlayer(state.users[duel.hostId]),guest:duel.guestId?publicPlayer(state.users[duel.guestId]):null,recipient:duel.recipientId?publicPlayer(state.users[duel.recipientId]):null};
+  const result={...duel,economics:duelEconomics(duel),fundedBy:duelFunders(duel),issueReports:duel.issueReports||[],host:publicPlayer(state.users[duel.hostId]),guest:duel.guestId?publicPlayer(state.users[duel.guestId]):null,recipient:duel.recipientId?publicPlayer(state.users[duel.recipientId]):null};
   if(duel.hostId!==user.id||duel.status!=='invited')delete result.inviteToken;
   if(duel.hostId===user.id&&duel.creationOperationId)result.operationId=duel.creationOperationId;
   delete result.creationOperationId;delete result.creationOperationSignature;
@@ -197,6 +205,7 @@ export async function createArenaServer(options={}){
   const trustProxyLoopback=options.trustProxyLoopback===true||process.env.FIFABET_TRUST_PROXY_LOOPBACK==='1';
   if(paymentMode==='demo'&&publicOrigin&&!/^http:\/\/(localhost|127\.0\.0\.1)(:\d+)?$/.test(publicOrigin))throw Error('Recargas simuladas não podem ser habilitadas em uma origem pública.');
   const oauth=await createOAuthService({publicOrigin,env:options.env||process.env});
+  const recognizer=await createResultRecognizer({enabled:(options.env||process.env).FIFABET_OCR_ENABLED!=='0'});
   const maxEvidenceBytes=Number(options.maxEvidenceBytes||process.env.FIFABET_MAX_EVIDENCE_BYTES||200*1024*1024);
   if(!Number.isSafeInteger(maxEvidenceBytes)||maxEvidenceBytes<MAX_IMAGE)throw Error('FIFABET_MAX_EVIDENCE_BYTES deve ser um número inteiro de pelo menos 5 MiB.');
   await mkdir(dataDir,{recursive:true,mode:0o700});
@@ -299,8 +308,8 @@ export async function createArenaServer(options={}){
     draft.authIdentities[key]={provider:identity.provider,subject:identity.subject,userId:user.id,email:identity.emailVerified===true?identity.email:null,emailVerified:identity.emailVerified===true,createdAt:now()};
     return user;
   }
-  const pendingDuels=(draft,user)=>Object.values(draft.duels).filter(duel=>member(duel,user)&&['invited','in_progress','pending_review','disputed'].includes(duel.status));
-  const reservedBalance=(draft,user,legacy=false)=>pendingDuels(draft,user).filter(duel=>(duel.creditMode==='legacy_demo')===legacy).reduce((sum,duel)=>sum+duel.stake,0);
+  const pendingDuels=(draft,user)=>Object.values(draft.duels).filter(duel=>member(duel,user)&&OPEN_DUEL_STATUSES.includes(duel.status));
+  const reservedBalance=(draft,user,legacy=false)=>pendingDuels(draft,user).filter(duel=>(duel.creditMode==='legacy_demo')===legacy).reduce((sum,duel)=>sum+reservedDuelStake(duel,user.id),0);
   const adminUser=(draft,user)=>({id:user.id,publicPlayerId:user.publicPlayerId,nickname:user.nickname,clubId:user.clubId,createdAt:user.createdAt,balance:user.balance,reserved:reservedBalance(draft,user),verifiedEmails:verifiedEmails(draft,user)});
   function adminOperation(draft,operation){
     const actor=draft.users[operation.actorId],target=draft.users[operation.userId];
@@ -329,8 +338,9 @@ export async function createArenaServer(options={}){
     requirePendingInvite(duel);
     if(duel.hostId===user.id)fail(409,'Este convite é seu. Compartilhe o link com seu amigo.','invite_own');
     if(duel.recipientId&&duel.recipientId!==user.id)fail(403,'Este convite foi enviado para outro jogador.','invite_wrong_recipient');
-    duelBalanceChange(user,duel,`reserve:${duel.id}`,-duel.stake,'Pontos reservados para desafio');
-    duel.guestId=user.id;duel.status='in_progress';duel.acceptedAt=now();
+    if(duel.fundingVersion!==1)duelBalanceChange(user,duel,`reserve:${duel.id}`,-duel.stake,'Pontos reservados para desafio');
+    duel.guestId=user.id;duel.status=duel.fundingVersion===1&&duel.stake>0?'awaiting_funds':'in_progress';duel.acceptedAt=now();
+    if(duel.status==='in_progress')duel.startedAt=duel.acceptedAt;
     for(const [one,two]of [[user.id,duel.hostId],[duel.hostId,user.id]])if(!draft.users[one].friends.includes(two))draft.users[one].friends.push(two);
     return duelView(draft,duel,user);
   }
@@ -339,7 +349,7 @@ export async function createArenaServer(options={}){
     'index.html','colecao.html','bootstrap.js','app.js','play.js','backend-client.mjs','model.mjs','clubs.mjs','football-trophies.mjs','rivalry-section.mjs','admin-panel.mjs',
     'styles.css','arena.css','shop.css','profile.css','achievements.css','rivalry.css','competitive-modes.css','practical.css','lobby.css','wizard.css','admin.css'
   ]);
-  const serverStatus=()=>({available:true,mode:'shared',storage:'sqlite',schemaVersion:storage.schemaVersion,paymentMode,realMoney:paymentMode==='pix_manual',noRealMoney:paymentMode!=='pix_manual',paymentsAvailable:paymentMode==='demo'||paymentMode==='pix_manual',authProviders:oauth.status(),apiVersion:1,reviewerConfigured:reviewerIds.size>0||adminEmails.size>0});
+  const serverStatus=()=>({available:true,mode:'shared',storage:'sqlite',schemaVersion:storage.schemaVersion,paymentMode,realMoney:paymentMode==='pix_manual',noRealMoney:paymentMode!=='pix_manual',paymentsAvailable:paymentMode==='demo'||paymentMode==='pix_manual',authProviders:oauth.status(),recognition:recognizer.status(),apiVersion:1,reviewerConfigured:reviewerIds.size>0||adminEmails.size>0});
   async function route(draft,request,response,url){
     const path=url.pathname,method=request.method;
     if(method==='GET'&&path==='/api/v1/status')return serverStatus();
@@ -374,7 +384,7 @@ export async function createArenaServer(options={}){
       requirePendingInvite(duel);
       const current=sessionFor(draft,request),user=current&&current.expiresAt>Date.now()&&draft.users[current.userId];
       if(user&&duel.recipientId&&duel.recipientId!==user.id&&duel.hostId!==user.id)fail(403,'Este convite foi enviado para outro jogador.','invite_wrong_recipient');
-      return {invite:{publicMatchId:duel.publicMatchId,stake:duel.stake,creditMode:duel.creditMode,mode:duel.mode,platform:duel.platform,status:duel.status,expiresAt:duel.expiresAt,...(user?{rules:duel.rules,host:{nickname:draft.users[duel.hostId].nickname}}:{})}};
+      return {invite:{publicMatchId:duel.publicMatchId,stake:duel.stake,fundingVersion:duel.fundingVersion||0,economics:duelEconomics(duel),creditMode:duel.creditMode,mode:duel.mode,platform:duel.platform,status:duel.status,expiresAt:duel.expiresAt,...(user?{rules:duel.rules,host:{nickname:draft.users[duel.hostId].nickname}}:{})}};
     }
     const {user,session}=authenticated(draft,request);
     if(method!=='GET')mutationAllowed(request,session);
@@ -383,7 +393,7 @@ export async function createArenaServer(options={}){
       if(!admin(draft,user))fail(403,'Esta área é exclusiva para administradores autorizados.','admin_required');
       if(method==='GET'&&path==='/api/v1/admin/overview'){
         const duels=Object.values(draft.duels),deposits=Object.values(draft.deposits);
-        return {stats:{users:Object.keys(draft.users).length,activeMatches:duels.filter(duel=>['in_progress','pending_review','disputed'].includes(duel.status)).length,pendingInvites:duels.filter(duel=>duel.status==='invited').length,pendingResults:duels.filter(duel=>['pending_review','disputed'].includes(duel.status)).length,pendingDeposits:deposits.filter(deposit=>deposit.status==='review'&&deposit.userId!==user.id&&(paymentMode==='pix_manual'&&deposit.paymentMode==='pix_manual'&&deposit.method==='pix'||paymentMode==='demo'&&(deposit.paymentMode||'demo')==='demo'&&deposit.method==='transfer')).length},paymentMode,paymentsAvailable:paymentMode==='demo'||paymentMode==='pix_manual',authProviders:oauth.status()};
+        return {stats:{users:Object.keys(draft.users).length,activeMatches:duels.filter(duel=>['awaiting_funds','in_progress','pending_review','disputed'].includes(duel.status)).length,pendingInvites:duels.filter(duel=>duel.status==='invited').length,pendingResults:duels.filter(duel=>['pending_review','disputed'].includes(duel.status)).length,pendingIssues:duels.filter(duel=>OPEN_DUEL_STATUSES.includes(duel.status)&&(duel.issueReports||[]).some(issue=>issue.status==='open')).length,pendingDeposits:deposits.filter(deposit=>deposit.status==='review'&&deposit.userId!==user.id&&(paymentMode==='pix_manual'&&deposit.paymentMode==='pix_manual'&&deposit.method==='pix'||paymentMode==='demo'&&(deposit.paymentMode||'demo')==='demo'&&deposit.method==='transfer')).length},paymentMode,paymentsAvailable:paymentMode==='demo'||paymentMode==='pix_manual',authProviders:oauth.status()};
       }
       if(method==='GET'&&path==='/api/v1/admin/users'){
         const search=(url.searchParams.get('search')||'').trim().toLocaleLowerCase('pt-BR');
@@ -563,10 +573,9 @@ export async function createArenaServer(options={}){
         }
       }
       if(Object.values(draft.duels).filter(d=>d.hostId===user.id&&d.status==='invited').length>=20)fail(409,'Conclua ou cancele convites pendentes antes de criar mais.');
-      if(Object.values(draft.duels).filter(d=>member(d,user)&&['invited','in_progress','pending_review','disputed'].includes(d.status)).length>=50)fail(409,'Conclua desafios em andamento antes de criar mais.');
-      const duel={id:randomUUID(),publicMatchId:uniquePublicId(draft.duels,'FG','publicMatchId'),creditMode:paymentMode==='demo'?'demo':paymentMode==='pix_manual'?'pix_manual':'friendly',hostId:user.id,guestId:null,recipientId:recipient?.id||null,stake,mode:data.mode,platform:data.platform,rules,status:'invited',inviteToken:token(),createdAt:now(),expiresAt:new Date(Date.now()+7*DAY).toISOString(),reports:[],disputes:[],result:null,cancellationRequestedBy:[]};
+      if(Object.values(draft.duels).filter(d=>member(d,user)&&OPEN_DUEL_STATUSES.includes(d.status)).length>=50)fail(409,'Conclua desafios em andamento antes de criar mais.');
+      const duel={id:randomUUID(),publicMatchId:uniquePublicId(draft.duels,'FG','publicMatchId'),creditMode:paymentMode==='demo'?'demo':paymentMode==='pix_manual'?'pix_manual':'friendly',hostId:user.id,guestId:null,recipientId:recipient?.id||null,stake,fundingVersion:1,fundedBy:[],economics:createDuelEconomics(stake),mode:data.mode,platform:data.platform,rules,status:'invited',inviteToken:token(),createdAt:now(),expiresAt:new Date(Date.now()+7*DAY).toISOString(),reports:[],disputes:[],issueReports:[],result:null,cancellationRequestedBy:[]};
       if(operationId){duel.creationOperationId=operationId;duel.creationOperationSignature=operationSignature;}
-      balanceChange(user,`reserve:${duel.id}`,-stake,'Pontos reservados para desafio');
       draft.duels[duel.id]=duel;
       return {duel:duelView(draft,duel,user),inviteToken:duel.inviteToken};
     }
@@ -577,14 +586,40 @@ export async function createArenaServer(options={}){
       if(!duel)fail(404,'Convite não encontrado. Confira o código ou peça um novo link.','invite_not_found');
       if(duel.recipientId&&duel.recipientId!==user.id&&duel.hostId!==user.id)fail(403,'Este convite foi enviado para outro jogador.','invite_wrong_recipient');
       requirePendingInvite(duel);
-      if(method==='GET'&&!inviteMatch[2])return {invite:{publicMatchId:duel.publicMatchId,creditMode:duel.creditMode,host:{nickname:draft.users[duel.hostId].nickname},stake:duel.stake,mode:duel.mode,platform:duel.platform,rules:duel.rules,status:duel.status,expiresAt:duel.expiresAt}};
+      if(method==='GET'&&!inviteMatch[2])return {invite:{publicMatchId:duel.publicMatchId,creditMode:duel.creditMode,host:{nickname:draft.users[duel.hostId].nickname},stake:duel.stake,fundingVersion:duel.fundingVersion||0,economics:duelEconomics(duel),mode:duel.mode,platform:duel.platform,rules:duel.rules,status:duel.status,expiresAt:duel.expiresAt}};
       if(method==='POST'&&inviteMatch[2])return {duel:accept(draft,duel,user)};
     }
-    const duelMatch=/^\/api\/v1\/duels\/([a-f0-9-]{36})\/(accept|cancel|cancel-withdraw|result|confirm|dispute)$/.exec(path);
+    const duelMatch=/^\/api\/v1\/duels\/([a-f0-9-]{36})\/(accept|fund|issue|cancel|cancel-withdraw|result|confirm|dispute)$/.exec(path);
     if(method==='POST'&&duelMatch){
       const duel=ownDuel(draft,user,duelMatch[1]);
       const action=duelMatch[2];
       if(action==='accept')return {duel:accept(draft,duel,user)};
+      if(action==='fund'){
+        if(!member(duel,user))fail(403,'Somente os participantes podem reservar créditos na sala.');
+        const data=await jsonBody(request);fields(data,['stake']);
+        const stake=integer(data.stake,0,5000,'Quantidade de créditos');
+        if(stake!==duel.stake)fail(409,'O valor informado difere do valor combinado na sala.','stake_mismatch');
+        if(duel.fundingVersion!==1||duel.stake===0)fail(409,'Esta sala não precisa de uma nova reserva.','funding_unavailable');
+        if(!['awaiting_funds','in_progress','pending_review','disputed'].includes(duel.status))fail(409,'Esta sala não aceita mais reservas.','funding_closed');
+        if(duel.fundedBy.includes(user.id))return {duel:duelView(draft,duel,user)};
+        if(duel.status!=='awaiting_funds')fail(409,'A partida já começou.','funding_closed');
+        if(paymentMode==='unconfigured'||duel.creditMode!==paymentMode)fail(503,'As reservas de créditos desta sala estão indisponíveis no momento.','payments_unavailable');
+        duelBalanceChange(user,duel,`reserve:${duel.id}`,-duel.stake,'Créditos reservados na sala');
+        duel.fundedBy.push(user.id);
+        if([duel.hostId,duel.guestId].every(id=>duel.fundedBy.includes(id))){duel.status='in_progress';duel.startedAt=now();}
+        return {duel:duelView(draft,duel,user)};
+      }
+      if(action==='issue'){
+        if(!member(duel,user))fail(403,'Somente os participantes podem reportar um problema.');
+        if(!['in_progress','pending_review','disputed'].includes(duel.status))fail(409,'Esta sala não aceita novos relatos de problema.');
+        const issues=duel.issueReports??=[];
+        const data=await jsonBody(request);fields(data,['reason']);
+        const text=reason(data.reason);
+        if(issues.some(issue=>issue.authorId===user.id&&issue.reason===text&&issue.status==='open'))return {duel:duelView(draft,duel,user)};
+        if(issues.length>=10)fail(409,'Os problemas já registrados serão avaliados pela equipe.');
+        issues.push({id:randomUUID(),authorId:user.id,reason:text,createdAt:now(),status:'open'});
+        return {duel:duelView(draft,duel,user)};
+      }
       if(action==='cancel-withdraw'){
         if(!member(duel,user))fail(403,'Somente os participantes podem responder ao cancelamento.');
         if(duel.status!=='in_progress'||!duel.cancellationRequestedBy.length)fail(409,'Não há pedido de cancelamento em andamento.');
@@ -594,12 +629,16 @@ export async function createArenaServer(options={}){
       if(action==='cancel'){
         if(duel.status==='invited'&&(duel.hostId===user.id||duel.recipientId===user.id)){
           const declined=duel.recipientId===user.id;
-          duelBalanceChange(draft.users[duel.hostId],duel,`cancel:${duel.id}`,duel.stake,declined?'Convite recusado: reserva devolvida':'Convite cancelado: reserva devolvida');
+          refundDuelReserves(draft,duel,`cancel:${duel.id}`,declined?'Convite recusado: reserva devolvida':'Convite cancelado: reserva devolvida');
           duel.status='cancelled';duel.closedAt=now();duel.cancelledBy=user.id;duel.cancellationReason=declined?'declined':'withdrawn';
+        }
+        else if(duel.status==='awaiting_funds'&&member(duel,user)){
+          refundDuelReserves(draft,duel,`cancel:${duel.id}`,'Sala cancelada antes do início: reserva devolvida');
+          duel.status='cancelled';duel.closedAt=now();duel.cancelledBy=user.id;duel.cancellationReason='before_start';
         }
         else if(duel.status==='in_progress'&&member(duel,user)){
           if(!duel.cancellationRequestedBy.includes(user.id))duel.cancellationRequestedBy.push(user.id);
-          if(duel.cancellationRequestedBy.length===2){for(const id of [duel.hostId,duel.guestId])duelBalanceChange(draft.users[id],duel,`cancel:${duel.id}`,duel.stake,'Cancelamento combinado: reserva devolvida');duel.status='cancelled';duel.closedAt=now();}
+          if(duel.cancellationRequestedBy.length===2){refundDuelReserves(draft,duel,`cancel:${duel.id}`,'Cancelamento combinado: reserva devolvida');duel.status='cancelled';duel.closedAt=now();}
         }else fail(409,'Este desafio precisa ser resolvido pela revisão.');
         return {duel:duelView(draft,duel,user)};
       }
@@ -610,6 +649,7 @@ export async function createArenaServer(options={}){
         const data=await jsonBody(request),homeScore=integer(data.homeScore,0,99,'Placar do anfitrião'),awayScore=integer(data.awayScore,0,99,'Placar do convidado');
         const evidence=draft.evidence[data.evidenceId];
         if(!evidence||evidence.duelId!==duel.id||evidence.authorId!==user.id)fail(400,'Envie sua foto do placar deste desafio antes de registrar o resultado.');
+        if(duel.status==='pending_review'&&duel.result?.reporterId===user.id&&duel.result.evidenceId===evidence.id&&duel.result.homeScore===homeScore&&duel.result.awayScore===awayScore)return {duel:duelView(draft,duel,user)};
         const result={id:randomUUID(),reporterId:user.id,homeScore,awayScore,evidenceId:evidence.id,submittedAt:now(),confirmedBy:null};
         duel.reports.push(result);duel.result=result;duel.status='pending_review';duel.cancellationRequestedBy=[];
       }else if(action==='confirm'){
@@ -653,7 +693,25 @@ export async function createArenaServer(options={}){
     }
     if(method==='GET'&&path==='/api/v1/reviews'){
       if(!reviewer(draft,user))fail(403,'Apenas a equipe autorizada pode revisar resultados.');
-      return {duels:Object.values(draft.duels).filter(d=>['pending_review','disputed'].includes(d.status)).map(d=>duelView(draft,d,user))};
+      return {duels:Object.values(draft.duels).filter(needsMatchReview).map(d=>duelView(draft,d,user))};
+    }
+    const issueReviewMatch=/^\/api\/v1\/reviews\/([a-f0-9-]{36})\/issues\/([a-f0-9-]{36})$/.exec(path);
+    if(method==='POST'&&issueReviewMatch){
+      if(!reviewer(draft,user))fail(403,'Apenas a equipe autorizada pode revisar problemas.');
+      const duel=draft.duels[issueReviewMatch[1]],issue=duel?.issueReports?.find(item=>item.id===issueReviewMatch[2]);
+      if(!duel||!issue||!['in_progress','pending_review','disputed'].includes(duel.status)||issue.status!=='open')fail(409,'Este problema já foi resolvido ou a sala mudou.','issue_closed');
+      if(member(duel,user))fail(403,'Um participante não pode julgar o próprio problema.');
+      const data=await jsonBody(request);fields(data,['decision','reason','reportId']);
+      if(data.reportId!==(duel.result?.id||null))fail(409,'O placar mudou. Atualize a revisão do problema.','stale_result');
+      if(!['dismiss','cancel'].includes(data.decision))fail(400,'Escolha encerrar o relato ou cancelar a partida.');
+      const text=reason(data.reason),date=now(),review={reviewerId:user.id,decision:data.decision,reason:text,reviewedAt:date};
+      issue.status='resolved';issue.resolvedAt=date;issue.review=review;
+      if(data.decision==='cancel'){
+        refundDuelReserves(draft,duel,`cancel:${duel.id}`,'Problema avaliado pela equipe: reserva devolvida');
+        duel.status='cancelled';duel.closedAt=date;duel.cancelledBy=user.id;duel.cancellationReason='team_review';duel.problemReview=review;duel.cancellationRequestedBy=[];
+        for(const remaining of duel.issueReports)if(remaining.status==='open'){remaining.status='resolved';remaining.resolvedAt=date;remaining.review=review;}
+      }
+      return {duel:duelView(draft,duel,user)};
     }
     const reviewMatch=/^\/api\/v1\/reviews\/([a-f0-9-]{36})$/.exec(path);
     if(method==='POST'&&reviewMatch){
@@ -664,10 +722,21 @@ export async function createArenaServer(options={}){
       const data=await jsonBody(request),text=reason(data.reason);
       if(data.reportId!==duel.result.id)fail(409,'O placar mudou. Revise a versão atual antes de distribuir pontos.','stale_result');
       if(!['host','guest','draw'].includes(data.winner))fail(400,'Escolha anfitrião, convidado ou empate.');
-      if(data.winner==='draw')for(const id of [duel.hostId,duel.guestId])duelBalanceChange(draft.users[id],duel,`settlement:${duel.id}`,duel.stake,'Empate aprovado: reserva devolvida');
-      else{const id=data.winner==='host'?duel.hostId:duel.guestId;duelBalanceChange(draft.users[id],duel,`settlement:${duel.id}`,2*duel.stake,'Vitória aprovada pela equipe: pontos do desafio');}
+      if(duel.fundingVersion===1&&duel.stake>0&&![duel.hostId,duel.guestId].every(id=>duel.fundedBy.includes(id)))fail(409,'As reservas da partida estão incompletas.','funding_incomplete');
+      const economics=duelEconomics(duel),date=now(),winnerId=data.winner==='draw'?null:(data.winner==='host'?duel.hostId:duel.guestId);
+      if(duel.settlement||draft.houseTransactions?.[`fee:${duel.id}`])fail(409,'Esta partida já foi liquidada.','already_settled');
+      if(data.winner==='draw')refundDuelReserves(draft,duel,`settlement:${duel.id}`,'Empate aprovado: reserva devolvida');
+      else{
+        duelBalanceChange(draft.users[winnerId],duel,`settlement:${duel.id}`,economics.winnerPayout,economics.houseFee?'Vitória aprovada: prêmio após taxa da casa de 9%':'Vitória aprovada pela equipe: pontos do desafio');
+        if(economics.houseFee>0){
+          const reference=`fee:${duel.id}`;
+          (draft.houseTransactions??={})[reference]={id:randomUUID(),reference,duelId:duel.id,amount:economics.houseFee,creditMode:duel.creditMode,source:'duel_fee',date,reviewerId:user.id};
+        }
+      }
       duel.winner=data.winner;duel.winnerId=data.winner==='draw'?null:(data.winner==='host'?duel.hostId:duel.guestId);
-      duel.review={reviewerId:user.id,reason:text,approvedAt:now(),resultId:duel.result.id};duel.status='completed';duel.closedAt=now();
+      duel.settlement={date,pot:economics.pot,fee:data.winner==='draw'?0:economics.houseFee,prize:data.winner==='draw'?economics.pot:economics.winnerPayout,winner:data.winner,winnerId};
+      duel.review={reviewerId:user.id,reason:text,approvedAt:date,resultId:duel.result.id};duel.status='completed';duel.closedAt=date;
+      for(const issue of duel.issueReports||[])if(issue.status==='open'){issue.status='resolved';issue.resolvedAt=date;}
       return {duel:duelView(draft,duel,user)};
     }
     fail(404,'Endpoint não encontrado.','not_found');
@@ -720,6 +789,33 @@ export async function createArenaServer(options={}){
         response.writeHead(200,{'Content-Type':'application/json; charset=utf-8'});response.end(JSON.stringify(serverStatus()));
         return;
       }
+      const recognitionMatch=/^\/api\/v1\/duels\/([a-f0-9-]{36})\/recognize$/.exec(url.pathname);
+      if(request.method==='POST'&&recognitionMatch){
+        // OCR runs outside the serialized SQLite writer so wallets/auth remain responsive.
+        let ownerId,evidence,duelId;
+        const data=await jsonBody(request);fields(data,['evidenceId']);
+        await serial(async()=>{
+          const {session,user}=authenticated(state,request);mutationAllowed(request,session);ownerId=user.id;
+          rateLimit(request,'recognition',6,60*1000);
+          const duel=ownDuel(state,user,recognitionMatch[1]);duelId=duel.id;
+          if(!member(duel,user)||!['in_progress','pending_review','disputed'].includes(duel.status))fail(409,'Esta partida não aceita leitura de placar.');
+          evidence=state.evidence[data.evidenceId];
+          if(!evidence||evidence.duelId!==duel.id||evidence.authorId!==user.id)fail(404,'Envie sua foto desta partida antes de ler o placar.','not_found');
+          if(evidence.width*evidence.height>2_000_000)fail(400,'Use uma foto menor para ler o placar. O envio pelo celular já ajusta o tamanho.');
+        });
+        const recognition=await recognizer.recognize(join(dataDir,'evidence',evidence.id));
+        await serial(async()=>{
+          const {session,user}=authenticated(state,request);mutationAllowed(request,session);
+          if(user.id!==ownerId)fail(409,'A conta mudou. Reabra o envio do resultado.','account_changed');
+          const duel=ownDuel(state,user,duelId);
+          if(!member(duel,user)||!['in_progress','pending_review','disputed'].includes(duel.status))fail(409,'O estado da partida mudou. Atualize antes de enviar.');
+          // Store only bounded scores/status, not OCR text or private data from the photo.
+          const draft=structuredClone(state);draft.evidence[evidence.id].recognition={...recognition,readAt:now()};
+          await persist(draft);state=draft;
+          response.writeHead(200,{'Content-Type':'application/json; charset=utf-8'});response.end(JSON.stringify({recognition}));
+        });
+        return;
+      }
       if(url.pathname.startsWith('/api/')){
         await serial(async()=>{
           const draft=structuredClone(state),expired=expireInvites(draft);
@@ -748,7 +844,7 @@ export async function createArenaServer(options={}){
   });
   server.requestTimeout=30_000;server.headersTimeout=15_000;server.keepAliveTimeout=5_000;server.maxHeadersCount=100;server.maxRequestsPerSocket=100;server.maxConnections=256;
   let cleanupPromise;
-  const cleanup=()=>cleanupPromise||(cleanupPromise=tail.then(async()=>{storage.close();await lock.close().catch(()=>{});await unlink(lockPath).catch(()=>{});}));
+  const cleanup=()=>cleanupPromise||(cleanupPromise=tail.then(async()=>{recognizer.close();storage.close();await lock.close().catch(()=>{});await unlink(lockPath).catch(()=>{});}));
   server.on('close',()=>{void cleanup();});
   return {server,dataDir,reviewerIds,async close(){await new Promise((resolveClose,reject)=>server.close(error=>error?reject(error):resolveClose()));await cleanup();}};
 }

@@ -1,5 +1,6 @@
 import * as M from './model.mjs?v=19';
-import * as API from './backend-client.mjs?v=21';
+import * as API from './backend-client.mjs?v=22';
+import {COUNTRY_CODES,TERMS_VERSION} from './account-policy.mjs?v=1';
 import {createAdminPanel,adminIcon} from './admin-panel.mjs?v=2';
 const $=id=>document.getElementById(id);
 const esc=x=>String(x??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
@@ -56,7 +57,7 @@ function byId(id){const d=duels().find(d=>d.id===id)||(profile()?.isReviewer?rev
 async function refresh(){if(online)arena=await API.getArena();else state=read();render();}
 let resultDraft=null,resultDraftRevision=0;
 function clearResultDraft(){resultDraft=null;resultDraftRevision++;}
-function modal(title,subtitle,html){clearResultDraft();opener=document.activeElement;$('modalContent').innerHTML=runtimeCopy(`<div class='dialog-head'><div><h2 id='dialogTitle'>${esc(title)}</h2><p>${esc(subtitle)}</p></div><button class='icon-only' data-action='close' aria-label='Fechar janela'>×</button></div><div class='dialog-body'>${html}<p id='dialogError' class='error-message' role='alert' hidden></p></div>`);if(!$('modal').open)$('modal').showModal();}
+function modal(title,subtitle,html,{account=false}={}){clearResultDraft();opener=document.activeElement;$('modal').classList.toggle('account-dialog',account);$('modalContent').innerHTML=runtimeCopy(`<div class='dialog-head'><div><h2 id='dialogTitle'>${esc(title)}</h2><p>${esc(subtitle)}</p></div>${account?accountPitch():''}<button class='icon-only' data-action='close' aria-label='Fechar janela'>×</button></div><div class='dialog-body'>${html}<p id='dialogError' class='error-message' tabindex='-1' role='alert' hidden></p></div>`);if(!$('modal').open)$('modal').showModal();}
 function closeModal(){clearResultDraft();if($('modal').open)$('modal').close();if(opener?.isConnected)opener.focus();}
 function fail(message){if($('dialogError')&&$('modal').open){$('dialogError').textContent=message;$('dialogError').hidden=false;}else if($('roomError')){$('roomError').textContent=message;$('roomError').hidden=false;}else toast(message);}
 function joinFeedback(message){if($('modal').open)return fail(message);const feedback=$('joinError');if(feedback){feedback.textContent=message;feedback.hidden=false;}else toast(message);}
@@ -322,17 +323,59 @@ function render(){
  if(!online||!profile()?.isAdmin)adminPanel?.reset();
  header();runtimeLabels();
  if(serviceUnavailable){$('headerActions').innerHTML='';$('screen').innerHTML=`<section class='card pad connection-unavailable' role='status'><p class='eyebrow'>FIFA GO</p><h1>A arena está temporariamente indisponível.</h1><p class='muted'>Não conseguimos conectar ao servidor de contas e partidas. Tente novamente em instantes.</p><button class='btn primary' data-action='retry'>Tentar novamente</button></section>`;return;}
+ if(online&&profile()?.needsOnboarding){$('screen').innerHTML=`<section class='card pad'><h1>Falta só seu perfil.</h1><p class='muted'>Escolha seu apelido, informe seu país e confira os termos antes de criar ou aceitar uma partida.</p><div class='duel-actions'><button class='btn primary' data-action='complete-signup'>Completar cadastro</button><button class='text-button' data-action='logout'>Sair da conta</button></div></section>`;return;}
  const asyncView=ui.view==='admin'?()=>administration().view():ui.view==='revisao'?reviewView:ui.view==='carteira'?walletView:ui.view==='ranking'&&online?sharedRankingView:null;
   $('screen').innerHTML=runtimeCopy(asyncView?(ui.view==='admin'?administration().loading():`<div class='card pad' role='status'>Carregando…</div>`):ui.view==='sala'?roomView():ui.view==='criar'?createView():ui.view==='historico'?historyView():ui.view==='ranking'?rankingView():ui.view==='perfil'?profileView():arenaView());
  if(asyncView)asyncView().then(html=>{if(renderRevision===revision){$('screen').innerHTML=runtimeCopy(html);if(ui.view==='admin')administration().afterRender();}}).catch(e=>{if(renderRevision===revision)$('screen').innerHTML=`<section class='card pad'><h2>Não foi possível carregar.</h2><p>${esc(e.message)}</p><button class='btn secondary' data-action='refresh'>Tentar novamente</button></section>`;});
 }
 function focusScreen(){ $('screen').focus({preventScroll:true}); }
 function go(view){history.replaceState(null,'',new URL('#'+view,location.href).href);closeModal();ui.filter='all';render();focusScreen();window.scrollTo({top:0});}
+function accountPitch(){return `<svg class='account-pitch' viewBox='0 0 88 62' fill='none' aria-hidden='true'><rect x='1.5' y='1.5' width='85' height='59' rx='5'/><path d='M44 2v58M2 17h15v28H2m84-28H71v28h15'/><circle cx='44' cy='31' r='10'/><circle class='account-pitch-ball' cx='57' cy='40' r='3'/></svg>`;}
+const countryNames=new Intl.DisplayNames(['pt-BR'],{type:'region'});
+const countryOptions=selected=>`<option value=''>Selecione seu país</option>${COUNTRY_CODES.map(code=>({code,name:countryNames.of(code)||code})).sort((a,b)=>a.name.localeCompare(b.name,'pt-BR')).map(({code,name})=>`<option value='${code}' ${code===selected?'selected':''}>${esc(name)}</option>`).join('')}`;
+function accountFields({signup=false,onboarding=false}={}){
+ const completing=signup||onboarding,realSignup=online&&completing;
+ return `<div class='account-fields'>
+ <div class='account-field'><label class='form-label' for='authNickname'>${completing?'Apelido':'Apelido ou ID Fifa GO'}</label><input class='form-input' id='authNickname' name='nickname' minlength='2' maxlength='20' autocomplete='username' autocapitalize='none' autocorrect='off' spellcheck='false' required placeholder='${completing?'Ex.: Cado10':'Seu apelido ou FBA-…'}' aria-describedby='${completing?'nicknameHelp ':''}authNicknameError'>${completing?`<p class='account-help' id='nicknameHelp'>Visível aos jogadores · de 2 a 20 caracteres.</p>`:''}<p class='account-field-error' id='authNicknameError' role='alert' hidden></p></div>
+ ${realSignup?`<div class='account-field'><label class='form-label' for='authCountry'>País de residência</label><select class='form-input' id='authCountry' name='countryCode' autocomplete='country' aria-describedby='authCountryError' required>${countryOptions(onboarding?profile()?.countryCode:null)}</select><p class='account-field-error' id='authCountryError' role='alert' hidden></p></div>`:''}
+ ${online&&!onboarding?`<div class='account-field'><label class='form-label' for='authPassword'>Senha</label><div class='account-password'><input class='form-input' id='authPassword' name='password' type='password' minlength='10' maxlength='256' autocomplete='${signup?'new-password':'current-password'}' aria-describedby='${signup?'passwordHelp ':''}authPasswordError' required><button class='account-password-toggle' type='button' data-action='toggle-password' aria-controls='authPassword' aria-label='Mostrar senha' aria-pressed='false'>Mostrar</button></div>${signup?`<p class='account-help' id='passwordHelp'>Use no mínimo 10 caracteres.</p>`:''}<p class='account-field-error' id='authPasswordError' role='alert' hidden></p></div>`:''}
+ </div>${realSignup?`<div class='account-consent'><label class='account-consent-label' for='authTerms'><input id='authTerms' type='checkbox' name='acceptedTerms' value='yes' required aria-describedby='authTermsError'><span>Li e aceito os <a href='legal.html#termos' target='_blank' rel='noopener'>Termos de uso</a> das partidas entre amigos e estou ciente da <a href='legal.html#privacidade' target='_blank' rel='noopener'>Política de privacidade</a>.</span></label><p class='account-field-error' id='authTermsError' role='alert' hidden></p></div>`:''}`;
+}
+function accountSocials(signup){
+ if(!online)return '';
+ const providers=signup?['google',...(backendStatus?.authProviders?.apple?.available?['apple']:[])]:['google','apple'];
+ return `<div class='account-socials'>${providers.map(id=>{const label=id==='google'?'Google':'Apple',available=backendStatus?.authProviders?.[id]?.available;return `<button class='btn secondary social-login-button' data-action='oauth' data-id='${id}' ${available?'':`disabled aria-describedby='${id}LoginHint'`}>Continuar com ${label}</button>${available?'':`<p class='account-help' id='${id}LoginHint'>${id==='google'&&['localhost','127.0.0.1'].includes(location.hostname)?'Google não está conectado neste ambiente.':`Login com ${label} em configuração.`}</p>`}`;}).join('')}</div><div class='auth-divider'><span>${signup?'ou crie com apelido e senha':'ou use sua conta Fifa GO'}</span></div>`;
+}
+function accountError(form,error){
+ const code=error.code||'',field=code==='country_invalid'?'authCountry':['terms_required','terms_updated'].includes(code)?'authTerms':code==='nickname_taken'||(/apelido/.test(error.message)&&error.status===409)?'authNickname':null;
+ if(code==='terms_updated'){
+  if($('authTerms'))$('authTerms').checked=false;
+  error.message='Os termos foram atualizados. Recarregue esta página para ler e aceitar a versão atual.';
+ }
+ if(field&&$(field)){setAccountFieldError(field,error.message);$(field).focus();}
+ else{const feedback=$('dialogError');if(feedback){feedback.textContent=error.message;feedback.hidden=false;feedback.focus();}}
+}
+function setAccountFieldError(id,message){const input=$(id),feedback=$(id+'Error');input?.setAttribute('aria-invalid','true');if(feedback){feedback.textContent=message;feedback.hidden=false;}}
+function validateAccountForm(form){
+ for(const field of form.querySelectorAll('input,select')){field.removeAttribute('aria-invalid');const feedback=$(field.id+'Error');if(feedback)feedback.hidden=true;}
+ if($('dialogError'))$('dialogError').hidden=true;
+ const name=form.elements.nickname.value.trim(),completing=form.dataset.form!=='login';let first=null;
+ const invalid=(id,message)=>{setAccountFieldError(id,message);first??=$(id);};
+ if(!name||name.length<2||name.length>20||(completing&&!/^[\p{L}\p{N}_ .-]+$/u.test(name)))invalid('authNickname',completing?'Use de 2 a 20 letras, números, espaços, ponto, hífen ou sublinhado.':'Informe seu apelido ou ID Fifa GO.');
+ if(form.elements.countryCode&&!COUNTRY_CODES.includes(form.elements.countryCode.value))invalid('authCountry','Selecione seu país de residência.');
+ const password=form.elements.password;if(password&&(password.value.length<10||password.value.length>256))invalid('authPassword','Use uma senha de 10 a 256 caracteres.');
+ if(form.elements.acceptedTerms&&!form.elements.acceptedTerms.checked)invalid('authTerms','Leia os documentos e marque o aceite para continuar.');
+ if(first){first.focus();return false;}return true;
+}
+function showCompleteSignup(){
+ if(!online||!profile()?.needsOnboarding)return;
+ modal('Complete seu perfil','Sua conta foi conectada. Escolha como aparecer para os amigos.',`<form data-form='onboarding' data-owner='${esc(profile().id)}' data-terms='${TERMS_VERSION}' class='account-form' novalidate>${accountFields({onboarding:true})}<button class='btn primary wide account-submit' type='submit'>Concluir cadastro e receber meu ID</button><p class='account-zero'>Seu saldo começa em zero.</p></form><button class='text-button account-switch' data-action='logout'>Sair e usar outra conta</button>`,{account:true});
+}
 function showAuth(signup=false){
  if(serviceUnavailable)return render();
+ if(profile()?.needsOnboarding)return showCompleteSignup();
  if(!online&&!signup){const ps=Object.values(state.profiles);return modal('Entrar na arena','Escolha um perfil deste navegador.',`<div class='session-picker'>${ps.length?ps.map(p=>`<button class='btn secondary' data-action='select-profile' data-id='${esc(p.id)}'>${avatar(p)}<span>${esc(p.nickname)}<small>${esc(p.publicPlayerId)}</small></span></button>`).join(''):`<p class='muted'>Crie seu primeiro perfil para começar.</p>`}</div><button class='btn primary wide' data-action='signup' style='margin-top:14px'>Criar outro perfil</button>`);}
- const socials=online?`<div class='social-login' aria-label='Entrar com uma conta existente'>${[['google','Google','G'],['apple','Apple','●']].map(([id,label,symbol])=>`<button class='btn secondary social-login-button' data-action='oauth' data-id='${id}' ${backendStatus?.authProviders?.[id]?.available?'':`disabled aria-describedby='${id}LoginHint'`}><span aria-hidden='true'>${symbol}</span>Continuar com ${label}</button>${backendStatus?.authProviders?.[id]?.available?'':`<p class='meta' id='${id}LoginHint'>Login com ${label} em configuração.</p>`}`).join('')}</div><div class='auth-divider'><span>ou use sua conta Fifa GO</span></div>`:'';
- modal(signup?'Criar conta':'Entrar na arena',online?'Sua conta, seu ID e suas partidas em qualquer aparelho.':'Perfil local para experimentar os desafios.',`${socials}<form data-form='${signup?'signup':'login'}' class='auth-form'><label class='form-label' for='authNickname'>${signup?'Apelido':'Apelido ou ID Fifa GO'}</label><input class='form-input' id='authNickname' name='nickname' minlength='2' maxlength='20' autocomplete='username' required>${online?`<label class='form-label' for='authPassword'>Senha</label><input class='form-input' id='authPassword' name='password' type='password' minlength='10' maxlength='256' autocomplete='${signup?'new-password':'current-password'}' required><p class='meta'>Use no mínimo 10 caracteres.</p>`:''}<button class='btn primary wide' type='submit' style='margin-top:20px'>${signup?'Criar conta e receber meu ID':'Entrar'}</button></form>${signup?`<p class='meta'>Saldo inicial zero. ${online?'Compra de créditos em configuração.':'Créditos de demonstração adicionados somente pela simulação local.'}</p>`:''}<button class='text-button' data-action='${signup?'login':'signup'}'>${signup?'Já tenho uma conta':'Criar uma conta'}</button>`);
+ modal(signup?(online?'Crie sua conta Fifa GO':'Crie um perfil de demonstração'):'Entre na arena',online?(signup?'Seu apelido, seu ID e suas partidas entre amigos.':'Use sua conta para voltar às partidas.'):'Este perfil fica somente neste navegador.',`${accountSocials(signup)}<form data-form='${signup?'signup':'login'}' data-terms='${TERMS_VERSION}' class='account-form' novalidate>${accountFields({signup})}<button class='btn primary wide account-submit' type='submit'>${signup?(online?'Criar conta e receber meu ID':'Criar meu perfil local'):'Entrar'}</button>${signup?`<p class='account-zero'>Seu saldo começa em zero.${online&&!backendStatus?.paymentsAvailable?' Pagamentos em configuração.':''}${!online?' Esta demonstração não cria uma conta no servidor.':''}</p>`:''}</form><button class='text-button account-switch' data-action='${signup?'login':'signup'}'>${signup?'Já tenho uma conta · Entrar':'Ainda não tenho uma conta'}</button>`,{account:true});
 }
 const authErrors={oauth_unavailable:'Esse login ainda está em configuração. Use sua conta Fifa GO.',oauth_expired:'A solicitação de login expirou. Tente novamente.',oauth_invalid_state:'A solicitação de login expirou. Tente novamente.',oauth_cancelled:'O login foi cancelado. Você pode tentar novamente.',oauth_rejected:'O provedor não autorizou o login. Tente novamente.',oauth_invalid_response:'Não foi possível concluir o login. Tente novamente.',oauth_provider_unavailable:'O provedor de login está indisponível. Use sua conta Fifa GO.',failed:'Não foi possível concluir o login. Tente novamente.',account_conflict:'Essa conta já está vinculada. Use o método de login original.'};
 const AUTH_PENDING_KEY='fifago-pending-invitation';
@@ -467,6 +510,9 @@ async function showInvite(){
  modal('Você recebeu um desafio',d.host?.nickname?`${d.host.nickname} te chamou para jogar.`:'Confira a partida antes de aceitar.',`${summary}<p class='meta'>${d.stake===0?'Esta partida é amistosa, sem cobrança ou reserva de créditos.':d.fundingVersion===1?`Ao aceitar, você entra na sala. Depois, cada jogador confirma a reserva de ${fmt(d.stake)} ${duelUnit(d)} da própria conta.`:`Ao aceitar, ${fmt(d.stake)} ${duelUnit(d)} serão reservados.`} O resultado precisa da foto e revisão da equipe.</p>${enough?`<button class='btn primary wide' data-action='accept-invite'>Aceitar e entrar na sala</button>`:`<p class='hint'>Saldo insuficiente para este convite. ${backendStatus?.paymentsAvailable?'Compre créditos via Pix e aguarde a confirmação da equipe.':'A compra de créditos está em configuração.'}</p>${backendStatus?.paymentsAvailable?`<button class='btn primary wide' data-action='deposit'>Comprar créditos via Pix</button>`:`<button class='btn primary wide' disabled>Comprar créditos</button>`}<button class='btn secondary wide' data-action='view-invite'>Conferir convite novamente</button>`}<p class='meta invite-privacy'>Seu saldo, fotos e resultados ficam privados.</p>`);
 }
 async function execute(action,id){
+ if(action==='toggle-password'){const input=$('authPassword'),button=document.querySelector("[data-action='toggle-password']");if(!input||!button)return;const visible=input.type==='password';input.type=visible?'text':'password';button.textContent=visible?'Ocultar':'Mostrar';button.setAttribute('aria-label',visible?'Ocultar senha':'Mostrar senha');button.setAttribute('aria-pressed',String(visible));return;}
+ if(action==='complete-signup')return showCompleteSignup();
+ if(online&&profile()?.needsOnboarding&&!['logout','close','help','credits'].includes(action))return showCompleteSignup();
  if(action==='close')return closeModal();
  if(action.startsWith('admin-')){if(!online||!profile()?.isAdmin)throw Error('Entre com uma conta administradora para continuar.');return administration().handleAction(action,id);}
  if(serviceUnavailable&&!['retry','credits'].includes(action))throw Error('A conexão com a arena está indisponível. Tente novamente em instantes.');
@@ -552,6 +598,7 @@ document.addEventListener('click',async event=>{
 });
 document.addEventListener('input',event=>{
  const t=event.target;
+ if(t.closest('.account-form')){t.removeAttribute('aria-invalid');const feedback=$(t.id+'Error');if(feedback)feedback.hidden=true;if($('dialogError'))$('dialogError').hidden=true;}
  adminPanel?.handleInput(t);
  if(t.id==='joinCode'||t.id==='dialogJoinCode'){ui.joinCode=t.value;if($('joinError'))$('joinError').hidden=true;}
  if(t.id==='duelStake'){updateDuelDraft({stake:t.value});$('potPreview').textContent=`${fmt(Number(t.value||0)*2)} ${creditUnit()}`;}
@@ -561,7 +608,7 @@ document.addEventListener('input',event=>{
  if(t.id==='historySearch'){ui.search=t.value;const cursor=t.selectionStart;render();$('historySearch').focus();$('historySearch').setSelectionRange(cursor,cursor);}
 });
 document.addEventListener('change',async event=>{
- const t=event.target;if(t.id==='gameMode')updateDuelDraft({mode:t.value});if(t.id==='gamePlatform')updateDuelDraft({platform:t.value});if(t.id==='rivalId')updateDuelDraft({rival:t.value});
+ const t=event.target;if(t.closest('.account-form')){t.removeAttribute('aria-invalid');const feedback=$(t.id+'Error');if(feedback)feedback.hidden=true;}if(t.id==='gameMode')updateDuelDraft({mode:t.value});if(t.id==='gamePlatform')updateDuelDraft({platform:t.value});if(t.id==='rivalId')updateDuelDraft({rival:t.value});
  if(t.id==='historyStatus'){ui.filter=t.value;render();$('historyStatus').focus();}
  if(t.id==='profileClub')$('clubPreview').innerHTML=avatar({...profile(),clubId:t.value,avatarSticker:null,teamName:''},'large');
  if(t.id==='recognitionLeft'){
@@ -582,14 +629,23 @@ document.addEventListener('change',async event=>{
 document.addEventListener('submit',async event=>{
  const form=event.target.closest('[data-form]');if(!form)return;event.preventDefault();if(busy)return;
  const data=new FormData(form),kind=form.dataset.form,submit=form.querySelector('[type=submit]'),profileId=profile()?.id,submitLabel=submit?.textContent;
+ if(['signup','login','onboarding'].includes(kind)&&!validateAccountForm(form))return;
  try{
  busy=true;if(submit)submit.disabled=true;
  if(serviceUnavailable)throw Error('A conexão com a arena está indisponível. Tente novamente em instantes.');
- if(kind==='signup'||kind==='login'){
-  if(submit){submit.textContent=kind==='signup'?'Criando conta…':'Entrando…';submit.setAttribute?.('aria-busy','true');}
-  if(online){if(kind==='signup')await API.registerAccount({nickname:data.get('nickname'),password:data.get('password')});else await API.loginAccount({nickname:data.get('nickname'),password:data.get('password')});arena=await API.getArena();}
+ if(['signup','login','onboarding'].includes(kind)){
+  if(submit){submit.textContent=kind==='signup'?'Criando conta…':kind==='onboarding'?'Concluindo cadastro…':'Entrando…';submit.setAttribute?.('aria-busy','true');}
+  if(online){
+   const details={nickname:data.get('nickname').trim(),countryCode:data.get('countryCode'),acceptedTerms:data.get('acceptedTerms')==='yes',termsVersion:form.dataset.terms};
+   if(kind==='signup')await API.registerAccount({...details,password:data.get('password')});
+   else if(kind==='onboarding'){
+    if(form.dataset.owner!==profileId)throw Error('A conta mudou. Abra o cadastro novamente.');
+    try{await API.completeAccountSignup(details);}catch(error){if(error.code!=='onboarding_complete')throw error;await API.loadSession();const latest=await API.getArena();if(latest.user?.id!==profileId||latest.user.needsOnboarding)throw error;arena=latest;}
+   }else await API.loginAccount({nickname:data.get('nickname'),password:data.get('password')});
+   arena=await API.getArena();
+  }
   else save(M.change(read(),'create',{nickname:data.get('nickname')}));
-  ui.rival='';foundPlayer=null;walletData=null;adminPanel?.reset();closeModal();if(online&&profile()?.isAdmin)go('admin');else render();window.scrollTo({top:0});await continueIntent();return toast(kind==='signup'?'Seu ID Fifa GO está pronto.':'Você entrou na arena.');
+  ui.rival='';foundPlayer=null;walletData=null;adminPanel?.reset();closeModal();if(online&&profile()?.needsOnboarding){render();return showCompleteSignup();}if(online&&profile()?.isAdmin)go('admin');else render();window.scrollTo({top:0});await continueIntent();return toast(kind==='login'?'Você entrou na arena.':'Seu ID Fifa GO está pronto.');
  }
  if(kind==='join'){
   return await findInvitation(data.get('code'));
@@ -668,7 +724,7 @@ document.addEventListener('submit',async event=>{
  }
  else if(kind==='review')await API.reviewDuel(form.dataset.id,{reportId:form.dataset.report,winner:data.get('winner'),reason:data.get('reason')});
  closeModal();await refresh();toast(kind==='result'?'Placar e foto enviados. Aguardando revisão.':kind==='dispute'?'Contestação enviada. O resultado aguarda revisão.':kind==='issue'?'Problema registrado para a equipe. A partida continua em andamento.':kind==='issue-review'?'Decisão sobre o problema registrada.':kind==='review'?'Resultado revisado e registrado.':'Perfil atualizado.');
- }catch(e){if(kind==='duel'){ui.duelError=e.message;const error=$('composerError');if(error){error.textContent=e.message;error.hidden=false;}toast(e.message);}else if(kind==='join')joinFeedback(e.message);else fail(e.message);}finally{busy=false;if(submit?.isConnected){submit.disabled=false;if(submitLabel!==undefined)submit.textContent=submitLabel;submit.removeAttribute?.('aria-busy');}}
+ }catch(e){if(['signup','login','onboarding'].includes(kind))accountError(form,e);else if(kind==='duel'){ui.duelError=e.message;const error=$('composerError');if(error){error.textContent=e.message;error.hidden=false;}toast(e.message);}else if(kind==='join')joinFeedback(e.message);else fail(e.message);}finally{busy=false;if(submit?.isConnected){submit.disabled=false;if(submitLabel!==undefined)submit.textContent=submitLabel;submit.removeAttribute?.('aria-busy');}}
 });
 $('modal').addEventListener('cancel',event=>{event.preventDefault();closeModal();});
 $('modal').addEventListener('click',event=>{if(event.target===$('modal')){const r=$('modal').getBoundingClientRect();if(event.clientX<r.left||event.clientX>r.right||event.clientY<r.top||event.clientY>r.bottom)closeModal();}});
@@ -692,6 +748,7 @@ async function start(){
  if(online&&profile()?.isAdmin&&(auth==='success'||!location.hash||location.hash==='#arena'))history.replaceState(null,'',location.pathname+'#admin');
  render();if(auth==='success'&&profile())toast(profile().isAdmin?'Bem-vindo, administrador.':'Você entrou na arena.');else if(authError)toast(authErrors[authError]||'Não foi possível concluir o login. Use sua conta Fifa GO ou tente novamente.');
  if(token&&online)invite={token};
+ if(online&&profile()?.needsOnboarding)return showCompleteSignup();
  if(invite&&online)await showInvite();
  else if(token)inviteNotice('Este convite precisa da versão conectada. Nesta demonstração, use um código entre perfis neste navegador.');
 }

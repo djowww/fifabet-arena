@@ -11,6 +11,7 @@ import {openArenaDatabase,normalizeNickname} from './database.mjs';
 import {createOAuthService} from './oauth.mjs';
 import {createResultRecognizer} from './result-recognition.mjs';
 import {createDuelEconomics,duelEconomics,duelFunders,reservedDuelStake,OPEN_DUEL_STATUSES} from './duel-economy.mjs';
+import {TERMS_VERSION,normalizeCountry,needsAccountOnboarding} from '../account-policy.mjs';
 
 const scrypt=promisify(scryptCallback);
 const ROOT=fileURLToPath(new URL('../',import.meta.url));
@@ -68,6 +69,16 @@ function nickname(value){
 function password(value){
   if(typeof value!=='string'||value.length<10||value.length>256)fail(400,'Use uma senha de 10 a 256 caracteres.');
   return value;
+}
+function accountDetails(data,source){
+  const countryCode=normalizeCountry(data.countryCode);
+  if(!countryCode)fail(400,'Escolha seu país de residência.','country_invalid');
+  if(data.acceptedTerms!==true)fail(400,'Leia e aceite os Termos de uso e a Política de privacidade para criar sua conta.','terms_required');
+  if(data.termsVersion!==TERMS_VERSION)fail(409,'Os termos foram atualizados. Leia a versão atual antes de continuar.','terms_updated');
+  return {countryCode,termsAcceptance:{version:TERMS_VERSION,acceptedAt:now(),source}};
+}
+function requireCompleteAccount(user){
+  if(needsAccountOnboarding(user))fail(403,'Complete seu cadastro com apelido, país e aceite dos termos para continuar.','onboarding_required');
 }
 function integer(value,min,max,label){
   if(!Number.isSafeInteger(value)||value<min||value>max)fail(400,`${label} inválido.`);
@@ -180,7 +191,7 @@ function depositView(state,deposit,{includePaymentInfo=false,pixKey=''}={}){
   return result;
 }
 function fields(data,allowed){
-  if(Object.keys(data).some(key=>!allowed.includes(key)))fail(400,'Formulário contém campos não aceitos. Dados de cartão e chaves Pix nunca são enviados ao servidor.','unsupported_fields');
+  if(Object.keys(data).some(key=>!allowed.includes(key)))fail(400,'Formulário contém campos não aceitos. Confira os dados e tente novamente.','unsupported_fields');
 }
 function depositVersion(deposit,version){
   if(!Number.isSafeInteger(version)||version!==deposit.version)fail(409,'O pedido mudou. Atualize a carteira antes de continuar.','stale_deposit');
@@ -263,7 +274,7 @@ export async function createArenaServer(options={}){
   const verifiedEmails=(draft,user)=>[...new Set(Object.values(draft.authIdentities).filter(identity=>identity.userId===user.id&&identity.emailVerified===true&&['google','apple'].includes(identity.provider)&&normalizedEmail(identity.email)).map(identity=>normalizedEmail(identity.email)))];
   const admin=(draft,user)=>verifiedEmails(draft,user).some(email=>adminEmails.has(email));
   const reviewer=(draft,user)=>reviewerIds.has(user.id)||admin(draft,user);
-  const sessionPlayer=(draft,user)=>({...publicPlayer(user),balance:user.balance,isReviewer:reviewer(draft,user),isAdmin:admin(draft,user)});
+  const sessionPlayer=(draft,user)=>({...publicPlayer(user),countryCode:user.countryCode??null,needsOnboarding:needsAccountOnboarding(user),balance:user.balance,isReviewer:!needsAccountOnboarding(user)&&reviewer(draft,user),isAdmin:!needsAccountOnboarding(user)&&admin(draft,user)});
   function authenticated(draft,request){
     const session=sessionFor(draft,request);
     if(!session||session.expiresAt<=Date.now()||!draft.users[session.userId])fail(401,'Entre na sua conta para continuar.','unauthorized');
@@ -290,7 +301,7 @@ export async function createArenaServer(options={}){
   }
   function newUser(draft,name,passwordFields={}){
     if(Object.keys(draft.users).length>=10_000)fail(503,'Cadastro temporariamente indisponível.');
-    const user={id:randomUUID(),publicPlayerId:uniquePublicId(draft.users,'FBA','publicPlayerId'),nickname:name,...passwordFields,clubId:null,gameAccount:null,createdAt:now(),balance:0,friends:[],transactions:[]};
+    const user={id:randomUUID(),publicPlayerId:uniquePublicId(draft.users,'FBA','publicPlayerId'),nickname:name,...passwordFields,signupVersion:1,onboardingRequired:true,clubId:null,gameAccount:null,createdAt:now(),balance:0,friends:[],transactions:[]};
     draft.users[user.id]=user;return user;
   }
   function socialUser(draft,identity){
@@ -346,10 +357,10 @@ export async function createArenaServer(options={}){
   }
   const mimeTypes={'.html':'text/html; charset=utf-8','.js':'text/javascript; charset=utf-8','.mjs':'text/javascript; charset=utf-8','.css':'text/css; charset=utf-8','.png':'image/png','.jpg':'image/jpeg','.webp':'image/webp','.svg':'image/svg+xml'};
   const publicFiles=new Set([
-    'index.html','colecao.html','bootstrap.js','app.js','play.js','backend-client.mjs','model.mjs','clubs.mjs','football-trophies.mjs','rivalry-section.mjs','admin-panel.mjs',
-    'styles.css','arena.css','shop.css','profile.css','achievements.css','rivalry.css','competitive-modes.css','practical.css','lobby.css','wizard.css','admin.css'
+    'index.html','legal.html','colecao.html','bootstrap.js','app.js','play.js','backend-client.mjs','account-policy.mjs','model.mjs','clubs.mjs','football-trophies.mjs','rivalry-section.mjs','admin-panel.mjs',
+    'styles.css','arena.css','shop.css','profile.css','achievements.css','rivalry.css','competitive-modes.css','practical.css','lobby.css','wizard.css','admin.css','account.css'
   ]);
-  const serverStatus=()=>({available:true,mode:'shared',storage:'sqlite',schemaVersion:storage.schemaVersion,paymentMode,realMoney:paymentMode==='pix_manual',noRealMoney:paymentMode!=='pix_manual',paymentsAvailable:paymentMode==='demo'||paymentMode==='pix_manual',authProviders:oauth.status(),recognition:recognizer.status(),apiVersion:1,reviewerConfigured:reviewerIds.size>0||adminEmails.size>0});
+  const serverStatus=()=>({available:true,mode:'shared',storage:'sqlite',schemaVersion:storage.schemaVersion,termsVersion:TERMS_VERSION,paymentMode,realMoney:paymentMode==='pix_manual',noRealMoney:paymentMode!=='pix_manual',paymentsAvailable:paymentMode==='demo'||paymentMode==='pix_manual',authProviders:oauth.status(),recognition:recognizer.status(),apiVersion:1,reviewerConfigured:reviewerIds.size>0||adminEmails.size>0});
   async function route(draft,request,response,url){
     const path=url.pathname,method=request.method;
     if(method==='GET'&&path==='/api/v1/status')return serverStatus();
@@ -361,11 +372,14 @@ export async function createArenaServer(options={}){
       mutationAllowed(request);rateLimit(request,'auth',15,10*60*1000);
       const data=await jsonBody(request);
       if(path.endsWith('/register')){
+        fields(data,['nickname','password','countryCode','acceptedTerms','termsVersion']);
         const name=nickname(data.nickname),pass=password(data.password);
+        const details=accountDetails(data,'password');
         if(Object.values(draft.users).some(u=>normalizeNickname(u.nickname)===normalizeNickname(name)))fail(409,'Este apelido já está em uso.','nickname_taken');
         const salt=randomBytes(16).toString('hex');
         const digest=(await scrypt(pass,salt,64)).toString('hex');
         const user=newUser(draft,name,{passwordHash:digest,passwordSalt:salt});
+        Object.assign(user,details,{onboardingRequired:false});
         return setSession(draft,user,response);
       }
       const identifier=String(data.identifier??data.nickname??'').trim();
@@ -382,13 +396,26 @@ export async function createArenaServer(options={}){
       const duel=Object.values(draft.duels).find(item=>item.publicMatchId===codeMatch[1]);
       if(!duel)fail(404,'Partida não encontrada. Confira o código com seu amigo.','invite_not_found');
       requirePendingInvite(duel);
-      const current=sessionFor(draft,request),user=current&&current.expiresAt>Date.now()&&draft.users[current.userId];
+      const current=sessionFor(draft,request),candidate=current&&current.expiresAt>Date.now()&&draft.users[current.userId],user=candidate&&!needsAccountOnboarding(candidate)?candidate:null;
       if(user&&duel.recipientId&&duel.recipientId!==user.id&&duel.hostId!==user.id)fail(403,'Este convite foi enviado para outro jogador.','invite_wrong_recipient');
       return {invite:{publicMatchId:duel.publicMatchId,stake:duel.stake,fundingVersion:duel.fundingVersion||0,economics:duelEconomics(duel),creditMode:duel.creditMode,mode:duel.mode,platform:duel.platform,status:duel.status,expiresAt:duel.expiresAt,...(user?{rules:duel.rules,host:{nickname:draft.users[duel.hostId].nickname}}:{})}};
     }
     const {user,session}=authenticated(draft,request);
     if(method!=='GET')mutationAllowed(request,session);
     if(method==='POST')rateLimit(request,'mutation',120,60*1000);
+    if(method==='POST'&&path==='/api/v1/auth/onboarding'){
+      rateLimit(request,'onboarding',15,10*60*1000);
+      if(!needsAccountOnboarding(user))fail(409,'Seu cadastro já está completo. Edite seu apelido no perfil.','onboarding_complete');
+      const identity=Object.values(draft.authIdentities).find(item=>item.userId===user.id&&['google','apple'].includes(item.provider));
+      if(!identity)fail(409,'Entre novamente com a conta usada para criar este perfil.','account_conflict');
+      const data=await jsonBody(request);fields(data,['nickname','countryCode','acceptedTerms','termsVersion']);
+      const name=nickname(data.nickname),details=accountDetails(data,identity.provider);
+      if(Object.values(draft.users).some(other=>other.id!==user.id&&normalizeNickname(other.nickname)===normalizeNickname(name)))fail(409,'Este apelido já está em uso.','nickname_taken');
+      Object.assign(user,details,{nickname:name,onboardingRequired:false});
+      return {user:sessionPlayer(draft,user),csrfToken:session.csrfToken};
+    }
+    // Social authentication proves identity; it does not accept the app's terms.
+    if(needsAccountOnboarding(user)&&!(method==='GET'&&path==='/api/v1/me')&&!(method==='POST'&&path==='/api/v1/auth/logout'))requireCompleteAccount(user);
     if(path.startsWith('/api/v1/admin/')){
       if(!admin(draft,user))fail(403,'Esta área é exclusiva para administradores autorizados.','admin_required');
       if(method==='GET'&&path==='/api/v1/admin/overview'){
@@ -409,6 +436,7 @@ export async function createArenaServer(options={}){
         if(typeof data.idempotencyKey!=='string'||!/^[a-f0-9]{8}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{12}$/i.test(data.idempotencyKey))fail(400,'Chave da operação inválida.','invalid_idempotency_key');
         if(typeof data.userId!=='string'||!Object.hasOwn(draft.users,data.userId))fail(404,'Jogador não encontrado.','not_found');
         const target=draft.users[data.userId],key=`${user.id}:${data.idempotencyKey.toLowerCase()}`;
+        if(needsAccountOnboarding(target))fail(409,'Este jogador precisa completar o cadastro antes de receber créditos.','recipient_onboarding_required');
         const operations=draft.adminOperations??={},existing=operations[key];
         if(existing){
           if(existing.userId!==target.id||existing.amount!==amount||existing.reason!==text)fail(409,'Esta chave já foi usada para outra operação. Atualize o formulário.','idempotency_conflict');
@@ -434,6 +462,7 @@ export async function createArenaServer(options={}){
       return {ok:true};
     }
     if(method==='GET'&&path==='/api/v1/me'){
+      if(needsAccountOnboarding(user))return {user:{...sessionPlayer(draft,user),demoBalance:0,legacyDemoBalance:0,friends:[],transactions:[]},duels:[],history:[],stats:{played:0,wins:0,reserved:0,legacyDemoReserved:0},csrfToken:session.csrfToken};
       const duels=Object.values(draft.duels).filter(d=>member(d,user)||d.recipientId===user.id).sort((a,b)=>b.createdAt.localeCompare(a.createdAt));
       const closed=duels.filter(d=>['completed','cancelled','expired'].includes(d.status));
       return {user:{...sessionPlayer(draft,user),demoBalance:user.demoBalance||0,legacyDemoBalance:user.demoBalance||0,friends:user.friends.map(id=>publicPlayer(draft.users[id])),transactions:user.transactions},duels:duels.filter(d=>!closed.includes(d)).map(d=>duelView(draft,d,user)),history:closed.map(d=>duelView(draft,d,user)),stats:{played:closed.filter(d=>d.status==='completed').length,wins:closed.filter(d=>d.winnerId===user.id).length,reserved:reservedBalance(draft,user),legacyDemoReserved:reservedBalance(draft,user,true)},csrfToken:session.csrfToken};
@@ -545,7 +574,7 @@ export async function createArenaServer(options={}){
     const playerMatch=/^\/api\/v1\/players\/(FBA-[A-F0-9]{10})$/.exec(path);
     if(method==='GET'&&playerMatch){
       const player=Object.values(draft.users).find(u=>u.publicPlayerId===playerMatch[1]);
-      if(!player)fail(404,'Jogador não encontrado. Confira o ID.','not_found');
+      if(!player||needsAccountOnboarding(player))fail(404,'Jogador não encontrado. Confira o ID.','not_found');
       return {player:directoryPlayer(player)};
     }
     if(method==='POST'&&path==='/api/v1/duels'){
@@ -561,7 +590,7 @@ export async function createArenaServer(options={}){
         operationId=data.operationId.toLowerCase();
       }
       let recipient=null;
-      if(data.opponentPlayerId){recipient=Object.values(draft.users).find(u=>u.publicPlayerId===String(data.opponentPlayerId).trim().toUpperCase());if(!recipient)fail(404,'ID do adversário não encontrado.');if(recipient.id===user.id)fail(400,'Escolha outro jogador.');}
+      if(data.opponentPlayerId){recipient=Object.values(draft.users).find(u=>u.publicPlayerId===String(data.opponentPlayerId).trim().toUpperCase());if(!recipient||needsAccountOnboarding(recipient))fail(404,'ID do adversário não encontrado.');if(recipient.id===user.id)fail(400,'Escolha outro jogador.');}
       const rules=typeof data.rules==='string'?data.rules.trim():'';
       if(rules.length>500)fail(400,'As regras podem ter até 500 caracteres.');
       const operationSignature=operationId?sha(JSON.stringify({stake,mode:data.mode,platform:data.platform,recipientId:recipient?.id||null,rules})):null;
@@ -795,7 +824,7 @@ export async function createArenaServer(options={}){
         let ownerId,evidence,duelId;
         const data=await jsonBody(request);fields(data,['evidenceId']);
         await serial(async()=>{
-          const {session,user}=authenticated(state,request);mutationAllowed(request,session);ownerId=user.id;
+          const {session,user}=authenticated(state,request);mutationAllowed(request,session);requireCompleteAccount(user);ownerId=user.id;
           rateLimit(request,'recognition',6,60*1000);
           const duel=ownDuel(state,user,recognitionMatch[1]);duelId=duel.id;
           if(!member(duel,user)||!['in_progress','pending_review','disputed'].includes(duel.status))fail(409,'Esta partida não aceita leitura de placar.');
@@ -805,7 +834,7 @@ export async function createArenaServer(options={}){
         });
         const recognition=await recognizer.recognize(join(dataDir,'evidence',evidence.id));
         await serial(async()=>{
-          const {session,user}=authenticated(state,request);mutationAllowed(request,session);
+          const {session,user}=authenticated(state,request);mutationAllowed(request,session);requireCompleteAccount(user);
           if(user.id!==ownerId)fail(409,'A conta mudou. Reabra o envio do resultado.','account_changed');
           const duel=ownDuel(state,user,duelId);
           if(!member(duel,user)||!['in_progress','pending_review','disputed'].includes(duel.status))fail(409,'O estado da partida mudou. Atualize antes de enviar.');

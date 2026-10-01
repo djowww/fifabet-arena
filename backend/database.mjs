@@ -4,6 +4,7 @@ import {resolve,relative,join,isAbsolute,sep,basename} from 'node:path';
 import {fileURLToPath} from 'node:url';
 import {randomUUID} from 'node:crypto';
 import {createDuelEconomics,duelEconomics} from './duel-economy.mjs';
+import {normalizeCountry,validTermsAcceptance,needsAccountOnboarding} from '../account-policy.mjs';
 
 export const DATABASE_FILENAME='arena.sqlite';
 export const SCHEMA_VERSION=1;
@@ -26,9 +27,19 @@ function validateState(draft){
     if(!plain(user)||user.id!==id)invalid('ID de usuário inconsistente.');
     required(id,'ID do usuário');required(user.publicPlayerId,'ID público do usuário');required(user.nickname,'apelido');
     if(!normalizeNickname(user.nickname))invalid('apelido normalizado vazio.');
+    if(user.signupVersion!==undefined&&user.signupVersion!==1)invalid('versão de cadastro não suportada.');
+    if(user.onboardingRequired!==undefined&&typeof user.onboardingRequired!=='boolean')invalid('estado de conclusão do cadastro inválido.');
+    if(user.onboardingRequired!==undefined&&user.signupVersion!==1)invalid('estado de conclusão exige versão de cadastro.');
+    if(user.countryCode!==undefined&&normalizeCountry(user.countryCode)!==user.countryCode)invalid('país de residência inválido.');
+    if(user.termsAcceptance!==undefined&&!validTermsAcceptance(user.termsAcceptance))invalid('registro de aceite dos termos inválido.');
+    if(!Array.isArray(user.transactions))invalid('transações do usuário ausentes.');
+    if(user.signupVersion===1){
+      if(typeof user.onboardingRequired!=='boolean')invalid('novo cadastro exige estado de conclusão.');
+      if(user.onboardingRequired===false&&needsAccountOnboarding(user))invalid('cadastro concluído exige país e aceite dos termos.');
+      if(user.onboardingRequired&&(user.passwordHash!=null||user.passwordSalt!=null||user.balance!==0||user.transactions.length||!Array.isArray(user.friends)||user.friends.length))invalid('cadastro pendente não pode ter senha, créditos ou amizades.');
+    }
     if(user.passwordHash!=null&&typeof user.passwordHash!=='string')invalid('hash de senha inválido.');
     if(user.passwordSalt!=null&&typeof user.passwordSalt!=='string')invalid('salt de senha inválido.');
-    if(!Array.isArray(user.transactions))invalid('transações do usuário ausentes.');
     if(user.balance!==undefined)integer(user.balance,'saldo');
     for(const transaction of user.transactions){
       if(!plain(transaction))invalid('transação inválida.');
@@ -38,6 +49,7 @@ function validateState(draft){
   for(const [id,duel] of Object.entries(draft.duels)){
     if(!plain(duel)||duel.id!==id)invalid('ID de desafio inconsistente.');
     required(id,'ID do desafio');required(duel.hostId,'anfitrião');required(duel.inviteToken,'token do convite');
+    if([duel.hostId,duel.guestId,duel.recipientId].some(userId=>userId&&needsAccountOnboarding(draft.users[userId])))invalid('partida contém jogador com cadastro pendente.');
     if(duel.publicMatchId!=null&&!/^FG-[A-F0-9]{10}$/.test(duel.publicMatchId))invalid('código público de partida inválido.');
     if(duel.fundingVersion!==undefined&&duel.fundingVersion!==1)invalid('versão de reserva da partida não suportada.');
     if(duel.fundingVersion===1||duel.economics!==undefined||duel.settlement!==undefined){

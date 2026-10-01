@@ -27,6 +27,7 @@ export async function detectBackend(){
 }
 export const loadSession=()=>request('/session');
 export const registerAccount=data=>request('/auth/register',{method:'POST',data});
+export const completeAccountSignup=data=>request('/auth/onboarding',{method:'POST',data});
 export const loginAccount=data=>request('/auth/login',{method:'POST',data});
 export const socialLoginUrl=provider=>{if(!['google','apple'].includes(provider))throw Error('Provedor de login inválido.');return `${prefix}/auth/oauth/${provider}/start`;};
 export const logoutAccount=async()=>{const result=await request('/auth/logout',{method:'POST',data:{}});csrfToken=null;return result;};

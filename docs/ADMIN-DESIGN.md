@@ -78,6 +78,8 @@ Até 1000px, as colunas passam a 1fr e 1fr, com mínimo de 17rem no editor e int
 
 O painel organiza profundidade por tons de fundo e bordas de 1px. O editor tem contorno; os indicadores, jogadores e registros de atividade usam divisórias. Os componentes administrativos não acrescentam sombras. A passagem do ponteiro nas linhas altera o fundo em 160ms; a preferência por movimento reduzido remove as transições pela regra herdada da arena.
 
+O painel inclui um jogador original como fundo decorativo na parte superior direita, com transparência, saturação reduzida e máscaras de desvanecimento à esquerda e abaixo. A camada não recebe eventos do ponteiro e fica atrás do conteúdo, sem alterar o fluxo ou recortar o foco. No celular, a ilustração é menor e mais transparente. O editor e os campos preservam fundos sólidos. A composição foi aprovada em 1º de outubro de 2026 após a apresentação das prévias de computador e celular.
+
 ## Shapes
 
 Controles e mensagens usam `control`; o editor usa `editor`. A lista e o histórico mantêm linhas abertas. Avatares e ícones continuam os componentes existentes da arena.

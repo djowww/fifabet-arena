@@ -1,0 +1,11 @@
+{
+  "asset": "assets/brand/admin-footballer-v1.png",
+  "createdAt": "2026-10-01",
+  "mode": "built-in image generation",
+  "useCase": "stylized-concept",
+  "status": "Approved for publication",
+  "prompt": "One anonymous adult football athlete, not a celebrity or recognizable real person, in a dynamic dribbling stance with a football. Premium semi-abstract sculptural sports art, matte graphite unbranded kit, subtle emerald rim light, organic anatomy and tonal facets. Face shadowed, full figure with transparent padding. Genuine transparent background; no environment, text, signature, club crest, sponsors or logos. Intended as a subdued background for the Fifa GO administration panel.",
+  "dimensions": {"width": 1024, "height": 1536},
+  "hasAlpha": true,
+  "photoReferences": []
+}

@@ -1,5 +1,21 @@
 /* Administrative controls inherit the arena's dark palette and form vocabulary. */
-.admin-page { max-width: 76rem; margin-inline: auto; font-variant-numeric: tabular-nums; }
+.admin-page { position: relative; isolation: isolate; max-width: 76rem; margin-inline: auto; font-variant-numeric: tabular-nums; }
+/* Original decorative athlete: stays behind controls and out of the hit area. */
+.admin-page::before {
+  content: "";
+  position: absolute;
+  inset-block-start: -1.25rem;
+  inset-inline-end: 0;
+  width: min(45%, 36rem);
+  height: 37rem;
+  background: url("assets/brand/admin-footballer-v1.png") center top / contain no-repeat;
+  opacity: .26;
+  filter: saturate(.7);
+  mask-image: linear-gradient(to right, transparent, #000 25%), linear-gradient(to bottom, #000 35%, transparent 94%);
+  mask-composite: intersect;
+  pointer-events: none;
+  z-index: -1;
+}
 .admin-page h1 { margin: 0 0 .65rem; font-size: 2rem; line-height: 1.2; letter-spacing: -.035em; text-wrap: balance; }
 .admin-page h2 { margin: 0; font-size: 1.15rem; line-height: 1.4; letter-spacing: -.02em; }
 .admin-page p { text-wrap: pretty; }
@@ -94,6 +110,7 @@
 @media (min-width: 821px) { .practical-app .sidebar nav:has(.nav-item[href="#admin"]) { display: grid; grid-template-columns: 1fr; } }
 @media (max-width: 1000px) { .admin-workspace { grid-template-columns: minmax(0, 1fr) minmax(17rem, 1fr); gap: 1.2rem; } }
 @media (max-width: 760px) {
+  .admin-page::before { inset-block-start: -.5rem; width: min(72%, 17rem); height: 24rem; opacity: .14; mask-image: linear-gradient(to right, transparent, #000 25%), linear-gradient(to bottom, #000 18%, transparent 95%); }
   .admin-heading { flex-wrap: wrap; align-items: flex-start; gap: 1rem; margin-bottom: 1.3rem; }
   .admin-page h1 { font-size: 1.65rem; }
   .admin-overview { grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 1.1rem; }

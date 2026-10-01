@@ -43,7 +43,7 @@ html:has(body.taste-app) { scroll-padding-block: 92px; }
 .taste-app :is(.form-input, .filter-select) {
   min-height: 49px;
   padding: 12px 14px;
-  border: 1px solid #4a6050;
+  border: 1px solid #63766a;
   border-radius: 8px;
   background: #101a14;
   color: var(--text);
@@ -81,12 +81,13 @@ html:has(body.taste-app) { scroll-padding-block: 92px; }
 .taste-app .avatar { border-radius: 10px; background: #29362d; }
 
 /* App shell: consistent rail, header and content width. */
-.taste-app .sidebar { width: 212px; padding: 28px 17px 24px; background: var(--side); background-image: none; border-color: var(--line-soft); }
+.taste-app .sidebar { width: 212px; padding: 28px 17px 24px; background: var(--side); background-image: none; border-color: var(--line-soft); overflow-y: auto; overscroll-behavior-y: contain; }
+.taste-app .sidebar > * { flex-shrink: 0; }
 .taste-app .shell { margin-left: 212px; min-width: 0; }
 .taste-app .brand { margin: 0 7px 42px; gap: 11px; font-family: var(--taste-display); font-size: 27px; letter-spacing: -.05em; }
 .taste-app .brand > span:last-child { display: block; }
 .taste-app .brand-symbol { width: 35px; height: 41px; border-radius: 11px 4px 11px 4px; font-size: 31px; transform: none; }
-.taste-app .brand small { font-family: var(--taste-body); font-size: 9px; letter-spacing: .16em; color: var(--muted); margin-top: 8px; }
+.taste-app .brand small { font-family: var(--taste-body); font-size: 11px; letter-spacing: .1em; color: var(--muted); margin-top: 8px; }
 .taste-app .nav-caption { display: block; font-size: 11px; color: #91a497; letter-spacing: .06em; margin: 0 12px 16px; }
 .taste-app .sidebar nav { display: grid; gap: 8px; }
 .taste-app .nav-item { min-height: 49px; padding: 12px 13px; border: 0; border-radius: 9px; gap: 13px; justify-content: flex-start; flex-direction: row; color: #b0bdb3; font-size: 14px; transition: background 160ms ease, color 160ms ease; }
@@ -189,6 +190,7 @@ html:has(body.taste-app) { scroll-padding-block: 92px; }
 .taste-app .arena-sidebar > .card { padding: 24px; }
 .taste-app .arena-sidebar h2 { font-size: 21px; }
 .taste-app .arena-sidebar p, .taste-app .step-list li { font-size: 14px; }
+.taste-app .step-list li::before { content: counter(step) / ""; }
 .taste-app .match-room { max-width: 1160px; margin-inline: auto; }
 .taste-app .room-heading h1 { font-size: clamp(31px, 3.2vw, 42px); }
 .taste-app .room-heading { margin-bottom: 27px; }
@@ -221,7 +223,8 @@ html:has(body.taste-app) { scroll-padding-block: 92px; }
 /* Account and evidence dialogs retain the real forms, validation and focus. */
 .taste-app dialog { background: var(--card); border: 1px solid #4d6654; border-radius: 17px; box-shadow: 0 24px 80px #04100988; }
 .taste-app dialog::backdrop { background: #070f0adb; backdrop-filter: blur(5px); }
-.taste-app .dialog-head { padding: 25px 28px 0; gap: 18px; }
+.taste-app .dialog-head { position: sticky; top: 0; z-index: 2; padding: 25px 28px 20px; gap: 18px; background: var(--card); border-bottom: 1px solid var(--line-soft); }
+.taste-app .dialog-head > div { min-width: 0; flex: 1; }
 .taste-app .dialog-head h2 { font-size: 28px; line-height: 1.15; letter-spacing: -.03em; }
 .taste-app .dialog-head p { font-size: 14px; line-height: 1.55; }
 .taste-app .dialog-body { padding: 23px 28px 28px; }
@@ -231,9 +234,8 @@ html:has(body.taste-app) { scroll-padding-block: 92px; }
 .taste-account-layout { display: grid; grid-template-columns: minmax(0, 1.1fr) minmax(240px, .9fr); gap: 28px; align-items: start; }
 .taste-account-content { min-width: 0; }
 .taste-app #modalContent { position: relative; }
-.taste-app .taste-dialog-close { position: absolute; top: 20px; right: 20px; width: 44px; height: 44px; z-index: 2; display: grid; place-items: center; border: 1px solid var(--line); border-radius: 9px; background: var(--card2); color: var(--text); }
-.taste-app #modalContent .dialog-head { padding-right: 58px; }
-.taste-app .taste-account-layout .dialog-head { padding-right: 0; }
+.taste-app .taste-dialog-close { position: static; flex: none; width: 44px; height: 44px; display: grid; place-items: center; border: 1px solid var(--line); border-radius: 9px; background: var(--card2); color: var(--text); }
+.taste-app dialog { scroll-padding-block-start: 180px; }
 .taste-app .taste-account-aside { padding-top: 54px; }
 .taste-account-aside { min-width: 0; align-self: stretch; border-left: 1px solid var(--line); padding: 21px 0 21px 28px; display: flex; flex-direction: column; justify-content: center; }
 .taste-account-aside :is(img, .account-art) { display: block; width: 100%; max-width: 270px; height: auto; margin: 0 auto 25px; object-fit: contain; }
@@ -247,6 +249,11 @@ html:has(body.taste-app) { scroll-padding-block: 92px; }
 .taste-app .auth-divider { margin-block: 21px; font-size: 13px; }
 .taste-app .account-field .form-label { font-size: 14px; }
 .taste-app .account-field .form-input { min-height: 49px; }
+.taste-app .club-search-label { border-color: #63766a; }
+.taste-app .club-search-label > input { min-height: 44px; font-size: 16px; }
+.taste-app .club-picker-button strong, .taste-app .club-options-group strong { font-size: 14px; }
+.taste-app .club-picker-button small, .taste-app .club-options-group small, .taste-app .club-options-group > p { font-size: 12px; }
+.taste-app .club-clear-button { min-height: 44px; font-size: 14px; }
 .taste-app .account-help, .taste-app .account-zero { font-size: 13px; line-height: 1.55; color: var(--muted); }
 .taste-app .account-password-toggle { color: var(--muted); min-height: 45px; }
 .taste-app .account-consent-label { font-size: 14px; line-height: 1.6; }
@@ -278,7 +285,7 @@ html:has(body.taste-app) { scroll-padding-block: 92px; }
 .taste-app .admin-player.selected { background: #253c2c; }
 .taste-app .admin-player-name strong { font-size: 15px; }
 .taste-app .admin-player-name small, .taste-app .admin-selected-player small { font-size: 13px; }
-.taste-app .admin-audit { margin-top: 30px; }
+.taste-app .admin-activity { margin-top: 30px; }
 .taste-app .admin-service-status { background: #1d2e22; border-color: #3e5a47; border-radius: 12px; }
 
 /* Readable documents and a coherent legacy demonstration, without data changes. */
@@ -297,6 +304,7 @@ html:has(body.taste-app) { scroll-padding-block: 92px; }
 .taste-app.taste-legacy .page-heading h1 { font-size: clamp(31px, 3.2vw, 43px); }
 .taste-app.taste-legacy .page-heading p { font-size: 15px; max-width: 65ch; }
 .taste-app.taste-legacy .page-heading { margin-bottom: 28px; }
+.taste-app.taste-legacy .collection-return { display: none; }
 .taste-app.taste-legacy :is(.ranking-hero, .collection-banner, .balance-card, .football-room-hero) { background: #203428; border-color: #42654d; border-radius: 16px; }
 .taste-app.taste-legacy :is(.cover-secondary, .side-invite, .ranking-board, .profile-card) { border-color: var(--line); }
 .taste-app.taste-legacy .collection-toolbar { font-size: 14px; }
@@ -320,19 +328,21 @@ html:has(body.taste-app) { scroll-padding-block: 92px; }
   .taste-invite-strip { gap: 22px; grid-template-columns: minmax(190px, .8fr) minmax(0, 1.5fr); }
 }
 @media (max-width: 820px) {
-  .taste-app .sidebar { width: 100%; inset: auto 0 0; height: calc(72px + env(safe-area-inset-bottom)); padding: 5px 7px calc(5px + env(safe-area-inset-bottom)); border-right: 0; border-top: 1px solid #3d5646; background: #0e1811; }
+  .taste-app .sidebar { width: 100%; inset: auto 0 0; height: calc(72px + env(safe-area-inset-bottom)); padding: 5px 7px calc(5px + env(safe-area-inset-bottom)); border-right: 0; border-top: 1px solid #3d5646; background: #0e1811; overflow-y: visible; }
   .taste-app .sidebar > :is(.brand, .nav-caption, .sidebar-bottom, .help-button) { display: none; }
   .taste-app .sidebar nav { display: grid; grid-auto-flow: column; grid-template-columns: none; grid-auto-columns: 20%; gap: 0; overflow-x: auto; overscroll-behavior-x: contain; scrollbar-width: none; }
   .taste-app .sidebar nav:has(.nav-item:nth-child(5)) { grid-template-columns: none; }
   .taste-app .sidebar nav::-webkit-scrollbar { display: none; }
   .taste-app .nav-item { min-height: 59px; padding: 6px 2px; flex-direction: column; justify-content: center; gap: 6px; border-radius: 8px; }
-  .taste-app .nav-item > span { font-size: 10px; text-align: center; white-space: normal; line-height: 1.2; }
+  .taste-app .nav-item > span { font-size: 11px; text-align: center; white-space: normal; line-height: 1.2; }
   .taste-app .nav-item > span:first-child { height: 21px; }
   .taste-app .nav-item .count { display: none; }
   .taste-app .shell { margin-left: 0; padding-bottom: calc(72px + env(safe-area-inset-bottom)); }
   .taste-app .topbar { min-height: 70px; padding: 12px 21px; gap: 12px; }
+  .taste-app.taste-legacy .topbar { flex-wrap: wrap; }
+  .taste-app.taste-legacy .collection-return { display: inline-flex; flex-basis: 100%; order: 3; min-height: 44px; color: var(--lime); }
   .taste-app .mobile-brand { display: block; font-family: var(--taste-display); font-size: 23px; }
-  .taste-app .mobile-brand small { color: var(--muted); font-size: 9px; }
+  .taste-app .mobile-brand small { color: var(--muted); font-size: 11px; }
   .taste-app .breadcrumb { display: none; }
   .taste-app .header-actions { gap: 10px; }
   .taste-app .header-actions > .meta { display: none; }
@@ -398,7 +408,7 @@ html:has(body.taste-app) { scroll-padding-block: 92px; }
   .taste-app .room-player-value { font-size: 14px; }
   .taste-app .room-result { margin-inline: 21px; }
   .taste-app .room-issues { margin-inline: 21px; }
-  .taste-app .dialog-head, .taste-app .account-dialog .dialog-head { padding: 21px 22px 0; }
+  .taste-app .dialog-head, .taste-app .account-dialog .dialog-head { padding: 21px 22px 19px; }
   .taste-app .dialog-body, .taste-app .account-dialog .dialog-body { padding: 21px 22px 24px; }
   .taste-app .dialog-head h2, .taste-app .account-dialog .dialog-head h2 { font-size: 26px; }
   .taste-app .signup-redesign .dialog-head { padding: 21px 22px 19px; }

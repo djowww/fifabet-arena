@@ -13,13 +13,13 @@ const fmt=M.points;
 const when=x=>new Date(x).toLocaleString('pt-BR',{day:'2-digit',month:'2-digit',hour:'2-digit',minute:'2-digit'});
 const brl=cents=>new Intl.NumberFormat('pt-BR',{style:'currency',currency:'BRL'}).format(Number(cents||0)/100);
 const read=()=>{try{return M.restore(localStorage.getItem(M.STORAGE_KEY),localStorage.getItem('fifabet-profile'),localStorage.getItem('fifabet-bets'));}catch{return M.emptyState();}};
-let state=read(),online=false,arena=null,busy=false,foundPlayer=null,invite=null,reviewDuels=[],walletData=null,depositReviews=[],pendingIntent=null,opener,toastTimer,backendStatus=null,serviceUnavailable=false;
+let state=read(),online=false,arena=null,busy=false,foundPlayer=null,invite=null,reviewDuels=[],walletData=null,depositReviews=[],pendingIntent=null,opener,toastTimer,backendStatus=null,serviceUnavailable=false,arenaSyncRevision=0,modalRevision=0;
 const ui={view:'arena',filter:'all',search:'',mode:'1v1',platform:'pc',stake:'100',rival:'',rules:'',duelStep:1,duelOwner:null,duelRevision:0,duelOperation:'',duelError:''};
 const names={invited:'Convite pendente',awaiting_funds:'Aguardando os valores',active:'Partida em andamento...',review:'Resultado em análise',disputed:'Resultado contestado',settled:'Resultado concluído',rejected:'Recusado',cancelled:'Cancelado',expired:'Expirado'};
 const tones={invited:'amber',awaiting_funds:'amber',active:'mint',review:'violet',disputed:'live',settled:'lime'};
 const profile=()=>serviceUnavailable?null:online?arena?.user:M.current(state);
 let adminPanel;
-const administration=()=>adminPanel??=createAdminPanel({api:API,getUser:()=>online?profile():null,render,syncAccount:async()=>{arena=await API.getArena();},avatar});
+const administration=()=>adminPanel??=createAdminPanel({api:API,getUser:()=>online?profile():null,render,syncAccount:syncArena,avatar});
 const productionHost=()=>['betfifa.com.br','www.betfifa.com.br'].includes(new URL(location.href).hostname);
 const creditUnit=()=>online?(backendStatus?.paymentMode==='pix_manual'?'créditos comprados':backendStatus?.paymentMode==='demo'?'créditos de teste':'créditos'):'créditos de teste';
 const creditAction=()=>online?(backendStatus?.paymentMode==='pix_manual'&&backendStatus?.paymentsAvailable?'Comprar créditos via Pix':backendStatus?.paymentMode==='demo'?'Adicionar créditos de teste':'Comprar créditos'):'Adicionar créditos de teste';
@@ -59,21 +59,27 @@ function reportHistory(d){
 }
 const reserved=()=>online?(arena?.stats?.reserved||0):(profile()?M.duelReservedPoints(state,profile().id):0);
 function byId(id){const d=duels().find(d=>d.id===id)||(profile()?.isReviewer?reviewDuels.find(d=>d.id===id):null);if(!d)throw Error('Partida não encontrada. Atualize a arena.');return d;}
-async function refresh(){if(online)arena=await API.getArena();else state=read();render();}
+async function syncArena(){
+ const owner=profile()?.id,revision=++arenaSyncRevision,latest=await API.getArena();
+ if(profile()?.id!==owner||revision!==arenaSyncRevision)return false;
+ if(latest.user?.id!==owner)throw Error('A conta mudou. Entre novamente para continuar.');
+ arena=latest;return true;
+}
+async function refresh(){if(online){if(!await syncArena())return;}else state=read();render();}
 let resultDraft=null,resultDraftRevision=0;
 function clearResultDraft(){resultDraft=null;resultDraftRevision++;}
 function modal(title,subtitle,html,{account=false,registration=false}={}){
- clearResultDraft();opener=document.activeElement;
+ clearResultDraft();modalRevision++;opener=document.activeElement;
  $('modal').classList.toggle('account-dialog',account);
  $('modal').classList.toggle('signup-redesign',registration);
  $('modal').classList.toggle('taste-account-dialog',account);
  const accountTitle=registration?'Seu apelido. Seu jogo.':title;
- const content="<div class='dialog-head'><div>"+(account?"<span class='account-kicker'>Fifa <b>GO</b> · Entre amigos</span>":'')+"<h2 id='dialogTitle'>"+esc(accountTitle)+"</h2><p>"+esc(subtitle)+"</p></div></div><div class='dialog-body'>"+html+"<p id='dialogError' class='error-message' tabindex='-1' role='alert' hidden></p></div>";
+ const content="<div class='dialog-head'><div>"+(account?"<span class='account-kicker'>Fifa <b>GO</b> · Entre amigos</span>":'')+"<h2 id='dialogTitle'>"+esc(accountTitle)+"</h2><p>"+esc(subtitle)+"</p></div><button class='icon-only taste-dialog-close' data-action='close' aria-label='Fechar janela'>"+uiIcon('close')+"</button></div><div class='dialog-body'>"+html+"<p id='dialogError' class='error-message' tabindex='-1' role='alert' hidden></p></div>";
  const aside=account?"<aside class='taste-account-aside' aria-label='Sua identidade de jogo'><p class='eyebrow'>Entre amigos</p><h3>Um apelido.<br>O próximo clássico.</h3><p>Seu perfil reúne os convites, o histórico e o time que você leva no peito.</p>"+accountArt('profile')+"<p class='taste-account-benefit'>"+uiIcon('flag')+"Seu ID para chamar um amigo</p><p class='taste-account-benefit'>"+uiIcon('shield')+"Fotos privadas, resultado revisado</p><p class='meta'>"+(online?'Sua conta começa com saldo zero.': 'A demonstração local usa créditos fictícios, sem valor financeiro.')+"</p></aside>":'';
- $('modalContent').innerHTML=runtimeCopy("<button class='icon-only taste-dialog-close' data-action='close' aria-label='Fechar janela'>"+uiIcon('close')+"</button>"+(account?"<div class='taste-account-layout'><div class='taste-account-content'>"+content+"</div>"+aside+"</div>":content));
+ $('modalContent').innerHTML=runtimeCopy(account?"<div class='taste-account-layout'><div class='taste-account-content'>"+content+"</div>"+aside+"</div>":content);
  if(!$('modal').open)$('modal').showModal();
 }
-function closeModal(){clearResultDraft();if($('modal').open)$('modal').close();if(opener?.isConnected)opener.focus();}
+function closeModal(){modalRevision++;clearResultDraft();if($('modal').open)$('modal').close();if(opener?.isConnected)opener.focus();}
 function fail(message){if($('dialogError')&&$('modal').open){$('dialogError').textContent=message;$('dialogError').hidden=false;}else if($('roomError')){$('roomError').textContent=message;$('roomError').hidden=false;}else toast(message);}
 function joinFeedback(message){if($('modal').open)return fail(message);const feedback=$('joinError');if(feedback){feedback.textContent=message;feedback.hidden=false;}else toast(message);}
 function intro(title,description){return `<div class='practical-intro'><div><p class='eyebrow'>FIFA GO · ENTRE AMIGOS</p><h1>${title}</h1><p class='muted'>${description}</p></div></div>`;}
@@ -92,7 +98,7 @@ function summaries(){return `<div class='summary-grid'><div><small>DISPONÍVEL</
 function identity(){
  const p=profile();
  if(!p)return `<aside class='card arena-sidebar pad'><h2>Seu próximo rival está aqui.</h2><p class='muted'>Crie seu perfil e receba seu ID Fifa GO para encontrar amigos.</p><button class='btn primary wide' data-action='signup'>Criar conta</button><p class='meta'>${online?'Sua conta começa com saldo zero. Pagamentos em configuração.':'Demonstração local com saldo inicial zero e créditos fictícios.'}</p></aside>`;
- return `<aside class='card arena-sidebar pad'><div class='row'>${avatar(p)}<div><strong>${esc(p.nickname)}</strong><p class='meta'>${esc(M.clubById(p.clubId)?.name||'Escolha seu time no perfil')}</p></div></div><p class='form-label'>Seu ID Fifa GO</p><div class='player-id'><code>${esc(p.publicPlayerId)}</code><button class='btn secondary small' data-action='copy-id'>Copiar</button></div><p class='meta'>Envie seu ID para um amigo te desafiar.</p><div class='divider'></div><ol class='step-list'><li>${friendlyMode()?'Combine o modo e as regras.':'Combine créditos e regras.'}</li><li>Seu rival aceita o convite.</li><li>Envie o placar com uma foto.</li><li>${online?"A equipe revisa e libera os créditos.":"A revisão da equipe funciona na versão conectada."}</li></ol><button class='text-button' data-action='profile'>Editar perfil</button></aside>`;
+ return `<aside class='card arena-sidebar pad'><div class='row'>${avatar(p)}<div><strong>${esc(p.nickname)}</strong><p class='meta'>${esc(M.clubById(p.clubId)?.name||'Escolha seu time no perfil')}</p></div></div><p class='form-label'>Seu ID Fifa GO</p><div class='player-id'><code>${esc(p.publicPlayerId)}</code><button class='btn secondary small' data-action='copy-id'>Copiar</button></div><p class='meta'>Envie seu ID para um amigo te desafiar.</p><div class='divider'></div><ol class='step-list'><li>${friendlyMode()?'Combine o modo e as regras.':'Combine créditos e regras.'}</li><li>Seu rival aceita o convite.</li><li>Envie o placar com uma foto.</li><li>${online?(friendlyMode()?"A equipe revisa e registra o resultado.":"A equipe revisa e libera os créditos."):"A revisão da equipe funciona na versão conectada."}</li></ol><button class='text-button' data-action='profile'>Editar perfil</button></aside>`;
 }
 function resetDuelDraft(owner=profile()?.id||null){ui.duelOwner=owner;ui.duelStep=1;ui.duelRevision++;ui.duelOperation='';ui.duelError='';ui.rival='';ui.mode='1v1';ui.platform='pc';ui.stake=friendlyMode()?'0':'100';ui.rules='';foundPlayer=null;}
 function updateDuelDraft(values){
@@ -208,13 +214,13 @@ function roomView(){
  if(!participant)return `<section class='card pad'><a class='text-button muted' href='#revisao'>← Voltar à revisão</a><h1>${esc(d.host.nickname)} × ${esc(d.guest.nickname)}</h1><p class='muted'>${esc(names[d.status])}</p>${d.result?`<p class='score-pair'>${score(d)}</p><img class='review-image' src='${esc(photoUrl(d.result))}' alt='Foto do resultado enviada para revisão'>`:''}${issuesContent(d)}${economicsContent(d)}</section>`;
  const closed=!open(d),playerRow=(player,id)=>{const paid=funded.includes(id),label=!d.stake?'Sem créditos':closed?paid?(d.status==='settled'&&!roomDraw(d)?'Reserva liquidada':'Créditos devolvidos'):'Sem reserva realizada':paid?'Parte reservada':d.status==='invited'?'Reserva após entrar na sala':'Aguardando a própria reserva';return `<div class='room-player'>${avatar(player)}<div><strong>${esc(player.nickname)}${id===p.id?` <span class='meta'>· você</span>`:''}</strong><span class='meta'>${label}</span></div><span class='room-player-value'>${d.stake?`${fmt(d.stake)} <small>créditos</small>`:'Amistosa'}</span></div>`;};
  let main='';
- if(d.status==='invited')main=`<div class='room-state'><h2>${incoming?'Confira o convite.':'Aguardando seu amigo entrar.'}</h2><p>${incoming?'Ao aceitar, você entra na sala. Cada jogador confirma a própria parte antes de jogar.':'Envie o código ou o link. Cada jogador confirma a própria parte quando estiver na sala.'}</p><div class='duel-actions'>${incoming?btn('accept',d.id,newFunding?'Aceitar e entrar na sala':'Aceitar desafio',true)+btn('decline',d.id,'Recusar'):actions(d)}</div></div>`;
+ if(d.status==='invited')main=`<div class='room-state'><h2>${incoming?'Confira o convite.':'Aguardando seu amigo entrar.'}</h2><p>${!d.stake?(incoming?'Ao aceitar, você entra na sala para jogar esta amistosa sem créditos.':'Envie o código ou o link. Seu amigo aceita pelo próprio perfil, sem créditos.'):(incoming?'Ao aceitar, você entra na sala. Cada jogador confirma a própria parte antes de jogar.':'Envie o código ou o link. Cada jogador confirma a própria parte quando estiver na sala.')}</p><div class='duel-actions'>${incoming?btn('accept',d.id,newFunding?'Aceitar e entrar na sala':'Aceitar desafio',true)+btn('decline',d.id,'Recusar'):actions(d)}</div></div>`;
  else if(d.status==='awaiting_funds'){
   const enough=p.balance>=d.stake,canFund=backendStatus?.paymentsAvailable&&backendStatus.paymentMode===d.creditMode;
   main=`<div class='room-state'><h2>${ownFunded?'Sua parte está pronta.':'Confirme sua parte para jogar.'}</h2><p>${ownFunded?'Aguardando seu amigo reservar a parte dele. A sala inicia quando as duas reservas estiverem confirmadas.':`Cada participante reserva ${fmt(d.stake)} ${duelUnit(d)} da própria conta. Nenhum jogador confirma pelo outro.`}</p>${ownFunded?`<p class='room-waiting' role='status'>Aguardando a reserva do rival...</p>`:!canFund?`<p class='hint'>A reserva está indisponível na configuração atual dos pagamentos. Atualize a sala ou solicite o cancelamento.</p>`:enough?`<form data-form='fund' data-id='${esc(d.id)}' data-owner='${esc(p.id)}' data-stake='${d.stake}'><p class='meta'>Seu saldo disponível: ${fmt(p.balance)} ${creditUnit()}.</p><button class='btn primary room-main-action' type='submit'>Reservar meus ${fmt(d.stake)} créditos</button></form>`:`<p class='hint'>Você tem ${fmt(p.balance)} créditos disponíveis. Faltam ${fmt(d.stake-p.balance)} para reservar sua parte.</p>${backendStatus?.paymentMode==='pix_manual'?btn('deposit',d.id,'Comprar créditos via Pix',true):btn('deposit',d.id,'Adicionar créditos de teste',true)}`}<button class='text-button muted' data-action='cancel' data-id='${esc(d.id)}'>Pedir cancelamento</button></div>`;
  }
  else if(d.status==='active')main=`<div class='room-state room-live'><p class='room-live-status' role='status'><span aria-hidden='true'></span>Partida em andamento...</p><h2>Boa partida, ${esc(p.nickname)}.</h2><p>Joguem no EA SPORTS FC. Volte aqui quando a partida terminar para fotografar o placar.</p><button class='btn primary room-main-action' data-action='result' data-id='${esc(d.id)}'>Partida encerrada</button>${online?`<button class='text-button muted room-issue-action' data-action='issue' data-id='${esc(d.id)}'>Sinalizar um problema</button>`:`<p class='meta'>Demonstração local: fotos e placar ficam neste navegador.</p>`}</div>`;
- else if(['review','disputed'].includes(d.status))main=`<div class='room-state'><h2>${d.status==='disputed'?'Resultado contestado.':'Resultado aguardando revisão.'}</h2><p>${d.peerConfirmed?'Seu rival confirmou o placar. A equipe ainda precisa revisar a foto.':'Confira o placar e a foto. A decisão da equipe registra o resultado e libera o prêmio.'}</p><div class='duel-actions'>${d.result?.submittedBy!==p.id&&d.status==='review'?(!d.peerConfirmed?btn('confirm',d.id,'Confirmar placar',true):'')+btn('dispute',d.id,'Sinalizar divergência'):''}${d.status==='disputed'?btn('result',d.id,'Enviar novo placar',true):''}</div></div>`;
+ else if(['review','disputed'].includes(d.status))main=`<div class='room-state'><h2>${d.status==='disputed'?'Resultado contestado.':'Resultado aguardando revisão.'}</h2><p>${d.peerConfirmed?'Seu rival confirmou o placar. A equipe ainda precisa revisar a foto.':d.stake?'Confira o placar e a foto. A decisão da equipe registra o resultado e libera o prêmio.':'Confira o placar e a foto. A equipe revisa e registra o resultado desta amistosa.'}</p><div class='duel-actions'>${d.result?.submittedBy!==p.id&&d.status==='review'?(!d.peerConfirmed?btn('confirm',d.id,'Confirmar placar',true):'')+btn('dispute',d.id,'Sinalizar divergência'):''}${d.status==='disputed'?btn('result',d.id,'Enviar novo placar',true):''}</div></div>`;
  else main=`<div class='room-state'><h2>${esc(resultText(d))}</h2><p>${d.status==='settled'?d.stake?'A equipe registrou a decisão e a distribuição dos créditos.':'A equipe registrou o resultado desta amistosa.':'Confira o histórico e a situação desta partida.'}</p></div>`;
  const cancel=!closed&&d.cancelRequestedBy?`<div class='hint'>Cancelamento solicitado. Os dois precisam concordar.<div class='duel-actions'>${d.cancelRequestedBy!==p.id?btn('cancel',d.id,'Confirmar cancelamento')+btn('withdraw-cancel',d.id,'Recusar cancelamento'):btn('withdraw-cancel',d.id,'Retirar pedido')}</div></div>`:'';
  return `<section class='match-room' aria-labelledby='roomTitle'><a class='text-button muted' href='#arena'>← Voltar ao início</a><div class='room-heading'><div><h1 id='roomTitle'>Sala da partida</h1><p class='muted'><code>${esc(matchCode(d))}</code> · ${esc(d.mode)} · ${esc(({pc:'PC',playstation:'PlayStation',xbox:'Xbox',switch:'Nintendo Switch'})[d.platform]||'PC')}</p></div><button class='text-button' data-action='refresh'>Atualizar</button></div><div class='room-layout'><div class='room-play'><div class='room-participants'>${playerRow(d.host,d.hostId)}${playerRow(d.guest,d.guestId)}</div>${cancel}${main}${d.result?`<figure class='room-result'><figcaption><strong>${esc(d.host.nickname)} ${d.result.homeScore} × ${d.result.awayScore} ${esc(d.guest.nickname)}</strong><span class='meta'>Foto enviada por um participante · resultado ${d.status==='settled'?'revisado':closed?'encerrado':'em análise'}</span></figcaption><img class='review-image' src='${esc(photoUrl(d.result))}' alt='Foto do placar enviada para esta partida'></figure>`:''}${reportHistory(d)}${issuesContent(d)}${(d.disputes||[d.dispute].filter(Boolean)).map(x=>`<p class='hint'>Divergência: ${esc(x.reason)}</p>`).join('')}${d.review?`<p class='hint'>Decisão da equipe: ${esc(d.review.reason)}</p>`:''}<p id='roomError' class='error-message' role='alert' hidden></p></div><aside class='room-summary'><h2>${d.stake?(d.status==='settled'?'Liquidação da partida':closed?'Devolução dos créditos':'Valores da partida'):'Partida amistosa'}</h2>${economicsContent(d)}${d.rules?`<div class='room-rules'><h3>Regras combinadas</h3><p>${esc(d.rules)}</p></div>`:''}<p class='meta'>A foto ajuda a conferir o resultado. O Fifa GO não acessa o histórico do jogo automaticamente.</p></aside></div></section>`;
@@ -504,11 +510,12 @@ function inviteNotice(message){modal('Confira seu convite',message,`<p class='hi
 async function showInvite(){
  const token=invite?.token,code=invite?.code;
  if(!invite||(!token&&!code)||(token&&!/^[A-Za-z0-9_-]{43}$/.test(token))||(code&&!/^FG-[A-F0-9]{10}$/.test(code)))return inviteNotice(inviteErrors.invite_invalid);
- const owner=profile()?.id;
+ const owner=profile()?.id,context=modalRevision;
  if(!owner&&!code)return modal('Você recebeu um desafio','Entre ou crie sua conta Fifa GO para ver e aceitar o convite.',`<button class='btn primary wide' data-action='signup'>Criar conta</button><button class='btn secondary wide' data-action='login' style='margin-top:12px'>Já tenho conta</button>`);
  if(owner&&duels().some(d=>d.hostId===owner&&(token?d.inviteToken===token:matchCode(d)===code)))return inviteNotice(inviteErrors.invite_own);
- let data;try{data=code?await API.getInviteCode(code):await API.getInvite(token);}catch(e){return inviteNotice(inviteErrors[e.code]||e.message);}
- if(profile()?.id!==owner||invite?.token!==token||invite?.code!==code)return;
+ const current=()=>profile()?.id===owner&&invite?.token===token&&invite?.code===code&&modalRevision===context;
+ let data;try{data=code?await API.getInviteCode(code):await API.getInvite(token);}catch(e){if(!current())return;return inviteNotice(inviteErrors[e.code]||e.message);}
+ if(!current())return;
  const d=data.invite;if(d.status!=='invited')return inviteNotice(inviteErrors[d.status==='expired'?'invite_expired':d.status==='cancelled'?'invite_cancelled':'invite_already_accepted']);
  if(d.expiresAt&&Date.parse(d.expiresAt)<=Date.now())return inviteNotice(inviteErrors.invite_expired);
  invite={...(code?{code}:{token}),...(owner?{owner}:{})};
@@ -571,7 +578,7 @@ async function execute(action,id){
  if(action==='result')return showResult(id);
  if(action==='dispute')return showDispute(id);
  if(action==='select-profile'){save(M.change(read(),'login',{id}));ui.rival='';foundPlayer=null;walletData=null;closeModal();render();return continueIntent();}
- if(action==='logout'){if(online){await API.logoutAccount();arena=null;}else localChange('logout');adminPanel?.reset();walletData=null;pendingIntent=null;closeModal();render();return;}
+ if(action==='logout'){arenaSyncRevision++;if(online){await API.logoutAccount();arena=null;}else localChange('logout');adminPanel?.reset();walletData=null;pendingIntent=null;closeModal();render();return;}
  if(action==='copy-code')return copy(id,online?'Convite copiado. Pronto para compartilhar.':'Código copiado. Use no perfil convidado deste navegador.');
  if(action==='refresh'){await refresh();return toast('Arena atualizada.');}
  if(action==='retry')return start();
@@ -643,6 +650,7 @@ document.addEventListener('submit',async event=>{
  busy=true;if(submit)submit.disabled=true;
  if(serviceUnavailable)throw Error('A conexão com a arena está indisponível. Tente novamente em instantes.');
  if(['signup','login','onboarding'].includes(kind)){
+  arenaSyncRevision++;
   if(submit){submit.textContent=kind==='signup'?'Criando conta…':kind==='onboarding'?'Concluindo cadastro…':'Entrando…';submit.setAttribute?.('aria-busy','true');}
   if(online){
    const details={nickname:data.get('nickname').trim(),countryCode:data.get('countryCode'),acceptedTerms:data.get('acceptedTerms')==='yes',termsVersion:form.dataset.terms};
@@ -748,7 +756,7 @@ setInterval(async()=>{
  try{const latest=await API.getArena();if(profile()?.id===owner&&latest.user?.id===owner&&ui.view==='sala'&&ui.roomId===room&&renderRevision===revision&&!busy&&!$('modal').open&&!document.hidden){arena=latest;render();if(action){const control=[...$('screen').querySelectorAll('[data-action]')].find(x=>x.dataset.action===action&&x.dataset.id===actionId);control?.focus({preventScroll:true});}}}catch{}finally{roomPollRunning=false;}
 },8000);
 async function start(){
- serviceUnavailable=false;backendStatus=await API.detectBackend();online=!!backendStatus;
+ arenaSyncRevision++;serviceUnavailable=false;backendStatus=await API.detectBackend();online=!!backendStatus;
  if(!online&&productionHost()){serviceUnavailable=true;arena=null;closeModal();render();return;}
  if(online){const session=await API.loadSession();arena=session.user?await API.getArena():null;}else save();
  const url=new URL(location.href),auth=url.searchParams.get('auth'),authError=url.searchParams.get('auth_error'),token=url.searchParams.get('convite');

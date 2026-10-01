@@ -5,6 +5,7 @@ import vm from 'node:vm';
 import crypto from 'node:crypto';
 import * as M from './model.mjs';
 import {createAdminPanel, adminIcon} from './admin-panel.mjs';
+import {accountArt, accountIcon} from './account-art.mjs';
 
 const source = fs.readFileSync(new URL('./play.js', import.meta.url), 'utf8');
 const settle = () => new Promise(resolve => setImmediate(resolve));
@@ -25,7 +26,7 @@ async function harness({sessionUser = null, arenaUser = sessionUser, loginUser =
       addEventListener(name, callback) {this[name] = callback;}
     };
   }
-  const document = {getElementById: node, activeElement: null, addEventListener(name, callback) {listeners[name] = callback;}};
+  const document = {getElementById: id => id === 'roomError' ? null : node(id), activeElement: null, addEventListener(name, callback) {listeners[name] = callback;}};
   const API = {
     async detectBackend() {return online ? {available: true, paymentsAvailable: false, authProviders: {google: {available: true}}} : null;},
     async loadSession() {calls.push('session'); return {user: sessionUser};},
@@ -37,11 +38,11 @@ async function harness({sessionUser = null, arenaUser = sessionUser, loginUser =
   };
   const sessionStorage = storage(session);
   const context = {
-    M, API, adminIcon, createAdminPanel: options => createAdminPanel({...options, storage: sessionStorage}),
+    M, API, adminIcon, accountArt, accountIcon, createAdminPanel: options => createAdminPanel({...options, storage: sessionStorage}),
     document, location, localStorage: storage(stored), sessionStorage, URL, crypto, console,
     window: {addEventListener(name, callback) {windowListeners[name] = callback;}, scrollTo() {}},
     history: {replaceState(_state, _title, value) {const next = new URL(value, location.href); Object.assign(location, {href: next.href, hash: next.hash, pathname: next.pathname, origin: next.origin});}},
-    setTimeout() {return 1;}, clearTimeout() {},
+    setTimeout() {return 1;}, clearTimeout() {}, setInterval() {return 2;}, clearInterval() {},
     FormData: class {constructor(form) {this.fields = form.fields;} get(key) {return this.fields[key] ?? null;}}
   };
   vm.createContext(context);
@@ -57,7 +58,7 @@ async function harness({sessionUser = null, arenaUser = sessionUser, loginUser =
   async function login() {
     await click('login');
     const button = {disabled: false, isConnected: true, setAttribute() {}, removeAttribute() {}};
-    const form = {dataset: {form: 'login'}, fields: {nickname: 'Jogador', password: 'a secure passphrase'}, querySelector: () => button};
+    const form = {dataset: {form: 'login'}, fields: {nickname: 'Jogador', password: 'a secure passphrase'}, elements: {nickname: {value: 'Jogador'}, password: {value: 'a secure passphrase'}}, querySelectorAll: () => [], querySelector: () => button};
     await listeners.submit({preventDefault() {}, target: {closest: () => form}});
     await settle();
   }

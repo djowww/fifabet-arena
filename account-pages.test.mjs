@@ -1,0 +1,257 @@
+import test from 'node:test';
+import assert from 'node:assert/strict';
+import fs from 'node:fs';
+import vm from 'node:vm';
+import crypto from 'node:crypto';
+import {mkdtemp, rm} from 'node:fs/promises';
+import {tmpdir} from 'node:os';
+import {join, resolve, basename} from 'node:path';
+import * as M from './model.mjs';
+import {COUNTRY_CODES, TERMS_VERSION} from './account-policy.mjs';
+import {createAdminPanel, adminIcon} from './admin-panel.mjs';
+import {accountArt, accountIcon} from './account-art.mjs';
+import {createArenaServer} from './backend/server.mjs';
+
+// Exercise the actual production route controller with server-owned fixtures.
+// DOM layout and touch behavior are checked separately in the browser preview.
+const source = fs.readFileSync(new URL('./play.js', import.meta.url), 'utf8');
+const settle = () => new Promise(resolve => setImmediate(resolve));
+const user = {id: 'account-a', nickname: 'Cado', publicPlayerId: 'FG-PLAYER0001', balance: 777, countryCode: 'BR', isAdmin: false, isReviewer: false};
+const opponent = {id: 'account-b', nickname: 'Rival', publicPlayerId: 'FG-PLAYER0002'};
+const status = {available: true, apiVersion: 1, paymentMode: 'unconfigured', paymentsAvailable: false, realMoney: false};
+const wallet = {balance: 0, reserved: 0, paymentMode: 'unconfigured', paymentsAvailable: false, transactions: [], deposits: []};
+const deferred = () => {let resolve, reject; const promise = new Promise((yes, no) => {resolve = yes; reject = no;}); return {promise, resolve, reject};};
+const plain = html => html.replace(/<[^>]*>/g, ' ').replace(/\s+/g, ' ');
+const duel = (overrides = {}) => ({id: 'private-match-a', publicMatchId: 'FG-1234567890', hostId: user.id, guestId: opponent.id, host: {...user}, guest: {...opponent}, mode: '1v1', platform: 'playstation', stake: 100, status: 'completed', createdAt: '2026-10-01T12:00:00.000Z', winnerId: user.id, result: {id: 'private-result', reporterId: user.id, homeScore: 3, awayScore: 1, evidenceId: 'private-photo'}, ...overrides});
+
+async function harness({sessionUser = {...user}, backendStatus = status, arena = {}, api = {}, route = 'arena'} = {}) {
+  const nodes = {}, listeners = {}, windowListeners = {}, calls = [], copies = [];
+  const stored = new Map([[M.STORAGE_KEY, JSON.stringify(M.emptyState())]]), session = new Map();
+  const storage = map => ({getItem: key => map.get(key) ?? null, setItem: (key, value) => map.set(key, String(value)), removeItem: key => map.delete(key)});
+  const location = {href: `https://betfifa.com.br/#${route}`, hash: `#${route}`, pathname: '/', origin: 'https://betfifa.com.br'};
+  let signedIn = !!sessionUser;
+  function node(id) {
+    return nodes[id] ??= {id, innerHTML: '', textContent: '', value: '', hidden: false, open: false, disabled: false, isConnected: true, dataset: {},
+      classList: {add() {}, remove() {}, toggle() {}}, focus() {document.activeElement = this;}, setSelectionRange() {},
+      showModal() {this.open = true;}, close() {this.open = false;}, contains() {return false;}, closest() {return null;}, removeAttribute() {}, querySelector() {return null;}, querySelectorAll() {return [];},
+      addEventListener(event, callback) {this[event] = callback;}};
+  }
+  const document = {activeElement: null, hidden: false, getElementById: id => id === 'roomError' ? null : node(id), querySelector: () => null,
+    addEventListener(event, callback) {listeners[event] = callback;}};
+  const API = {
+    async detectBackend() {return backendStatus;}, async loadSession() {return {user: sessionUser};},
+    async getArena() {calls.push('arena'); return {user: signedIn ? sessionUser : null, duels: [], history: [], stats: {reserved: 0}, ...arena};},
+    async getWallet() {calls.push('wallet'); return wallet;}, async getLeaderboard() {calls.push('ranking'); return {entries: []};},
+    async logoutAccount() {signedIn = false;}, evidenceUrl: id => `/api/v1/evidence/${id}`, depositEvidenceUrl: id => `/api/v1/deposit-evidence/${id}`,
+    ...api
+  };
+  const sessionStorage = storage(session);
+  const context = {M, API, COUNTRY_CODES, TERMS_VERSION, accountArt, accountIcon, adminIcon, createAdminPanel: options => createAdminPanel({...options, storage: sessionStorage}),
+    document, location, URL, crypto, Intl, console, localStorage: storage(stored), sessionStorage,
+    navigator: {clipboard: {async writeText(value) {copies.push(value);}}},
+    window: {addEventListener(event, callback) {windowListeners[event] = callback;}, scrollTo() {}},
+    history: {replaceState(_state, _title, value) {const next = new URL(value, location.href); Object.assign(location, {href: next.href, hash: next.hash, pathname: next.pathname});}},
+    setTimeout() {return 1;}, clearTimeout() {}, setInterval() {return 2;}, clearInterval() {}
+  };
+  vm.createContext(context);
+  vm.runInContext(source.replace(/^import .*?;\r?\n/gm, '').replace(/\nstart\(\)\.catch\(/, '\nglobalThis.__boot=start().catch('), context);
+  await context.__boot;
+  await settle();
+  async function routeTo(name, {wait = true} = {}) {
+    location.hash = `#${name}`; location.href = `${location.origin}${location.pathname}${location.hash}`;
+    windowListeners.hashchange(); if (wait) await settle();
+  }
+  async function click(action, id) {
+    const button = {dataset: {action, id}, disabled: false, isConnected: true};
+    await listeners.click({preventDefault() {}, target: {closest: selector => selector === '.skip-link' ? null : button}});
+    await settle();
+  }
+  async function search(value) {
+    const field = node('historySearch'); field.value = value; field.selectionStart = value.length;
+    listeners.input({target: field}); await settle();
+  }
+  async function input(id, value) {
+    const field = node(id); field.value = value;
+    listeners.input({target: field}); await settle();
+  }
+  async function filter(value) {
+    const field = node('historyStatus'); field.value = value; field.closest = () => null;
+    await listeners.change({target: field}); await settle();
+  }
+  return {nodes, calls, copies, location, routeTo, click, search, input, filter, html: () => nodes.screen.innerHTML};
+}
+
+test('anonymous account pages never request a private wallet or ranking', async () => {
+  const h = await harness({sessionUser: null});
+  for (const page of ['carteira', 'historico', 'ranking', 'perfil']) {
+    await h.routeTo(page);
+    assert.doesNotMatch(h.html(), /Cado|FG-PLAYER0001|777|private-photo/);
+    assert.equal(h.nodes.breadcrumb.textContent, {carteira: 'Carteira', historico: 'Histórico', ranking: 'Ranking', perfil: 'Meu perfil'}[page]);
+  }
+  assert.deepEqual(h.calls, []);
+});
+
+test('wallet presents server balances and keeps purchased, reserved and pending amounts distinct', async () => {
+  const h = await harness({route: 'carteira', api: {async getWallet() {return {...wallet, balance: 321, reserved: 78, deposits: [
+    {id: 'pending-order', amount: 125, method: 'pix', status: 'review', paymentMode: 'pix_manual', createdAt: '2026-10-01T12:00:00Z'},
+    {id: 'old-demo', amount: 999, method: 'pix', status: 'pending', paymentMode: 'demo', createdAt: '2026-10-01T12:00:00Z'}
+  ]};}}});
+  const text = plain(h.html());
+  assert.match(text, /321/); assert.match(text, /78/); assert.match(text, /125/);
+  assert.doesNotMatch(text, /777/);
+  assert.doesNotMatch(h.html(), /data-action='deposit'/);
+});
+
+test('an unconfigured wallet does not offer payment generation or invent credits and packages', async () => {
+  const h = await harness({route: 'carteira'});
+  assert.match(plain(h.html()), /zero|zerado|configuração/);
+  assert.doesNotMatch(h.html(), /data-action='deposit'|R\$\s*10|Simular aprovação|dados de cartão/);
+  await h.click('deposit');
+  assert.match(plain(h.nodes.modalContent.innerHTML), /configuração|desativada/);
+  assert.doesNotMatch(h.nodes.modalContent.innerHTML, /data-form='deposit'/);
+});
+
+test('a Pix mode flag alone never enables purchases without availability and a catalog', async () => {
+  for (const config of [{paymentsAvailable: false, catalog: [{amount: 100, priceCents: 1000}]}, {paymentsAvailable: true, catalog: []}]) {
+    const h = await harness({route: 'carteira', backendStatus: {...status, paymentMode: 'pix_manual', ...config}, api: {
+      async getWallet() {return {...wallet, paymentMode: 'pix_manual', ...config};}
+    }});
+    assert.doesNotMatch(h.html(), /data-action='deposit'/);
+  }
+});
+
+test('wallet loading cannot replace another route when its request resolves late', async () => {
+  const wait = deferred(), h = await harness({api: {getWallet: () => wait.promise}});
+  await h.routeTo('carteira', {wait: false}); assert.match(h.html(), /role='status'/);
+  await h.routeTo('perfil'); const profileHTML = h.html();
+  wait.resolve({...wallet, balance: 923}); await settle();
+  assert.equal(h.html(), profileHTML); assert.equal(h.location.hash, '#perfil');
+});
+
+test('wallet errors are escaped and retry returns to the same account page', async () => {
+  let attempts = 0;
+  const h = await harness({route: 'carteira', api: {async getWallet() {if (++attempts === 1) throw Error('<img src=x onerror=alert(1)> indisponível'); return {...wallet, balance: 432};}}});
+  assert.match(h.html(), /&lt;img/); assert.doesNotMatch(h.html(), /<img src=x onerror/);
+  assert.match(h.html(), /data-action='refresh'/);
+  await h.click('refresh'); assert.equal(h.location.hash, '#carteira'); assert.match(plain(h.html()), /432/); assert.equal(attempts, 2);
+});
+
+test('history displays participant results using public match identifiers and escapes rival names', async () => {
+  const match = duel({guest: {...opponent, nickname: '<img src=x onerror=alert(1)>'}});
+  const h = await harness({route: 'historico', arena: {history: [match]}});
+  assert.match(h.html(), /FG-1234567890/); assert.match(plain(h.html()), /3 × 1/);
+  assert.match(h.html(), /&lt;img/); assert.doesNotMatch(h.html(), /<img src=x onerror/);
+  assert.doesNotMatch(h.html(), /private-photo|private-result|evidence\/private/);
+  assert.match(h.html(), /data-action='details'/);
+});
+
+test('history filters retain the selected category without changing stored outcomes', async () => {
+  const completed = duel(), review = duel({id: 'review-match', publicMatchId: 'FG-2222222222', status: 'pending_review'});
+  const h = await harness({route: 'historico', arena: {history: [completed], duels: [review]}});
+  await h.filter('review'); assert.match(h.html(), /data-id='review-match'/); assert.doesNotMatch(h.html(), /data-id='private-match-a'/);
+  await h.filter('settled'); assert.match(h.html(), /data-id='private-match-a'/); assert.doesNotMatch(h.html(), /data-id='review-match'/);
+  assert.equal(completed.status, 'completed'); assert.equal(review.status, 'pending_review');
+});
+
+test('history finds a public match code and clearing filters restores every permitted match', async () => {
+  const completed = duel(), review = duel({id: 'review-match', publicMatchId: 'FG-2222222222', status: 'pending_review'});
+  const h = await harness({route: 'historico', arena: {history: [completed], duels: [review]}});
+  await h.search('fg-1234567890');
+  assert.match(h.html(), /data-id='private-match-a'/); assert.doesNotMatch(h.html(), /data-id='review-match'/);
+  await h.filter('review'); assert.doesNotMatch(h.html(), /data-id='private-match-a'|data-id='review-match'/);
+  await h.click('clear-history'); assert.match(h.html(), /data-id='private-match-a'/); assert.match(h.html(), /data-id='review-match'/);
+});
+
+test('ranking uses approved server entries and never exposes private account fields', async () => {
+  const rankingPlayer = {...opponent, nickname: '<script>alert(1)</script>', email: 'private@example.test', balance: 55555};
+  const h = await harness({route: 'ranking', api: {async getLeaderboard() {return {entries: [{player: rankingPlayer, played: 7, wins: 4, draws: 2, losses: 1}]};}}});
+  assert.match(h.html(), /&lt;script&gt;/); assert.doesNotMatch(h.html(), /<script>|private@example.test|55555|BiaGoals|LeoPlay/);
+  assert.match(h.html(), /FG-PLAYER0002/); assert.match(plain(h.html()), /7/); assert.match(plain(h.html()), /4/);
+});
+
+test('empty ranking remains an honest empty state and supports a recoverable load failure', async () => {
+  let attempts = 0;
+  const h = await harness({route: 'ranking', api: {async getLeaderboard() {if (++attempts === 1) throw Error('Ranking temporariamente indisponível.'); return {entries: []};}}});
+  assert.match(h.html(), /data-action='refresh'/); assert.match(h.html(), /indisponível/);
+  await h.click('refresh'); assert.equal(h.location.hash, '#ranking'); assert.match(plain(h.html()), /primeira|ainda|Nenhum/i);
+  assert.doesNotMatch(h.html(), /BiaGoals|LeoPlay|18 vitórias/);
+});
+
+test('profile displays and copies only the public player ID and preserves useful account controls', async () => {
+  const h = await harness({route: 'perfil', sessionUser: {...user, email: 'private@example.test', oauthSubject: 'secret-subject', nickname: '<b>Cado</b>'}});
+  assert.match(h.html(), /&lt;b&gt;Cado&lt;\/b&gt;/); assert.match(h.html(), /FG-PLAYER0001/);
+  assert.doesNotMatch(h.html(), /private@example.test|secret-subject/);
+  for (const action of ['profile', 'copy-id', 'logout']) assert.match(h.html(), new RegExp(`data-action='${action}'`));
+  await h.click('copy-id'); assert.deepEqual(h.copies, ['FG-PLAYER0001']); assert.match(h.nodes.toast.textContent, /copiado/i);
+});
+
+test('logging out while the wallet loads prevents rendering the former account balance', async () => {
+  const wait = deferred(), h = await harness({api: {getWallet: () => wait.promise}});
+  await h.routeTo('carteira', {wait: false}); await h.click('logout');
+  wait.resolve({...wallet, balance: 654321}); await settle();
+  assert.doesNotMatch(h.html(), /654321|Cado|FG-PLAYER0001/);
+  assert.match(h.html(), /data-action='signup'|data-action='login'/);
+});
+
+test('an unfinished OAuth profile cannot load private account pages until onboarding is completed', async () => {
+  const h = await harness({sessionUser: {...user, needsOnboarding: true}});
+  for (const page of ['carteira', 'historico', 'ranking', 'perfil']) {
+    await h.routeTo(page); assert.match(h.html(), /data-action='complete-signup'/); assert.doesNotMatch(h.html(), /777|private-photo/);
+  }
+  assert.deepEqual(h.calls, ['arena']);
+});
+
+test('late ranking failure cannot overwrite a page opened while the ranking was loading', async () => {
+  const wait = deferred(), h = await harness({api: {getLeaderboard: () => wait.promise}});
+  await h.routeTo('ranking', {wait: false}); assert.match(h.html(), /role='status'/);
+  await h.routeTo('historico'); const historyHTML = h.html();
+  wait.reject(Error('Resposta atrasada indisponível.')); await settle();
+  assert.equal(h.html(), historyHTML); assert.equal(h.location.hash, '#historico');
+});
+
+test('browsing account pages preserves the unfinished match draft without performing account writes', async () => {
+  const writes = [];
+  const rejectWrite = name => async () => {writes.push(name); throw Error('A page read attempted a write.');};
+  const h = await harness({route: 'criar', api: {
+    createDuel: rejectWrite('createDuel'), createDeposit: rejectWrite('createDeposit'), updateProfile: rejectWrite('updateProfile'),
+    addAdminCredits: rejectWrite('addAdminCredits'), submitResult: rejectWrite('submitResult')
+  }});
+  await h.input('rivalId', 'FG-FRIEND0001');
+  for (const page of ['carteira', 'historico', 'ranking', 'perfil']) await h.routeTo(page);
+  await h.routeTo('criar'); assert.match(h.html(), /value='FG-FRIEND0001'/); assert.deepEqual(writes, []);
+});
+
+test('account pages keep semantic headings, decorative art and labelled table columns', async () => {
+  const h = await harness({arena: {history: [duel()]}, api: {
+    async getWallet() {return {...wallet, transactions: [{date: '2026-10-01T12:00:00Z', label: 'Reserva da partida', amount: -100}]};},
+    async getLeaderboard() {return {entries: [{player: {...opponent}, played: 1, wins: 1, draws: 0, losses: 0}]};}
+  }});
+  for (const page of ['carteira', 'historico', 'ranking', 'perfil']) {
+    await h.routeTo(page);
+    assert.equal([...h.html().matchAll(/<h1\b/g)].length, 1);
+    assert.match(h.html(), /<svg class="account-art"[^>]*aria-hidden="true"[^>]*focusable="false"/);
+    assert.doesNotMatch(h.html(), /<iframe|<image\b|https:\/\/.*\.(?:png|jpg)/);
+    for (const header of h.html().matchAll(/<th\b([^>]*)>/g)) assert.match(header[1], /scope='col'/);
+  }
+  await h.routeTo('historico');
+  for (const field of ['historySearch', 'historyStatus']) assert.match(h.html(), new RegExp(`<label for='${field}'>`));
+});
+
+test('production HTTP serves the new account assets with correct types and keeps test sources private', async t => {
+  const dataDir = await mkdtemp(join(tmpdir(), 'fifago-account-pages-assets-'));
+  // Only the isolated directory created by this test is removed during teardown.
+  assert.ok(basename(resolve(dataDir)).startsWith('fifago-account-pages-assets-'));
+  const server = await createArenaServer({dataDir, paymentMode: 'unconfigured', env: {FIFABET_OCR_ENABLED: '0'}});
+  t.after(async () => {await server.close(); await rm(dataDir, {recursive: true, force: true});});
+  await new Promise(resolve => server.server.listen(0, '127.0.0.1', resolve));
+  const base = `http://127.0.0.1:${server.server.address().port}`;
+  for (const [file, type] of [['account-art.mjs', 'text/javascript'], ['account-pages.css', 'text/css']]) {
+    const response = await fetch(`${base}/${file}?v=1`);
+    assert.equal(response.status, 200); assert.match(response.headers.get('content-type'), new RegExp(type));
+    const body = await response.text(); assert.equal(body.replace(/\r\n/g, '\n'), fs.readFileSync(new URL(`./${file}`, import.meta.url), 'utf8').replace(/\r\n/g, '\n'));
+    assert.equal(response.headers.get('x-content-type-options'), 'nosniff');
+  }
+  const privateSource = await fetch(`${base}/account-pages.test.mjs`); assert.equal(privateSource.status, 404); await privateSource.text();
+  const home = await fetch(base); const homeHTML = await home.text();
+  assert.match(homeHTML, /href=["']account-pages\.css\?v=/);
+});

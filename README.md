@@ -6,6 +6,12 @@ Partidas entre amigos no EA SPORTS FC, com contas persistentes, IDs próprios do
 
 **Repositório:** https://github.com/djowww/fifabet-arena
 
+## Beta gratuito no celular
+
+O Fifa GO pode ser adicionado à tela inicial como um aplicativo web (PWA), pelo próprio domínio. Na página inicial, **Instalar no celular** mostra os passos para Android/Chrome e iPhone/Safari; navegadores compatíveis também podem oferecer **Instalar app**. Não é uma publicação na Google Play ou App Store e não exige a compra das contas dessas lojas.
+
+Contas, convites, carteira e fotos exigem internet. O service worker guarda somente ícones, manifesto e uma tela genérica sem conexão; não guarda respostas da API, perfis, saldos ou evidências privadas. Para o beta público, use cadastro por apelido e senha: o Google OAuth ainda pode limitar o acesso aos testadores autorizados. Consulte [publicação mobile](docs/PUBLICACAO-MOBILE.md).
+
 A estrutura de publicação usa HTTPS em `betfifa.com.br`, pelo VPS e pelo proxy da zona exclusiva do domínio na Cloudflare, com registro do domínio na Hostinger. O Fifa GO tem usuário, serviço, runtime Node.js, pasta de código e dados próprios. O Nginx encaminha somente o host `betfifa.com.br` à porta interna `127.0.0.1:4174`. A atualização com SQLite e login social exige implantação e conferência da versão entregue pelo domínio; esta documentação descreve a arquitetura, sem confirmar que a atualização já foi instalada. Serviços, arquivos, domínios e regras de firewall do Tibia devem permanecer preservados.
 
 Alguns resolvedores podem manter o destino anterior do GitHub Pages em cache durante a propagação. Nesse caso, a API pode retornar 404. No domínio de produção `betfifa.com.br`/`www.betfifa.com.br`, a interface exibe indisponibilidade e bloqueia cadastro/carteira locais até restabelecer a conexão; não cria contas ou saldos fictícios como alternativa. Não alterar os nameservers novamente para contornar esse cache.

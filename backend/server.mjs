@@ -355,8 +355,9 @@ export async function createArenaServer(options={}){
     for(const [one,two]of [[user.id,duel.hostId],[duel.hostId,user.id]])if(!draft.users[one].friends.includes(two))draft.users[one].friends.push(two);
     return duelView(draft,duel,user);
   }
-  const mimeTypes={'.html':'text/html; charset=utf-8','.js':'text/javascript; charset=utf-8','.mjs':'text/javascript; charset=utf-8','.css':'text/css; charset=utf-8','.png':'image/png','.jpg':'image/jpeg','.webp':'image/webp','.svg':'image/svg+xml'};
+  const mimeTypes={'.html':'text/html; charset=utf-8','.js':'text/javascript; charset=utf-8','.mjs':'text/javascript; charset=utf-8','.css':'text/css; charset=utf-8','.png':'image/png','.jpg':'image/jpeg','.webp':'image/webp','.svg':'image/svg+xml','.webmanifest':'application/manifest+json; charset=utf-8'};
   const publicFiles=new Set([
+    'manifest.webmanifest','sw.js','pwa.mjs','pwa.css','offline.html',
     'index.html','legal.html','colecao.html','bootstrap.js','app.js','play.js','backend-client.mjs','account-policy.mjs','model.mjs','clubs.mjs','football-trophies.mjs','rivalry-section.mjs','admin-panel.mjs','account-art.mjs','account-views.mjs','lobby-view.mjs','ui-icons.mjs',
     'styles.css','arena.css','shop.css','profile.css','achievements.css','rivalry.css','competitive-modes.css','practical.css','lobby.css','wizard.css','admin.css','account.css','account-pages.css','taste.css'
   ]);
@@ -857,7 +858,7 @@ export async function createArenaServer(options={}){
       }
       if(!['GET','HEAD'].includes(request.method))fail(405,'Método não permitido.');
       const path=url.pathname==='/'?'index.html':url.pathname.slice(1);
-      const asset=/^assets\/(avatars|brand|clubs|flags|kits|players|signatures|trophies)\/[a-z0-9-]+\.(png|jpg|webp|svg)$/.test(path);
+      const asset=/^assets\/(avatars|brand|clubs|flags|kits|players|signatures|trophies)\/[a-z0-9-]+\.(png|jpg|webp|svg)$/.test(path)||/^assets\/pwa\/icons-(192|512|maskable-512|apple-180)\.png$/.test(path);
       if(!publicFiles.has(path)&&!asset)fail(404,'Página não encontrada.');
       const body=await readFile(join(ROOT,path));
       response.writeHead(200,{'Content-Type':mimeTypes[extname(path)],'Content-Length':body.length});response.end(request.method==='HEAD'?undefined:body);

@@ -6,6 +6,6 @@ export function renderLobbyView({user,online,friendly,unit,hint,reserved,joinFor
  return '<div class="taste-home-title"><p>Entre amigos. Dentro do jogo.</p><span>EA SPORTS FC · jogo compatível</span></div>'+sessionNote+
  '<section class="taste-home-hero" aria-labelledby="createTitle"><img src="assets/brand/lobby-footballer-v1.png" alt="Ilustração original de jogador em movimento com uma bola em um estádio" width="1942" height="809" fetchpriority="high"><div class="taste-hero-copy"><p class="eyebrow">A sua arena</p><h1 id="createTitle">O próximo clássico<br>começa com <em>você.</em></h1><p>Chame um amigo. Combine as regras.<br>Resolva dentro de campo.</p><div class="taste-hero-actions"><button class="btn primary" data-action="create">Criar minha partida '+icon('arrow')+'</button><button class="text-button" data-action="help">Como funciona</button></div><div class="taste-hero-foot">'+icon('ball')+'<span>'+esc(footnote)+'</span></div></div><span class="taste-hero-edition">01 / Joga aí</span></section>'+
  '<section class="taste-invite-strip" aria-labelledby="joinTitle"><div>'+icon('copy')+'<div><h2 id="joinTitle">Já tem um convite?</h2><p>Confira o desafio antes de aceitar.</p></div></div>'+joinForm+'</section>'+
- (user?queue:'')+balance+
+ (user?queue:'')+balance+'<div id="installApp"></div>'+
  (user?'<div class="lobby-meta"><span>Seu ID <code>'+esc(user.publicPlayerId)+'</code> <button class="text-button" data-action="copy-id">'+icon('copy')+' Copiar</button></span><span>'+ (online?'Conta conectada':'Perfil neste navegador')+'</span></div>':'');
 }

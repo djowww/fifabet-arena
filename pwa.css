@@ -1,0 +1,46 @@
+.pwa-strip { display: flex; align-items: center; gap: 12px; padding: 14px 0; border-top: 1px solid var(--line-soft, #29362d); }
+.pwa-strip[hidden], .pwa-update[hidden], .pwa-help[hidden], #installApp[hidden] { display: none; }
+.pwa-mark { flex: 0 0 36px; width: 36px; height: 36px; border-radius: 9px; }
+.pwa-copy { flex: 1; min-width: 0; }
+.pwa-copy strong { display: block; color: var(--text, #f2f5ee); font-size: 13px; line-height: 1.45; font-weight: 650; }
+.pwa-copy p { margin: 3px 0 0; color: var(--muted, #b4c1b6); font-size: 12px; line-height: 1.5; }
+.pwa-button { flex: 0 0 auto; min-height: 44px; padding: 8px 12px; border: 1px solid var(--line, #34473a); border-radius: 9px; background: transparent; color: var(--text, #f2f5ee); font: 650 12px/1.4 var(--taste-body, "Segoe UI", Arial, sans-serif); cursor: pointer; touch-action: manipulation; -webkit-tap-highlight-color: transparent; user-select: none; -webkit-user-select: none; }
+.pwa-button:focus-visible { outline: 2px solid var(--lime, #73e8a7); outline-offset: 3px; }
+.pwa-button:active { background: var(--card2, #212c24); }
+.pwa-button:disabled { opacity: .6; cursor: wait; }
+.pwa-help { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 16px; padding: 8px 0 18px 48px; }
+.pwa-help h3 { margin: 0 0 6px; font-size: 13px; font-weight: 650; color: var(--text, #f2f5ee); }
+.pwa-help p { margin: 0; color: var(--muted, #b4c1b6); font-size: 12px; line-height: 1.75; }
+.pwa-first-access { grid-column: 1 / -1; }
+.pwa-status:empty { display: none; }
+.pwa-status { margin: 0 0 12px 48px; color: var(--muted, #b4c1b6); font-size: 12px; line-height: 1.5; }
+.pwa-update { display: flex; align-items: center; justify-content: space-between; gap: 14px; padding: 12px 0; border-top: 1px solid var(--line-soft, #29362d); }
+.pwa-update p { margin: 0; color: var(--muted, #b4c1b6); font-size: 12px; line-height: 1.6; }
+@media (hover: hover) and (pointer: fine) { .pwa-button:hover { background: var(--card2, #212c24); } }
+@media (max-width: 520px) {
+  .pwa-strip { display: grid; grid-template-columns: 36px minmax(0, 1fr); gap: 10px 12px; align-items: center; }
+  .pwa-copy strong, .pwa-copy p { font-size: 14px; }
+  .pwa-strip > .pwa-button { grid-column: 2; justify-self: start; }
+  .pwa-button { font-size: 14px; white-space: normal; }
+  .pwa-help { grid-template-columns: minmax(0, 1fr); gap: 14px; padding-left: 0; }
+  .pwa-help h3, .pwa-help p, .pwa-status, .pwa-update p { font-size: 14px; }
+  .pwa-status { margin-left: 0; }
+}
+/* The existing bottom navigation already includes its safe-area inset. */
+@media (display-mode: standalone) and (max-width: 820px) {
+  .taste-app .topbar {
+    padding-top: calc(12px + env(safe-area-inset-top, 0px));
+    padding-left: max(21px, env(safe-area-inset-left, 0px));
+    padding-right: max(21px, env(safe-area-inset-right, 0px));
+  }
+  .taste-app #screen, .taste-app .page-footer {
+    padding-left: max(21px, env(safe-area-inset-left, 0px));
+    padding-right: max(21px, env(safe-area-inset-right, 0px));
+  }
+}
+@media (display-mode: standalone) and (max-width: 480px) {
+  .taste-app .topbar, .taste-app #screen, .taste-app .page-footer {
+    padding-left: max(17px, env(safe-area-inset-left, 0px));
+    padding-right: max(17px, env(safe-area-inset-right, 0px));
+  }
+}

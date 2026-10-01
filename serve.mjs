@@ -14,6 +14,12 @@ function setSecurityHeaders(response) {
   response.setHeader("Content-Security-Policy", contentSecurityPolicy);
 }
 const files = new Map([
+  ["/manifest.webmanifest", ["manifest.webmanifest", "application/manifest+json; charset=utf-8"]],
+  ["/sw.js", ["sw.js", "text/javascript; charset=utf-8"]],
+  ["/pwa.mjs", ["pwa.mjs", "text/javascript; charset=utf-8"]],
+  ["/pwa.css", ["pwa.css", "text/css; charset=utf-8"]],
+  ["/offline.html", ["offline.html", "text/html; charset=utf-8"]],
+  ...['icons-192.png','icons-512.png','icons-maskable-512.png','icons-apple-180.png'].map(name=>[`/assets/pwa/${name}`, [`assets/pwa/${name}`, "image/png"]]),
   ["/", ["index.html", "text/html; charset=utf-8"]],
   ["/index.html", ["index.html", "text/html; charset=utf-8"]],
   ["/colecao.html", ["colecao.html", "text/html; charset=utf-8"]],

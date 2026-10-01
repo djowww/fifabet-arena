@@ -5,7 +5,11 @@ import vm from 'node:vm';
 import crypto from 'node:crypto';
 import * as M from './model.mjs';
 import {createAdminPanel, adminIcon} from './admin-panel.mjs';
-import {accountArt, accountIcon} from './account-art.mjs';
+import {COUNTRY_CODES, TERMS_VERSION} from './account-policy.mjs';
+import {accountArt} from './account-art.mjs';
+import {uiIcon} from './ui-icons.mjs';
+import {renderLobbyView} from './lobby-view.mjs';
+import {renderWalletView, renderHistoryView, renderRankingView, renderProfileView} from './account-views.mjs';
 
 const source = fs.readFileSync(new URL('./play.js', import.meta.url), 'utf8');
 const settle = () => new Promise(resolve => setImmediate(resolve));
@@ -18,15 +22,31 @@ async function harness({sessionUser = null, arenaUser = sessionUser, loginUser =
   const storage = map => ({getItem: key => map.get(key) ?? null, setItem: (key, value) => map.set(key, String(value)), removeItem: key => map.delete(key)});
   let authenticated = !!sessionUser;
   const parsed = new URL(url), location = {href: parsed.href, hash: parsed.hash, pathname: parsed.pathname, origin: parsed.origin};
-  function node(id) {
-    return nodes[id] ??= {
-      id, innerHTML: '', textContent: '', value: '', hidden: false, open: false, isConnected: true, disabled: false, dataset: {},
-      classList: {add() {}, remove() {}}, focus() {document.activeElement = this;},
-      showModal() {this.open = true;}, close() {this.open = false;},
-      addEventListener(name, callback) {this[name] = callback;}
+  function element(tagName = 'div', attributes = {}) {
+    let markup = '', children = [];
+    const attrs = new Map(Object.entries(attributes)), result = {
+      id: attributes.id || '', tagName: tagName.toUpperCase(), textContent: '', value: '', hidden: Object.hasOwn(attributes, 'hidden'), open: false, isConnected: true, disabled: false, dataset: {},
+      classList: {add() {}, remove() {}, toggle() {}}, focus() {document.activeElement = this;},
+      showModal() {this.open = true;}, close() {this.open = false;}, closest() {return null;},
+      setAttribute(name, value) {attrs.set(name, String(value));}, getAttribute(name) {return attrs.get(name) ?? null;}, removeAttribute(name) {attrs.delete(name);},
+      remove() {this.isConnected = false; if (nodes[this.id] === this) delete nodes[this.id];}, scrollIntoView() {},
+      querySelector(selector) {return this.querySelectorAll(selector)[0] ?? null;},
+      querySelectorAll(selector) {return children.filter(child => selector.startsWith('.') ? (child.getAttribute('class') || '').split(/\s+/).includes(selector.slice(1)) : child.tagName.toLowerCase() === selector);},
+      insertAdjacentHTML(position, html) {
+        assert.equal(position, 'afterend'); const opening = html.match(/^<div\b([^>]*)>/); assert.ok(opening);
+        const panel = element('div', readAttributes(opening[1])); nodes[panel.id] = panel; panel.innerHTML = html.slice(opening[0].length, -6);
+      }, addEventListener(name, callback) {this[name] = callback;}
     };
+    for (const [name, value] of attrs) if (name.startsWith('data-')) result.dataset[name.slice(5).replace(/-([a-z])/g, (_match, letter) => letter.toUpperCase())] = value;
+    Object.defineProperty(result, 'innerHTML', {get: () => markup, set(value) {
+      markup = String(value); children.forEach(child => {child.isConnected = false;});
+      children = [...markup.matchAll(/<(a|button)\b([^>]*)>/g)].map(([, tag, attributes]) => element(tag, readAttributes(attributes)));
+    }});
+    return result;
   }
-  const document = {getElementById: id => id === 'roomError' ? null : node(id), activeElement: null, addEventListener(name, callback) {listeners[name] = callback;}};
+  function readAttributes(markup) {return Object.fromEntries([...markup.matchAll(/([\w-]+)(?:=(?:'([^']*)'|"([^"]*)"))?/g)].map(([, name, single, double]) => [name, single ?? double ?? '']));}
+  function node(id) {return nodes[id] ??= element('div', {id});}
+  const document = {getElementById: id => ['roomError', 'mobileMoreNav'].includes(id) ? nodes[id] ?? null : node(id), activeElement: null, querySelector: () => null, addEventListener(name, callback) {listeners[name] = callback;}};
   const API = {
     async detectBackend() {return online ? {available: true, paymentsAvailable: false, authProviders: {google: {available: true}}} : null;},
     async loadSession() {calls.push('session'); return {user: sessionUser};},
@@ -38,7 +58,7 @@ async function harness({sessionUser = null, arenaUser = sessionUser, loginUser =
   };
   const sessionStorage = storage(session);
   const context = {
-    M, API, adminIcon, accountArt, accountIcon, createAdminPanel: options => createAdminPanel({...options, storage: sessionStorage}),
+    M, API, COUNTRY_CODES, TERMS_VERSION, adminIcon, accountArt, uiIcon, renderLobbyView, renderWalletView, renderHistoryView, renderRankingView, renderProfileView, createAdminPanel: options => createAdminPanel({...options, storage: sessionStorage}),
     document, location, localStorage: storage(stored), sessionStorage, URL, crypto, console,
     window: {addEventListener(name, callback) {windowListeners[name] = callback;}, scrollTo() {}},
     history: {replaceState(_state, _title, value) {const next = new URL(value, location.href); Object.assign(location, {href: next.href, hash: next.hash, pathname: next.pathname, origin: next.origin});}},
@@ -52,7 +72,7 @@ async function harness({sessionUser = null, arenaUser = sessionUser, loginUser =
   await settle();
   async function click(action, id) {
     const button = {dataset: {action, id}, disabled: false, isConnected: true};
-    await listeners.click({preventDefault() {}, target: {closest: selector => selector === '.skip-link' ? null : button}});
+    await listeners.click({preventDefault() {}, target: {closest: selector => selector === '[data-action]' ? button : null}});
     await settle();
   }
   async function login() {
@@ -62,7 +82,7 @@ async function harness({sessionUser = null, arenaUser = sessionUser, loginUser =
     await listeners.submit({preventDefault() {}, target: {closest: () => form}});
     await settle();
   }
-  return {nodes, location, calls, click, login};
+  return {nodes, document, listeners, location, calls, click, login};
 }
 
 const privateCalls = calls => calls.filter(call => typeof call === 'string' && call.startsWith('admin-'));
@@ -141,4 +161,32 @@ test('a forged local admin profile cannot query the private panel without a serv
   assert.match(h.nodes.screen.innerHTML, /Painel restrito à administração/);
   assert.doesNotMatch(h.nodes.navigation.innerHTML, /href='#admin'/);
   assert.deepEqual(h.calls, []);
+});
+
+test('the inline More menu exposes only server-authorized role links and Escape restores focus', async () => {
+  for (const [sessionUser, expected] of [[ordinary, []], [{...ordinary, isReviewer: true}, ['#perfil', '#revisao']], [administrator, ['#perfil', '#admin']]]) {
+    const h = await harness({sessionUser, url: 'https://example.test/#perfil'});
+    const button = h.nodes.navigation.querySelector('.nav-more'), panel = h.nodes.mobileMoreNav;
+    assert.equal(!!button, expected.length > 0); assert.equal(!!panel, expected.length > 0);
+    if (!panel) {assert.doesNotMatch(h.nodes.navigation.innerHTML, /href='#admin'|href='#revisao'/); continue;}
+    assert.equal(panel.hidden, true); assert.equal(panel.getAttribute('role'), 'navigation');
+    assert.equal(button.getAttribute('aria-controls'), panel.id); assert.equal(button.getAttribute('aria-expanded'), 'false');
+    assert.deepEqual(panel.querySelectorAll('a').map(link => link.getAttribute('href')), expected);
+    await h.click('nav-more'); assert.equal(panel.hidden, false); assert.equal(button.getAttribute('aria-expanded'), 'true');
+    assert.equal(h.document.activeElement, panel.querySelector('a'));
+    let prevented = false; h.listeners.keydown({key: 'Escape', preventDefault() {prevented = true;}});
+    assert.equal(prevented, true); assert.equal(panel.hidden, true); assert.equal(button.getAttribute('aria-expanded'), 'false'); assert.equal(h.document.activeElement, button);
+    await h.click('nav-more'); await h.click('refresh');
+    assert.equal(panel.isConnected, false); assert.equal(h.nodes.mobileMoreNav.hidden, true); assert.equal(h.nodes.navigation.querySelector('.nav-more').getAttribute('aria-expanded'), 'false');
+    assert.deepEqual(privateCalls(h.calls), []);
+  }
+});
+
+test('refresh removes the More menu when the server no longer authorizes the privileged role', async () => {
+  const role = {...administrator}, h = await harness({sessionUser: role, url: 'https://example.test/#perfil'});
+  const panel = h.nodes.mobileMoreNav; await h.click('nav-more'); assert.equal(panel.hidden, false);
+  role.isAdmin = false; role.isReviewer = false; await h.click('refresh');
+  assert.equal(panel.isConnected, false); assert.equal(h.nodes.mobileMoreNav, undefined); assert.equal(h.nodes.navigation.querySelector('.nav-more'), null);
+  assert.doesNotMatch(h.nodes.navigation.innerHTML, /href='#admin'|href='#revisao'/); assert.deepEqual(privateCalls(h.calls), []);
+  await h.click('nav-more'); assert.equal(h.nodes.mobileMoreNav, undefined);
 });

@@ -9,7 +9,10 @@ import {join, resolve, basename} from 'node:path';
 import * as M from './model.mjs';
 import {COUNTRY_CODES, TERMS_VERSION} from './account-policy.mjs';
 import {createAdminPanel, adminIcon} from './admin-panel.mjs';
-import {accountArt, accountIcon} from './account-art.mjs';
+import {accountArt} from './account-art.mjs';
+import {uiIcon} from './ui-icons.mjs';
+import {renderLobbyView} from './lobby-view.mjs';
+import {renderWalletView, renderHistoryView, renderRankingView, renderProfileView} from './account-views.mjs';
 import {createArenaServer} from './backend/server.mjs';
 
 // Exercise the actual production route controller with server-owned fixtures.
@@ -30,13 +33,40 @@ async function harness({sessionUser = {...user}, backendStatus = status, arena =
   const storage = map => ({getItem: key => map.get(key) ?? null, setItem: (key, value) => map.set(key, String(value)), removeItem: key => map.delete(key)});
   const location = {href: `https://betfifa.com.br/#${route}`, hash: `#${route}`, pathname: '/', origin: 'https://betfifa.com.br'};
   let signedIn = !!sessionUser;
-  function node(id) {
-    return nodes[id] ??= {id, innerHTML: '', textContent: '', value: '', hidden: false, open: false, disabled: false, isConnected: true, dataset: {},
+  function element(tagName = 'div', attributes = {}) {
+    let markup = '', children = [];
+    const attributesMap = new Map(Object.entries(attributes)), element = {tagName: tagName.toUpperCase(), id: attributes.id || '', textContent: '', value: '', hidden: Object.hasOwn(attributes, 'hidden'), open: false, disabled: false, isConnected: true, dataset: {},
       classList: {add() {}, remove() {}, toggle() {}}, focus() {document.activeElement = this;}, setSelectionRange() {},
-      showModal() {this.open = true;}, close() {this.open = false;}, contains() {return false;}, closest() {return null;}, removeAttribute() {}, querySelector() {return null;}, querySelectorAll() {return [];},
+      showModal() {this.open = true;}, close() {this.open = false;}, contains(target) {return children.includes(target);}, closest() {return null;},
+      setAttribute(name, value) {attributesMap.set(name, String(value));}, getAttribute(name) {return attributesMap.get(name) ?? null;}, removeAttribute(name) {attributesMap.delete(name);},
+      remove() {this.isConnected = false; if (nodes[this.id] === this) delete nodes[this.id];},
+      scrollIntoView(options) {this.scrollOptions = options;},
+      querySelector(selector) {return this.querySelectorAll(selector)[0] ?? null;},
+      querySelectorAll(selector) {return children.filter(child => selector.startsWith('.') ? (child.getAttribute('class') || '').split(/\s+/).includes(selector.slice(1)) : child.tagName.toLowerCase() === selector);},
+      insertAdjacentHTML(position, html) {
+        assert.equal(position, 'afterend');
+        const opening = html.match(/^<div\b([^>]*)>/); assert.ok(opening, 'the sibling menu is a div');
+        const panel = elementForTag('div', opening[1]); nodes[panel.id] = panel; panel.innerHTML = html.slice(opening[0].length, -6);
+      },
       addEventListener(event, callback) {this[event] = callback;}};
+    for (const [name, value] of attributesMap) if (name.startsWith('data-')) element.dataset[name.slice(5).replace(/-([a-z])/g, (_match, letter) => letter.toUpperCase())] = value;
+    Object.defineProperty(element, 'innerHTML', {get: () => markup, set(value) {
+      markup = String(value); children.forEach(child => {child.isConnected = false;});
+      children = [...markup.matchAll(/<(a|button)\b([^>]*)>/g)].map(([, tag, attrs]) => elementForTag(tag, attrs));
+      if (this.id === 'screen') {
+        nodes.queueTitle?.remove();
+        const heading = markup.match(/<h2\b([^>]*\bid=['"]queueTitle['"][^>]*)>/);
+        if (heading) nodes.queueTitle = elementForTag('h2', heading[1]);
+      }
+    }});
+    return element;
   }
-  const document = {activeElement: null, hidden: false, getElementById: id => id === 'roomError' ? null : node(id), querySelector: () => null,
+  function readAttributes(markup) {
+    return Object.fromEntries([...markup.matchAll(/([\w-]+)(?:=(?:'([^']*)'|"([^"]*)"))?/g)].map(([, name, single, double]) => [name, single ?? double ?? '']));
+  }
+  function elementForTag(tag, markup) {return element(tag, readAttributes(markup));}
+  function node(id) {return nodes[id] ??= element('div', {id});}
+  const document = {activeElement: null, hidden: false, getElementById: id => ['roomError', 'mobileMoreNav', 'queueTitle'].includes(id) ? nodes[id] ?? null : node(id), querySelector: () => null,
     addEventListener(event, callback) {listeners[event] = callback;}};
   const API = {
     async detectBackend() {return backendStatus;}, async loadSession() {return {user: sessionUser};},
@@ -46,7 +76,7 @@ async function harness({sessionUser = {...user}, backendStatus = status, arena =
     ...api
   };
   const sessionStorage = storage(session);
-  const context = {M, API, COUNTRY_CODES, TERMS_VERSION, accountArt, accountIcon, adminIcon, createAdminPanel: options => createAdminPanel({...options, storage: sessionStorage}),
+  const context = {M, API, COUNTRY_CODES, TERMS_VERSION, accountArt, uiIcon, renderLobbyView, renderWalletView, renderHistoryView, renderRankingView, renderProfileView, adminIcon, createAdminPanel: options => createAdminPanel({...options, storage: sessionStorage}),
     document, location, URL, crypto, Intl, console, localStorage: storage(stored), sessionStorage,
     navigator: {clipboard: {async writeText(value) {copies.push(value);}}},
     window: {addEventListener(event, callback) {windowListeners[event] = callback;}, scrollTo() {}},
@@ -63,7 +93,7 @@ async function harness({sessionUser = {...user}, backendStatus = status, arena =
   }
   async function click(action, id) {
     const button = {dataset: {action, id}, disabled: false, isConnected: true};
-    await listeners.click({preventDefault() {}, target: {closest: selector => selector === '.skip-link' ? null : button}});
+    await listeners.click({preventDefault() {}, target: {closest: selector => selector === '[data-action]' ? button : null}});
     await settle();
   }
   async function search(value) {
@@ -78,7 +108,7 @@ async function harness({sessionUser = {...user}, backendStatus = status, arena =
     const field = node('historyStatus'); field.value = value; field.closest = () => null;
     await listeners.change({target: field}); await settle();
   }
-  return {nodes, calls, copies, location, routeTo, click, search, input, filter, html: () => nodes.screen.innerHTML};
+  return {nodes, document, listeners, calls, copies, location, routeTo, click, search, input, filter, html: () => nodes.screen.innerHTML};
 }
 
 test('anonymous account pages never request a private wallet or ranking', async () => {
@@ -231,10 +261,41 @@ test('account pages keep semantic headings, decorative art and labelled table co
     assert.equal([...h.html().matchAll(/<h1\b/g)].length, 1);
     assert.match(h.html(), /<svg class="account-art"[^>]*aria-hidden="true"[^>]*focusable="false"/);
     assert.doesNotMatch(h.html(), /<iframe|<image\b|https:\/\/.*\.(?:png|jpg)/);
-    for (const header of h.html().matchAll(/<th\b([^>]*)>/g)) assert.match(header[1], /scope='col'/);
+    for (const tableHead of h.html().matchAll(/<thead\b[^>]*>([\s\S]*?)<\/thead>/g)) {
+      const headers = [...tableHead[1].matchAll(/<th\b([^>]*)>/g)]; assert.ok(headers.length > 0);
+      for (const header of headers) assert.match(header[1], /scope='col'/);
+    }
+    for (const tableBody of h.html().matchAll(/<tbody\b[^>]*>([\s\S]*?)<\/tbody>/g)) {
+      for (const header of tableBody[1].matchAll(/<th\b([^>]*)>/g)) assert.match(header[1], /scope='row'/);
+    }
   }
   await h.routeTo('historico');
   for (const field of ['historySearch', 'historyStatus']) assert.match(h.html(), new RegExp(`<label for='${field}'>`));
+});
+
+test('activity shortcuts count actual incoming and active matches and focus the matching queue', async () => {
+  const incoming = duel({id: 'incoming-a', publicMatchId: 'FG-INCOMING01', status: 'invited', hostId: opponent.id, host: {...opponent}, guestId: user.id, guest: {...user}, result: null});
+  const sent = duel({id: 'sent-a', publicMatchId: 'FG-OUTGOING01', status: 'invited', result: null});
+  const active = duel({id: 'active-a', publicMatchId: 'FG-ACTIVE0001', status: 'in_progress', result: null});
+  const review = duel({id: 'review-a', publicMatchId: 'FG-REVIEW0001', status: 'pending_review'});
+  const h = await harness({arena: {duels: [incoming, sent, active, review], history: [duel()]}});
+  const shortcuts = () => Object.fromEntries([...h.html().matchAll(/<button\b([^>]*)>([\s\S]*?)<\/button>/g)].flatMap(([, attrs, content]) => {
+    const attributes = Object.fromEntries([...attrs.matchAll(/([\w-]+)=['"]([^'"]*)['"]/g)].map(([, name, value]) => [name, value]));
+    return attributes['data-action'] === 'view-activity' ? [[attributes['data-id'], plain(content).trim()]] : [];
+  }));
+  assert.deepEqual(shortcuts(), {incoming: '1 convite recebido', active: '1 partida em andamento'});
+  await h.click('view-activity', 'incoming');
+  assert.match(h.html(), /data-id='incoming-a'/); assert.doesNotMatch(h.html(), /data-id='active-a'|data-id='sent-a'|data-id='review-a'|data-id='private-match-a'/);
+  assert.equal(h.document.activeElement, h.nodes.queueTitle); assert.equal(h.nodes.queueTitle.getAttribute('tabindex'), '-1');
+  assert.deepEqual(JSON.parse(JSON.stringify(h.nodes.queueTitle.scrollOptions)), {block: 'start', behavior: 'auto'});
+  await h.click('view-activity', 'active');
+  assert.match(h.html(), /data-id='active-a'/); assert.doesNotMatch(h.html(), /data-id='incoming-a'|data-id='sent-a'|data-id='review-a'/);
+  const filteredHTML = h.html(); await h.click('view-activity', 'settled'); assert.equal(h.html(), filteredHTML);
+  assert.deepEqual(shortcuts(), {incoming: '1 convite recebido', active: '1 partida em andamento'});
+  assert.deepEqual(h.calls, ['arena']); assert.equal(incoming.status, 'invited'); assert.equal(active.status, 'in_progress');
+  await h.routeTo('perfil'); const profileHTML = h.html(); await h.click('view-activity', 'incoming'); assert.equal(h.html(), profileHTML);
+  const anonymous = await harness({sessionUser: null, arena: {duels: [incoming, active]}});
+  assert.doesNotMatch(anonymous.html(), /data-action="view-activity"/); await anonymous.click('view-activity', 'incoming'); assert.equal(anonymous.nodes.queueTitle, undefined);
 });
 
 test('production HTTP serves the new account assets with correct types and keeps test sources private', async t => {

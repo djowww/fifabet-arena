@@ -4,7 +4,7 @@ import {COUNTRY_CODES,TERMS_VERSION} from './account-policy.mjs?v=1';
 import {createAdminPanel} from './admin-panel.mjs?v=2';
 import {accountArt} from './account-art.mjs?v=1';
 import {uiIcon} from './ui-icons.mjs?v=1';
-import {renderLobbyView} from './lobby-view.mjs?v=1';
+import {renderLobbyView} from './lobby-view.mjs?v=2';
 import {renderWalletView,renderHistoryView,renderRankingView,renderProfileView} from './account-views.mjs?v=1';
 const accountIcon=uiIcon;
 const $=id=>document.getElementById(id);
@@ -30,7 +30,7 @@ const runtimeCopy=html=>html;
 function runtimeLabels(){
  const label=serviceUnavailable?'INDISPONÍVEL':online?'ONLINE':'DEMO';
  for(const selector of ['.demo-side .pill','.mobile-brand small','.breadcrumb .pill']){const node=document.querySelector?.(selector);if(node)node.textContent=label;}
- const description=document.querySelector?.('.demo-side p');if(description)description.textContent=serviceUnavailable?'A conexão com a arena precisa ser restabelecida.':online?backendStatus?.paymentMode==='demo'?'Conta conectada. Créditos de teste, sem valor financeiro.':backendStatus?.paymentsAvailable?'Conta conectada. Créditos comprados via Pix e confirmados pela equipe.':'Conta e partidas conectadas. Pagamentos em configuração.':'Demonstração local com créditos fictícios, sem valor financeiro.';
+ const description=document.querySelector?.('.demo-side p');if(description)description.textContent=serviceUnavailable?'A conexão com a arena precisa ser restabelecida.':online?backendStatus?.paymentMode==='demo'?'Créditos de teste, sem valor financeiro.':backendStatus?.paymentsAvailable?'Créditos via Pix, com confirmação da equipe.':'Pagamentos em configuração.':'Demonstração local com créditos fictícios, sem valor financeiro.';
 }
 const open=d=>['invited','awaiting_funds','active','review','disputed'].includes(d.status);
 const btn=(action,id,label,primary=false)=>`<button class='btn ${primary?'primary':'secondary'}' data-action='${action}' data-id='${esc(id)}'>${label}</button>`;
@@ -88,11 +88,28 @@ function accountEmpty(kind,title,description,actions=''){return `<section class=
 function accountGuest(kind,title,description){return `<div class='account-page'>${accountIntro(kind,title,description)}${accountEmpty('lock','Sua conta, seu jogo.','Entre para ver seus dados ou crie uma conta para receber seu ID Fifa GO.',`<button class='btn primary' data-action='login'>Entrar na minha conta</button><button class='text-button' data-action='signup'>Criar conta</button>`)}</div>`;}
 function header(){
  const p=profile(),items=[['arena','Início',uiIcon('home')],['carteira','Carteira',accountIcon('wallet')],['historico','Histórico',accountIcon('history')],['ranking','Ranking',accountIcon('ranking')],['perfil','Meu perfil',accountIcon('profile')]];
- if(p?.isReviewer&&!p?.isAdmin)items.push(['revisao','Revisão',uiIcon('check')]);
+ if(online&&p?.isReviewer&&!p?.isAdmin)items.push(['revisao','Revisão',uiIcon('check')]);
  if(online&&p?.isAdmin)items.push(['admin','Admin',uiIcon('shield')]);
- $('navigation').innerHTML=items.map(([hash,label,symbol])=>`<a class='nav-item ${ui.view===hash?'active':''}' href='#${hash}' ${ui.view===hash?`aria-current='page'`:''}><span aria-hidden='true'>${symbol}</span><span>${label}</span></a>`).join('');
+ const extraItems=items.length>5?items.slice(4):[],extraViews=extraItems.map(([hash])=>hash),navigation=$('navigation');
+ const link=([hash,label,symbol],extra=false)=>`<a class='nav-item ${extra?'nav-mobile-extra ':''}${ui.view===hash?'active':''}' href='#${hash}' ${ui.view===hash?`aria-current='page'`:''}><span aria-hidden='true'>${symbol}</span><span>${label}</span></a>`;
+ closeMoreNav();$('mobileMoreNav')?.remove();
+ navigation.innerHTML=items.map(item=>link(item,extraViews.includes(item[0]))).join('')+(extraItems.length?`<button type='button' class='nav-item nav-more ${extraViews.includes(ui.view)?'active':''}' data-action='nav-more' aria-label='Mais opções de navegação' aria-controls='mobileMoreNav' aria-expanded='false'><span aria-hidden='true'>${uiIcon('menu')}</span><span>Mais</span></button>`:'');
+ if(extraItems.length)navigation.insertAdjacentHTML('afterend',`<div id='mobileMoreNav' class='mobile-more-nav' role='navigation' aria-label='Mais opções' hidden>${extraItems.map(item=>link(item)).join('')}</div>`);
  $('breadcrumb').textContent=ui.view==='sala'?'Sala da partida':ui.view==='admin'?'Administração':items.find(([hash])=>ui.view===hash)?.[1]||(ui.view==='criar'?'Criar partida':ui.view==='revisao'?'Revisão':'Início');
- $('headerActions').innerHTML=p?`<span class='meta'>${online?'Conta conectada':'Neste navegador'}</span><button class='profile-button' data-action='profile' aria-label='Abrir perfil de ${esc(p.nickname)}'>${avatar(p,'small')}<span>${esc(p.nickname)}</span></button>`:`<button class='btn secondary' data-action='login'>Entrar</button><button class='text-button header-signup' data-action='signup'>Criar conta</button>`;
+ $('headerActions').innerHTML=p?`<button class='profile-button' data-action='profile' aria-label='Abrir perfil de ${esc(p.nickname)}'>${avatar(p,'small')}<span class='profile-name' title='${esc(p.nickname)}'>${esc(p.nickname)}</span></button>`:`<button class='btn secondary' data-action='login'>Entrar</button><button class='text-button header-signup' data-action='signup'>Criar conta</button>`;
+}
+function closeMoreNav(returnFocus=false){
+ const panel=$('mobileMoreNav');
+ if(!panel)return;
+ const button=$('navigation')?.querySelector('.nav-more');
+ panel.hidden=true;button?.setAttribute('aria-expanded','false');
+ if(returnFocus)button?.focus({preventScroll:true});
+}
+function toggleMoreNav(){
+ const p=profile(),panel=$('mobileMoreNav'),button=$('navigation')?.querySelector('.nav-more');
+ if(!online||(!p?.isAdmin&&!p?.isReviewer)||!panel||!button)return;
+ const expanded=panel.hidden;panel.hidden=!expanded;button.setAttribute('aria-expanded',String(expanded));
+ if(expanded)panel.querySelector('a')?.focus({preventScroll:true});
 }
 function summaries(){return `<div class='summary-grid'><div><small>DISPONÍVEL</small><strong>${fmt(profile()?.balance||0)} <small>pts</small></strong></div><div><small>EM DISPUTA</small><strong>${fmt(reserved())} <small>pts</small></strong></div><div><small>DESAFIOS ABERTOS</small><strong>${duels().filter(open).length}</strong></div></div>`;}
 function identity(){
@@ -152,11 +169,11 @@ function composer(){
 }
 function actions(d){
  const p=profile(),host=d.hostId===p?.id;if(!p||(!host&&d.guestId!==p.id&&d.recipientId!==p.id))return '';
- if(d.status==='invited')return host?btn('copy-code',matchCode(d),'Copiar código',true)+(online&&d.inviteToken?btn('share',d.id,'Copiar link')+btn('share-native',d.id,'Compartilhar'):'')+btn('cancel',d.id,'Cancelar convite'):btn('accept-preview',d.id,'Ver e aceitar',true)+btn('decline',d.id,'Recusar');
+ if(d.status==='invited')return host?btn('copy-code',matchCode(d),'Copiar código',true)+(online&&d.inviteToken?btn('share',d.id,'Copiar link')+btn('share-native',d.id,'Compartilhar'):'')+btn('cancel',d.id,'Cancelar convite'):btn('accept-preview',d.id,'Conferir e aceitar',true)+btn('decline',d.id,'Recusar');
  if(d.status==='awaiting_funds')return btn('room',d.id,'Entrar na sala',true);
  if(d.cancelRequestedBy&&(!online||d.status==='active'))return d.cancelRequestedBy!==p.id?btn('cancel',d.id,'Confirmar cancelamento')+btn('withdraw-cancel',d.id,'Recusar cancelamento'):btn('withdraw-cancel',d.id,'Retirar pedido de cancelamento');
  if(d.status==='active'){
-  return btn('room',d.id,'Entrar na sala',true);
+  return btn('room',d.id,'Continuar partida',true);
  }
  if(['review','disputed'].includes(d.status))return btn('room',d.id,'Ver placar e foto')+(d.result?.submittedBy!==p.id&&!d.peerConfirmed&&d.status==='review'?btn('confirm',d.id,'Confirmar placar',true):'')+(d.result?.submittedBy!==p.id&&d.status==='review'?btn('dispute',d.id,'Sinalizar divergência'):'')+(d.status==='disputed'?btn('result',d.id,'Enviar novo placar'):'');
  return btn('details',d.id,'Ver detalhes');
@@ -167,7 +184,7 @@ function queue(){
  const list=all.filter(d=>ui.filter==='all'||(ui.filter==='incoming'?incoming(d):ui.filter==='review'?['review','disputed'].includes(d.status):d.status===ui.filter)).sort((a,b)=>Number(incoming(b))-Number(incoming(a)));
  const filters=all.length?`<div class='tabs' role='group' aria-label='Filtrar convites e partidas'>${[['all','Todos'],['incoming',`Recebidos (${count})`],['invited','Convites'],['active','Em andamento'],['review','Em análise']].map(([v,label])=>`<button class='tab ${ui.filter===v?'active':''}' data-action='filter' data-id='${v}' aria-pressed='${ui.filter===v}'>${label}</button>`).join('')}</div>`:'';
  const empty=all.length?`<div class='card pad'><h3>Nenhuma partida nessa etapa.</h3><p class='muted'>Escolha outro filtro para consultar seus convites e partidas.</p></div>`:`<div class='lobby-empty-activity'><strong>Nenhum convite ou partida em andamento.</strong><p>Quando você receber ou criar um desafio, ele aparecerá aqui.</p></div>`;
- return `<section class='duel-queue lobby-queue' aria-labelledby='queueTitle'><div class='card-top'><h2 id='queueTitle'>Seu jogo continua</h2><button class='text-button' data-action='refresh'>Atualizar</button></div>${count?`<p class='queue-nudge'>${count===1?'Você recebeu um convite.':`Você recebeu ${count} convites.`} Confira as regras antes de aceitar.</p>`:''}${filters}${list.length?"<div class='taste-activity-grid'>"+list.map(duelCard).join('')+"</div>":empty}</section>`;
+ return `<section class='duel-queue lobby-queue' aria-labelledby='queueTitle'><div class='card-top'><h2 id='queueTitle' tabindex='-1'>Seu jogo continua</h2><button class='text-button' data-action='refresh'>Atualizar</button></div>${count?`<p class='queue-nudge'>${count===1?'Você recebeu um convite.':`Você recebeu ${count} convites.`} Confira as regras antes de aceitar.</p>`:''}${filters}${list.length?"<div class='taste-activity-grid'>"+list.map(duelCard).join('')+"</div>":empty}</section>`;
 }
 function joinForm(dialog=false){const id=dialog?'dialogJoinCode':'joinCode';return `<form data-form='join' class='join-form'><label class='form-label' for='${id}'>Código ou link de convite</label><input class='form-input' id='${id}' name='code' maxlength='1024' value='${esc(ui.joinCode||'')}' required placeholder='Ex.: FG-0123456789 ou cole o link' autocomplete='off' spellcheck='false' ${!dialog?`aria-describedby='joinError'`:''}><button class='btn primary' type='submit'>Conferir convite</button>${!dialog?`<p id='joinError' class='error-message' role='alert' hidden></p>`:''}</form>`;}
 function balanceHint(p){
@@ -177,8 +194,8 @@ function balanceHint(p){
 }
 
 function arenaView(){
- const p=profile();
- return renderLobbyView({user:p,online,friendly:friendlyMode(),unit:creditUnit(),hint:balanceHint(p),reserved:reserved(),joinForm:joinForm(),queue:p&&(online||duels().some(open))?queue():'',esc,fmt,icon:uiIcon});
+ const p=profile(),all=p?duels().filter(open):[],activitySummary={incoming:all.filter(d=>d.status==='invited'&&d.hostId!==p?.id).length,active:all.filter(d=>d.status==='active').length};
+ return renderLobbyView({user:p,online,friendly:friendlyMode(),unit:creditUnit(),hint:balanceHint(p),reserved:reserved(),joinForm:joinForm(),queue:p&&(online||all.length)?queue():'',activitySummary,esc,fmt,icon:uiIcon});
 }
 function createView(){
  return intro('Chame seu rival.','Escolha o amigo, combine as regras e confira o convite antes de enviar.')+"<a class='text-button taste-back' href='#arena'>Voltar ao início</a><div class='arena-workspace'>"+composer()+identity()+"</div>";
@@ -343,7 +360,7 @@ function render(){
  if(asyncView)asyncView().then(html=>{if(renderRevision===revision){$('screen').innerHTML=runtimeCopy(html);if(ui.view==='admin')administration().afterRender();}}).catch(e=>{if(renderRevision===revision)$('screen').innerHTML=accountKind?`<div class='account-page'>${accountIntro(accountKind,ui.view==='carteira'?'Sua carteira.':'Cada vitória conta.','Seus dados continuam na sua conta.')}<div role='alert'>${accountEmpty(accountKind,'Não foi possível carregar.',e.message,`<button class='btn secondary' data-action='refresh'>Tentar novamente</button>`)}</div></div>`:`<section class='card pad'><h2>Não foi possível carregar.</h2><p>${esc(e.message)}</p><button class='btn secondary' data-action='refresh'>Tentar novamente</button></section>`;});
 }
 function focusScreen(){ $('screen').focus({preventScroll:true}); }
-function go(view){history.replaceState(null,'',new URL('#'+view,location.href).href);closeModal();ui.filter='all';render();focusScreen();window.scrollTo({top:0});}
+function go(view){closeMoreNav();history.replaceState(null,'',new URL('#'+view,location.href).href);closeModal();ui.filter='all';render();focusScreen();window.scrollTo({top:0});}
 function accountPitch(){return `<svg class='account-pitch' viewBox='0 0 88 62' fill='none' aria-hidden='true'><rect x='1.5' y='1.5' width='85' height='59' rx='5'/><path d='M44 2v58M2 17h15v28H2m84-28H71v28h15'/><circle cx='44' cy='31' r='10'/><circle class='account-pitch-ball' cx='57' cy='40' r='3'/></svg>`;}
 const countryNames=new Intl.DisplayNames(['pt-BR'],{type:'region'});
 const countryOptions=selected=>`<option value=''>Selecione seu país</option>${COUNTRY_CODES.map(code=>({code,name:countryNames.of(code)||code})).sort((a,b)=>a.name.localeCompare(b.name,'pt-BR')).map(({code,name})=>`<option value='${code}' ${code===selected?'selected':''}>${esc(name)}</option>`).join('')}`;
@@ -525,10 +542,15 @@ async function showInvite(){
  modal('Você recebeu um desafio',d.host?.nickname?`${d.host.nickname} te chamou para jogar.`:'Confira a partida antes de aceitar.',`${summary}<p class='meta'>${d.stake===0?'Esta partida é amistosa, sem cobrança ou reserva de créditos.':d.fundingVersion===1?`Ao aceitar, você entra na sala. Depois, cada jogador confirma a reserva de ${fmt(d.stake)} ${duelUnit(d)} da própria conta.`:`Ao aceitar, ${fmt(d.stake)} ${duelUnit(d)} serão reservados.`} O resultado precisa da foto e revisão da equipe.</p>${enough?`<button class='btn primary wide' data-action='accept-invite'>Aceitar e entrar na sala</button>`:`<p class='hint'>Saldo insuficiente para este convite. ${backendStatus?.paymentsAvailable?'Compre créditos via Pix e aguarde a confirmação da equipe.':'A compra de créditos está em configuração.'}</p>${backendStatus?.paymentsAvailable?`<button class='btn primary wide' data-action='deposit'>Comprar créditos via Pix</button>`:`<button class='btn primary wide' disabled>Comprar créditos</button>`}<button class='btn secondary wide' data-action='view-invite'>Conferir convite novamente</button>`}<p class='meta invite-privacy'>Seu saldo, fotos e resultados ficam privados.</p>`);
 }
 async function execute(action,id){
+ if(action==='nav-more')return toggleMoreNav();
  if(action==='toggle-password'){const input=$('authPassword'),button=document.querySelector("[data-action='toggle-password']");if(!input||!button)return;const visible=input.type==='password';input.type=visible?'text':'password';button.textContent=visible?'Ocultar':'Mostrar';button.setAttribute('aria-label',visible?'Ocultar senha':'Mostrar senha');button.setAttribute('aria-pressed',String(visible));return;}
  if(action==='complete-signup')return showCompleteSignup();
  if(online&&profile()?.needsOnboarding&&!['logout','close','help','credits'].includes(action))return showCompleteSignup();
  if(action==='close')return closeModal();
+ if(action==='view-activity'){
+  if(!profile()||ui.view!=='arena'||!['incoming','active'].includes(id))return;
+  ui.filter=id;render();const title=$('queueTitle');title?.focus({preventScroll:true});title?.scrollIntoView({block:'start',behavior:'auto'});return;
+ }
  if(action.startsWith('admin-')){if(!online||!profile()?.isAdmin)throw Error('Entre com uma conta administradora para continuar.');return administration().handleAction(action,id);}
  if(serviceUnavailable&&!['retry','credits'].includes(action))throw Error('A conexão com a arena está indisponível. Tente novamente em instantes.');
  if(action==='oauth'){
@@ -609,9 +631,15 @@ async function execute(action,id){
 }
 document.addEventListener('click',async event=>{
  if(event.target.closest('.skip-link')){event.preventDefault();$('screen').focus();return;}
+ if(event.target.closest('.sidebar a[href]'))closeMoreNav();
  const button=event.target.closest('[data-action]');if(!button||busy)return;
+ if(button.dataset.action!=='nav-more')closeMoreNav();
  try{busy=true;button.disabled=true;await execute(button.dataset.action,button.dataset.id);}catch(e){fail(e.message);}finally{busy=false;if(button.isConnected)button.disabled=false;}
 });
+document.addEventListener('keydown',event=>{
+ if(event.key==='Escape'&&$('mobileMoreNav')&&!$('mobileMoreNav').hidden){event.preventDefault();closeMoreNav(true);}
+});
+window.matchMedia?.('(max-width: 820px)')?.addEventListener?.('change',event=>{if(!event.matches)closeMoreNav();});
 document.addEventListener('input',event=>{
  const t=event.target;
  if(t.closest('.account-form')){t.removeAttribute('aria-invalid');const feedback=$(t.id+'Error');if(feedback)feedback.hidden=true;if($('dialogError'))$('dialogError').hidden=true;}
@@ -745,7 +773,7 @@ document.addEventListener('submit',async event=>{
 });
 $('modal').addEventListener('cancel',event=>{event.preventDefault();closeModal();});
 $('modal').addEventListener('click',event=>{if(event.target===$('modal')){const r=$('modal').getBoundingClientRect();if(event.clientX<r.left||event.clientX>r.right||event.clientY<r.top||event.clientY>r.bottom)closeModal();}});
-window.addEventListener('hashchange',()=>{closeModal();ui.filter='all';render();focusScreen();window.scrollTo({top:0});});
+window.addEventListener('hashchange',()=>{closeMoreNav();closeModal();ui.filter='all';render();focusScreen();window.scrollTo({top:0});});
 window.addEventListener('storage',event=>{if(!online&&event.key===M.STORAGE_KEY){state=read();closeModal();render();}});
 window.addEventListener('focus',()=>{if(online&&!busy&&!$('modal').open)refresh().catch(()=>{});});
 let roomPollRunning=false;

@@ -81,33 +81,37 @@ html:has(body.taste-app) { scroll-padding-block: 92px; }
 .taste-app .avatar { border-radius: 10px; background: #29362d; }
 
 /* App shell: consistent rail, header and content width. */
-.taste-app .sidebar { width: 212px; padding: 28px 17px 24px; background: var(--side); background-image: none; border-color: var(--line-soft); overflow-y: auto; overscroll-behavior-y: contain; }
+.taste-app .sidebar { width: 212px; padding: 24px 17px 20px; background: var(--side); background-image: none; border-color: var(--line-soft); overflow: hidden; }
 .taste-app .sidebar > * { flex-shrink: 0; }
 .taste-app .shell { margin-left: 212px; min-width: 0; }
-.taste-app .brand { margin: 0 7px 42px; gap: 11px; font-family: var(--taste-display); font-size: 27px; letter-spacing: -.05em; }
+.taste-app .brand { margin: 0 7px 28px; gap: 11px; font-family: var(--taste-display); font-size: 27px; letter-spacing: -.04em; }
 .taste-app .brand > span:last-child { display: block; }
 .taste-app .brand-symbol { width: 35px; height: 41px; border-radius: 11px 4px 11px 4px; font-size: 31px; transform: none; }
 .taste-app .brand small { font-family: var(--taste-body); font-size: 11px; letter-spacing: .1em; color: var(--muted); margin-top: 8px; }
 .taste-app .nav-caption { display: block; font-size: 11px; color: #91a497; letter-spacing: .06em; margin: 0 12px 16px; }
-.taste-app .sidebar nav { display: grid; gap: 8px; }
+.taste-app .sidebar nav { display: grid; align-content: start; flex: 1 1 auto; min-height: 0; gap: 6px; overflow-y: auto; overscroll-behavior-y: contain; scrollbar-width: thin; scrollbar-color: var(--line) transparent; }
+.taste-app .sidebar .nav-item:focus-visible { outline-offset: -3px; }
+.taste-app :is(.nav-more, .mobile-more-nav, .mobile-help) { display: none; }
 .taste-app .nav-item { min-height: 49px; padding: 12px 13px; border: 0; border-radius: 9px; gap: 13px; justify-content: flex-start; flex-direction: row; color: #b0bdb3; font-size: 14px; transition: background 160ms ease, color 160ms ease; }
 .taste-app .nav-item > span { display: block; font-size: 14px; }
 .taste-app .nav-item > span:first-child { display: inline-flex; align-items: center; justify-content: center; width: 21px; flex: none; }
 .taste-app .nav-item :is(.icon, .account-icon, .ui-icon) { width: 21px; height: 21px; }
 .taste-app .nav-item.active { background: #223b2b; color: var(--lime); border-color: transparent; box-shadow: none; }
 .taste-app .nav-item:hover { background: #1a2b20; color: var(--text); }
-.taste-app .sidebar-bottom { display: block; margin-top: auto; padding-top: 44px; }
+.taste-app .sidebar-bottom { display: block; margin-top: auto; padding-top: 20px; }
 .taste-app .help-button { padding-inline: 13px; min-height: 44px; font-size: 14px; color: var(--muted); }
-.taste-app .demo-side { position: relative; border-color: var(--line-soft); padding: 23px 12px 0; }
+.taste-app .demo-side { position: relative; border-color: var(--line-soft); margin-top: 12px; padding: 12px 12px 0; }
 .taste-app .demo-side p { max-width: 150px; font-size: 12px; line-height: 1.65; color: #91a497; }
 .taste-app .topbar { min-height: 76px; padding: 14px 38px; background: var(--bg); border-color: var(--line-soft); backdrop-filter: none; gap: 20px; }
 .taste-app .breadcrumb { gap: 12px; font-size: 14px; }
 .taste-app .header-actions { gap: 15px; min-width: 0; }
 .taste-app .header-actions > .btn { min-height: 44px; padding: 10px 15px; font-size: 13px; }
 .taste-app .header-actions .profile-button { min-height: 44px; font-size: 14px; }
+.taste-app .header-actions .profile-button { min-width: 0; max-width: 100%; }
+.taste-app .header-actions .profile-button .profile-name { display: block; min-width: 0; max-width: 20ch; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .taste-app .header-actions .avatar { width: 37px; height: 40px; }
 .taste-app .header-actions > .meta { color: #91a497; font-size: 12px; }
-.taste-app .mobile-brand { display: none; }
+.taste-app .mobile-brand { display: none; flex-shrink: 0; }
 .taste-app #screen { width: 100%; max-width: 1340px; margin-inline: auto; padding: 32px 38px 42px; min-height: calc(100dvh - 177px); }
 .taste-app .page-footer { border-color: var(--line-soft); padding: 24px 38px; font-size: 12px; color: #91a497; line-height: 1.55; }
 .taste-app .page-footer > span:first-child { color: var(--muted); }
@@ -120,19 +124,31 @@ html:has(body.taste-app) { scroll-padding-block: 92px; }
 .taste-home-title { display: flex; justify-content: space-between; align-items: center; gap: 20px; margin: 0 0 17px; }
 .taste-home-title p { font-size: 14px; color: var(--muted); }
 .taste-home-title h1, .taste-home-title h2 { font-size: 26px; margin: 0; }
-.taste-home-hero { position: relative; isolation: isolate; min-height: 356px; border: 1px solid #3a5743; border-radius: 16px; overflow: hidden; background: #17241a; }
-.taste-home-hero > img { position: absolute; inset: 0; width: 100%; height: 100%; object-fit: cover; object-position: 70% center; z-index: -2; pointer-events: none; }
+.home-player-bar { flex-wrap: wrap; gap: 4px 24px; font-size: 14px; }
+.home-player-greeting { display: flex; align-items: center; flex-wrap: wrap; gap: 0 12px; min-width: 0; color: var(--muted); }
+.home-player-greeting strong { color: var(--text); overflow-wrap: anywhere; }
+.home-player-id { display: flex; align-items: center; flex-wrap: wrap; gap: 8px; color: var(--muted); min-width: 0; }
+.home-player-id code { padding: 0; border: 0; background: none; font-size: 13px; color: var(--text); overflow-wrap: anywhere; }
+.home-player-id .text-button { display: inline-flex; align-items: center; gap: 8px; padding-inline: 8px; }
+.home-player-id .ui-icon { width: 17px; height: 17px; }
+.home-player-greeting .text-button { color: var(--lime); }
+.taste-home-hero { position: relative; isolation: isolate; min-height: 292px; display: flex; align-items: center; border: 1px solid #3a5743; border-radius: 16px; overflow: hidden; background: #17241a; }
+.taste-home-hero > picture { position: absolute; inset: 0; z-index: -2; pointer-events: none; }
+.taste-home-hero > picture img { display: block; width: 100%; height: 100%; object-fit: contain; object-position: right center; }
 .taste-home-hero::after { content: ''; position: absolute; inset: 0; z-index: -1; background: linear-gradient(90deg, #102017f5 0%, #122217d9 36%, #15251a30 66%, #13201710 100%); pointer-events: none; }
-.taste-hero-copy { position: relative; max-width: 640px; padding: 38px 38px 29px; }
-.taste-hero-copy .eyebrow { margin: 0 0 14px; }
-.taste-hero-copy h1 { max-width: 590px; margin: 0; font-size: clamp(40px, 4.25vw, 61px); line-height: 1.03; letter-spacing: -.045em; }
+.taste-hero-copy { position: relative; width: 100%; max-width: 680px; padding: 28px 32px; }
+.taste-hero-copy h1 { max-width: 590px; margin: 0; font-size: clamp(36px, 3.6vw, 49px); line-height: 1.06; letter-spacing: -.035em; }
 .taste-hero-copy h1 em { font-style: normal; color: var(--lime); }
-.taste-hero-copy > p:not(.eyebrow):not(.taste-hero-foot) { max-width: 370px; margin: 20px 0 26px; color: #c5d2c5; font-size: 16px; line-height: 1.55; }
+.taste-hero-copy > p { max-width: 370px; margin: 16px 0 20px; color: #c5d2c5; font-size: 15px; line-height: 1.55; }
 .taste-hero-copy .row, .taste-hero-copy .duel-actions { gap: 12px; border: 0; padding: 0; margin-top: 0; }
-.taste-hero-foot { display: flex; align-items: center; gap: 8px; color: #b4cbb9; font-size: 12px; margin-top: 21px; }
+.taste-hero-foot { display: flex; align-items: center; gap: 8px; color: #b4cbb9; font-size: 13px; max-width: 30ch; line-height: 1.5; }
 .taste-hero-foot .icon { width: 17px; height: 17px; }
 .taste-hero-foot .ui-icon { width: 17px; height: 17px; }
-.taste-hero-edition { position: absolute; right: 25px; bottom: 25px; color: #bed7c0; font-size: 10px; letter-spacing: .16em; }
+.home-activity-shortcuts { display: flex; align-items: center; flex-wrap: wrap; gap: 4px 24px; padding: 12px 0 0; font-size: 14px; color: var(--muted); }
+.home-activity-shortcuts > div { display: flex; align-items: center; flex-wrap: wrap; gap: 8px 20px; }
+.home-activity-shortcuts .text-button { display: inline-flex; align-items: center; gap: 8px; color: var(--lime); padding: 4px; }
+.home-activity-shortcuts .ui-icon { width: 18px; height: 18px; }
+.home-activity-shortcuts strong { font-weight: 600; text-align: left; }
 .taste-invite-strip { margin-top: 18px; padding: 21px 25px; border: 1px solid var(--line); border-radius: 12px; display: grid; grid-template-columns: minmax(200px, .75fr) minmax(0, 1.5fr); align-items: center; gap: 30px; background: #18201a; }
 .taste-invite-strip h2 { margin: 0; font-size: 20px; }
 .taste-hero-actions { display: flex; align-items: center; flex-wrap: wrap; gap: 16px; }
@@ -323,20 +339,36 @@ html:has(body.taste-app) { scroll-padding-block: 92px; }
   .taste-app .topbar { padding-inline: 25px; }
   .taste-app #screen { padding-inline: 25px; }
   .taste-app .arena-workspace { grid-template-columns: minmax(0, 1fr) 250px; gap: 18px; }
-  .taste-hero-copy { max-width: 580px; padding: 33px 30px 29px; }
-  .taste-hero-copy h1 { font-size: 49px; }
+  .taste-hero-copy { max-width: 580px; padding: 28px; }
+  .taste-hero-copy h1 { font-size: 42px; }
   .taste-invite-strip { gap: 22px; grid-template-columns: minmax(190px, .8fr) minmax(0, 1.5fr); }
 }
+@media (min-width: 821px) and (max-height: 760px) {
+  .taste-app .sidebar { padding-block: 20px 16px; }
+  .taste-app .brand { margin-bottom: 20px; }
+  .taste-app .nav-caption { margin-bottom: 10px; }
+  .taste-app .sidebar nav { gap: 4px; }
+  .taste-app .nav-item { min-height: 46px; padding-block: 10px; }
+  .taste-app .sidebar-bottom { padding-top: 12px; }
+}
 @media (max-width: 820px) {
-  .taste-app .sidebar { width: 100%; inset: auto 0 0; height: calc(72px + env(safe-area-inset-bottom)); padding: 5px 7px calc(5px + env(safe-area-inset-bottom)); border-right: 0; border-top: 1px solid #3d5646; background: #0e1811; overflow-y: visible; }
+  .taste-app .sidebar { width: 100%; inset: auto 0 0; height: calc(72px + env(safe-area-inset-bottom)); padding: 5px 7px calc(5px + env(safe-area-inset-bottom)); border-right: 0; border-top: 1px solid #3d5646; background: #0e1811; overflow: visible; }
   .taste-app .sidebar > :is(.brand, .nav-caption, .sidebar-bottom, .help-button) { display: none; }
-  .taste-app .sidebar nav { display: grid; grid-auto-flow: column; grid-template-columns: none; grid-auto-columns: 20%; gap: 0; overflow-x: auto; overscroll-behavior-x: contain; scrollbar-width: none; }
-  .taste-app .sidebar nav:has(.nav-item:nth-child(5)) { grid-template-columns: none; }
+  .taste-app .sidebar nav { display: grid; grid-auto-flow: row; grid-template-columns: repeat(5, minmax(0, 1fr)); grid-auto-columns: auto; gap: 0; overflow: visible; flex: none; }
+  .taste-app .sidebar nav:has(.nav-item:nth-child(5)) { grid-template-columns: repeat(5, minmax(0, 1fr)); }
   .taste-app .sidebar nav::-webkit-scrollbar { display: none; }
   .taste-app .nav-item { min-height: 59px; padding: 6px 2px; flex-direction: column; justify-content: center; gap: 6px; border-radius: 8px; }
   .taste-app .nav-item > span { font-size: 11px; text-align: center; white-space: normal; line-height: 1.2; }
   .taste-app .nav-item > span:first-child { height: 21px; }
   .taste-app .nav-item .count { display: none; }
+  .taste-app .nav-mobile-extra { display: none; }
+  .taste-app .nav-more { display: flex; width: 100%; background: none; font: inherit; cursor: pointer; }
+  .taste-app .nav-more.active, .taste-app .nav-more[aria-expanded="true"] { background: #223b2b; color: var(--lime); }
+  .taste-app .mobile-more-nav { position: absolute; display: grid; bottom: calc(100% + 8px); right: 12px; left: 12px; padding: 8px; background: var(--card); border: 1px solid var(--line); border-radius: 12px; max-height: calc(100dvh - 180px); overflow-y: auto; }
+  .taste-app .mobile-more-nav[hidden] { display: none; }
+  .taste-app .mobile-more-nav .nav-item { flex-direction: row; justify-content: flex-start; gap: 12px; min-height: 48px; padding: 12px; }
+  .taste-app .mobile-more-nav .nav-item > span { font-size: 14px; }
+  .taste-app .mobile-help { display: inline-flex; }
   .taste-app .shell { margin-left: 0; padding-bottom: calc(72px + env(safe-area-inset-bottom)); }
   .taste-app .topbar { min-height: 70px; padding: 12px 21px; gap: 12px; }
   .taste-app.taste-legacy .topbar { flex-wrap: wrap; }
@@ -353,13 +385,13 @@ html:has(body.taste-app) { scroll-padding-block: 92px; }
   .taste-app .arena-sidebar { grid-template-columns: minmax(0, 1fr); }
   .taste-app .practical-intro h1 { font-size: 33px; }
   .taste-app .practical-intro p { font-size: 15px; }
-  .taste-home-hero { min-height: 390px; }
-  .taste-home-hero > img { object-position: 68% center; }
+  .taste-home-hero { min-height: 300px; }
+  .taste-home-hero > picture img { object-fit: cover; object-position: 68% center; }
   .taste-home-hero::after { background: linear-gradient(90deg, #102017fa, #122217db 45%, #15251a55); }
-  .taste-hero-copy { padding: 32px 27px; max-width: 560px; }
-  .taste-hero-copy h1 { font-size: 49px; }
-  .taste-hero-copy > p:not(.eyebrow):not(.taste-hero-foot) { max-width: 330px; }
-  .taste-hero-edition { display: none; }
+  .taste-hero-copy { padding: 28px 24px; max-width: 560px; }
+  .taste-hero-copy h1 { font-size: 43px; }
+  .taste-hero-copy > p { max-width: 330px; }
+  .home-player-bar { align-items: flex-start; flex-direction: column; gap: 0; }
   .taste-invite-strip { grid-template-columns: minmax(0, 1fr); gap: 19px; padding: 22px; }
   .taste-activity-grid { grid-template-columns: minmax(0, 1fr); }
   .taste-wallet-inline { align-items: flex-start; flex-wrap: wrap; gap: 15px; }
@@ -383,16 +415,20 @@ html:has(body.taste-app) { scroll-padding-block: 92px; }
   .taste-app .topbar { padding-inline: 17px; }
   .taste-app .header-actions { gap: 7px; }
   .taste-app .header-actions > .btn { font-size: 12px; padding-inline: 11px; }
-  .taste-app .header-actions .profile-name { max-width: 120px; overflow: hidden; text-overflow: ellipsis; }
+  .taste-app .header-actions .profile-button .profile-name { max-width: min(120px, 31vw); }
   .taste-app #screen { padding-inline: 17px; }
   .taste-app .pad, .taste-app .duel-composer { padding: 23px 20px; }
   .taste-home-title { align-items: flex-start; flex-direction: column; gap: 5px; }
   .taste-home-title h1, .taste-home-title h2 { font-size: 23px; }
-  .taste-home-hero { min-height: 390px; }
-  .taste-home-hero > img { object-position: 65% center; opacity: .65; }
-  .taste-hero-copy { padding: 28px 23px; }
-  .taste-hero-copy h1 { font-size: 42px; }
-  .taste-hero-copy > p:not(.eyebrow):not(.taste-hero-foot) { font-size: 15px; max-width: 29ch; }
+  .taste-home-hero { min-height: 0; }
+  .taste-home-hero > picture img { object-position: 65% center; opacity: .65; }
+  .taste-hero-copy { padding: 24px 20px; }
+  .taste-hero-copy h1 { font-size: clamp(31px, 8.5vw, 40px); }
+  .taste-hero-copy > p { font-size: 14px; max-width: 29ch; margin-block: 14px 18px; }
+  .taste-hero-actions { gap: 12px; }
+  .taste-hero-foot { flex-basis: 100%; }
+  .home-activity-shortcuts { align-items: flex-start; flex-direction: column; gap: 0; }
+  .home-activity-shortcuts > div { align-items: flex-start; flex-direction: column; gap: 0; }
   .taste-hero-copy .row { flex-wrap: wrap; }
   .taste-invite-strip { padding: 21px 20px; }
   .taste-invite-strip :is(.join-form, .practical-join-form) { grid-template-columns: minmax(0, 1fr); }

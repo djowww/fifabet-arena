@@ -77,3 +77,121 @@ html:has(.account-dialog[open]) { overflow: hidden; }
   .legal-content { padding-inline: 20px; }
 }
 @media (prefers-reduced-motion: reduce) { .account-dialog button:active { transform: none; } }
+
+/* Approved signup redesign. Other account dialogs retain their existing presentation. */
+.practical-app .account-dialog.signup-redesign {
+  width: min(620px, calc(100% - 32px));
+  max-width: calc(100% - 32px);
+  max-height: calc(100dvh - 32px);
+  scroll-padding-block-start: 150px;
+  border-color: #506358;
+  border-radius: 18px;
+  background: #1b211e;
+  box-shadow: 0 24px 80px #06100ba6;
+}
+.signup-redesign::backdrop { background: #080d0be0; }
+.practical-app .signup-redesign .dialog-head {
+  position: sticky;
+  z-index: 1;
+  top: 0;
+  isolation: isolate;
+  padding: 18px 28px 16px;
+  overflow: hidden;
+  border-bottom: 1px solid #344139;
+  background: #1c2620;
+}
+.signup-redesign .dialog-head > div { position: relative; z-index: 1; padding-right: 16px; }
+.signup-redesign .account-kicker {
+  display: flex;
+  align-items: center;
+  gap: 9px;
+  margin-bottom: 9px;
+  font-size: 13px;
+  font-weight: 650;
+  letter-spacing: .025em;
+  color: #c4d2c8;
+}
+.signup-redesign .account-kicker b { color: var(--lime); }
+.signup-redesign .account-kicker::after { content: ''; height: 1px; width: 28px; background: #597761; }
+.practical-app .signup-redesign .dialog-head h2 {
+  margin-bottom: 8px;
+  font-size: 30px;
+  line-height: 1.15;
+  letter-spacing: -.035em;
+  font-weight: 750;
+}
+.practical-app .signup-redesign .dialog-head p { max-width: 40ch; font-size: 14px; line-height: 1.5; }
+.signup-redesign .account-pitch {
+  display: block;
+  position: absolute;
+  z-index: 0;
+  width: 184px;
+  right: -32px;
+  top: 31px;
+  opacity: .17;
+  color: #b6d9bd;
+  stroke-width: .9;
+  transform: rotate(-15deg);
+}
+.practical-app .signup-redesign .dialog-head .icon-only {
+  align-self: flex-start;
+  position: relative;
+  z-index: 2;
+  width: 44px;
+  height: 44px;
+  border-radius: 9px;
+  border-color: #536b5b;
+  background: #26362c;
+  font-size: 22px;
+}
+.practical-app .signup-redesign .dialog-body { padding: 18px 28px 16px; }
+.signup-redesign .account-socials { gap: 4px; }
+.signup-redesign .social-login-button {
+  gap: 12px;
+  min-height: 50px;
+  border-radius: 9px;
+  background: #222c26;
+  border-color: #66766b;
+  font-size: 15px;
+}
+.signup-redesign .social-login-button:disabled { opacity: .7; }
+.signup-redesign .google-letter { font-size: 20px; font-weight: 750; line-height: 1; }
+.signup-redesign .account-socials .account-help { margin: 0; font-size: 12px; }
+.signup-redesign .auth-divider { margin-block: 12px; font-size: 13px; color: #b8c9bc; }
+.signup-redesign .account-fields { grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); column-gap: 18px; row-gap: 15px; }
+.signup-redesign .account-field:has(.account-password) { grid-column: 1 / -1; position: relative; }
+.signup-redesign #passwordHelp { position: absolute; right: 0; top: 0; margin: 0; font-size: 13px; }
+.signup-redesign .account-field .form-label { margin-bottom: 8px; font-size: 15px; font-weight: 650; }
+.signup-redesign .account-field .form-input { min-height: 50px; border-color: #63766a; border-radius: 8px; background: #121a15; }
+.signup-redesign .account-field :is(input, select)[aria-invalid='true'] { border-color: var(--account-error); }
+.signup-redesign .account-help { margin-top: 6px; font-size: 13px; line-height: 1.5; }
+.signup-redesign .account-password-toggle { min-width: 80px; color: #c1cec5; font-size: 14px; }
+.signup-redesign .account-consent { margin-top: 16px; }
+.signup-redesign .account-consent-label { font-size: 14px; line-height: 1.5; color: #c7d1ca; gap: 12px; }
+.signup-redesign .account-consent-label input { width: 20px; height: 20px; margin-top: 2px; }
+.signup-redesign .account-submit { min-height: 52px !important; margin-top: 14px; border-radius: 9px; font-size: 15px !important; }
+.signup-redesign .account-submit .submit-arrow { font-size: 19px; margin-left: 5px; line-height: 1; }
+.signup-redesign .account-zero { margin-top: 9px; font-size: 13px; text-align: center; }
+.signup-redesign .account-switch { display: flex; align-items: center; justify-content: center; gap: 5px; width: 100%; margin: 5px 0 0; border-top: 1px solid #344139; padding-top: 8px; min-height: 44px; font-size: 14px; }
+.signup-redesign .account-switch strong { color: #f6f8f6; font-weight: 650; }
+@media (hover: hover) and (pointer: fine) {
+  .signup-redesign .social-login-button:hover:not(:disabled) { background: #2c3b30; border-color: #91a596; }
+  .signup-redesign .account-switch:hover strong { text-decoration: underline; text-underline-offset: 4px; }
+}
+@media (max-width: 520px) {
+  .practical-app .account-dialog.signup-redesign { width: calc(100% - 24px); max-width: calc(100% - 24px); max-height: calc(100dvh - 24px); scroll-padding-block-start: 175px; border-radius: 14px; }
+  .practical-app .signup-redesign .dialog-head { padding: 22px 20px 19px; gap: 8px; }
+  .signup-redesign .dialog-head > div { padding-right: 0; }
+  .signup-redesign .account-kicker { margin-bottom: 12px; font-size: 12px; gap: 6px; }
+  .practical-app .signup-redesign .dialog-head h2 { font-size: 27px; }
+  .practical-app .signup-redesign .dialog-head p { font-size: 14px; max-width: 30ch; }
+  .signup-redesign .account-pitch { width: 142px; top: 42px; right: -50px; }
+  .practical-app .signup-redesign .dialog-body { padding: 20px; }
+  .signup-redesign .account-fields { grid-template-columns: minmax(0, 1fr); gap: 19px; }
+  .signup-redesign #passwordHelp { position: static; margin-top: 7px; font-size: 14px; }
+  .signup-redesign .account-help { font-size: 14px; }
+  .signup-redesign .account-socials .account-help { font-size: 12px; }
+  .signup-redesign .account-consent { margin-top: 17px; }
+  .signup-redesign .account-submit { margin-top: 19px; }
+  .signup-redesign .account-zero { font-size: 13px; text-wrap: balance; }
+}

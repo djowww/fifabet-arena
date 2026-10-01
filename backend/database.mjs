@@ -19,6 +19,7 @@ function validateState(draft){
   if(!plain(draft)||draft.version!==1)invalid('versão de estado não suportada.');
   for(const name of ['users','duels','sessions','evidence'])if(!plain(draft[name]))invalid(`${name} deve ser um mapa.`);
   for(const name of ['deposits','walletEvidence','authIdentities'])if(draft[name]!==undefined&&!plain(draft[name]))invalid(`${name} deve ser um mapa.`);
+  if(draft.adminOperations!==undefined&&!plain(draft.adminOperations))invalid('operações administrativas devem ser um mapa.');
   for(const [id,user] of Object.entries(draft.users)){
     if(!plain(user)||user.id!==id)invalid('ID de usuário inconsistente.');
     required(id,'ID do usuário');required(user.publicPlayerId,'ID público do usuário');required(user.nickname,'apelido');
@@ -55,6 +56,17 @@ function validateState(draft){
     if(!plain(identity)||!['google','apple'].includes(identity.provider))invalid('provedor de identidade inválido.');
     required(identity.subject,'subject da identidade');required(identity.userId,'usuário da identidade');
     if(key!==`${identity.provider}:${identity.subject}`)invalid('chave de identidade inconsistente.');
+  }
+  for(const [key,operation] of Object.entries(draft.adminOperations||{})){
+    if(!plain(operation)||operation.type!=='credit_grant')invalid('operação administrativa inválida.');
+    required(operation.id,'ID da operação administrativa');required(operation.createdAt,'data da operação administrativa');
+    if(!draft.users[operation.actorId]||!draft.users[operation.userId])invalid('usuários da operação administrativa ausentes.');
+    if(!key.startsWith(`${operation.actorId}:`)||!/^[a-f0-9]{8}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{12}$/.test(key.slice(operation.actorId.length+1)))invalid('chave da operação administrativa inválida.');
+    const amount=integer(operation.amount,'quantidade administrativa'),before=integer(operation.balanceBefore,'saldo anterior'),after=integer(operation.balanceAfter,'saldo posterior');
+    if(amount<1||amount>100_000||before<0||after!==before+amount)invalid('saldos administrativos inconsistentes.');
+    if(typeof operation.reason!=='string'||operation.reason.length<10||operation.reason.length>1000)invalid('motivo administrativo inválido.');
+    const entry=draft.users[operation.userId].transactions.find(transaction=>transaction.reference===`admin:${operation.id}`);
+    if(!entry||entry.amount!==amount||entry.adminOperationId!==operation.id||entry.source!=='admin_adjustment')invalid('lançamento administrativo ausente no extrato.');
   }
 }
 

@@ -19,6 +19,14 @@ const MODES=['1v1','Ultimate Team','Clubes'];
 const PLATFORMS=['playstation','xbox','pc','switch'];
 const DEPOSIT_AMOUNTS=[100,250,500,1000];
 const DEPOSIT_METHODS=['card','pix','transfer'];
+const MAX_ADMIN_CREDIT_GRANT=100_000;
+const normalizedEmail=value=>typeof value==='string'?value.trim().toLowerCase():'';
+function adminEmailAllowlist(value){
+  const entries=Array.isArray(value)?value:String(value||'').split(',');
+  const emails=entries.map(normalizedEmail).filter(Boolean);
+  if(emails.some(email=>email.length>254||!/^[^\s@<>]+@[^\s@<>]+\.[^\s@<>]+$/.test(email)))throw Error('FIFABET_ADMIN_EMAILS deve conter e-mails válidos separados por vírgula.');
+  return new Set(emails);
+}
 function parsePixPackages(value){
   if(!value)return null;
   const entries=value.split(',').map(item=>item.trim()).filter(Boolean).map(item=>{
@@ -180,6 +188,7 @@ export async function createArenaServer(options={}){
   if(!['demo','unconfigured','pix_manual'].includes(paymentMode))throw Error('Modo de pagamento inválido.');
   if(publicOrigin&&(new URL(publicOrigin).origin!==publicOrigin||!/^https?:\/\//.test(publicOrigin)))throw Error('FIFABET_PUBLIC_ORIGIN deve conter somente a origem, sem caminho.');
   const reviewerIds=new Set(options.reviewerIds||String(process.env.FIFABET_REVIEWER_IDS||'').split(',').map(v=>v.trim()).filter(Boolean));
+  const adminEmails=adminEmailAllowlist(options.adminEmails??(options.env||process.env).FIFABET_ADMIN_EMAILS);
   const pixKey=String(options.pixKey??process.env.FIFABET_PIX_KEY??'').trim();
   const pixPackages=options.pixPackages||parsePixPackages(process.env.FIFABET_PIX_PACKAGES||'');
   if(paymentMode==='pix_manual'&&(!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(pixKey)||!pixPackages||reviewerIds.size===0))throw Error('Pix manual exige chave de e-mail, preços para os quatro pacotes e ao menos um revisor configurado.');
@@ -242,7 +251,10 @@ export async function createArenaServer(options={}){
     if(++bucket.count>max)fail(429,'Muitas tentativas. Aguarde alguns minutos.','rate_limited');
   }
   const sessionFor=(draft,request)=>draft.sessions[sha(readCookie(request))];
-  const reviewer=user=>reviewerIds.has(user.id);
+  const verifiedEmails=(draft,user)=>[...new Set(Object.values(draft.authIdentities).filter(identity=>identity.userId===user.id&&identity.emailVerified===true&&['google','apple'].includes(identity.provider)&&normalizedEmail(identity.email)).map(identity=>normalizedEmail(identity.email)))];
+  const admin=(draft,user)=>verifiedEmails(draft,user).some(email=>adminEmails.has(email));
+  const reviewer=(draft,user)=>reviewerIds.has(user.id)||admin(draft,user);
+  const sessionPlayer=(draft,user)=>({...publicPlayer(user),balance:user.balance,isReviewer:reviewer(draft,user),isAdmin:admin(draft,user)});
   function authenticated(draft,request){
     const session=sessionFor(draft,request);
     if(!session||session.expiresAt<=Date.now()||!draft.users[session.userId])fail(401,'Entre na sua conta para continuar.','unauthorized');
@@ -261,7 +273,7 @@ export async function createArenaServer(options={}){
     while(existing.length>=8)delete draft.sessions[existing.shift()[0]];
     draft.sessions[sha(value)]=session;
     appendCookie(response,`${COOKIE}=${value}; Path=/; HttpOnly; SameSite=Lax; Max-Age=${14*DAY/1000}${secureCookie?'; Secure':''}`);
-    return {user:{...publicPlayer(user),balance:user.balance,isReviewer:reviewer(user)},csrfToken};
+    return {user:sessionPlayer(draft,user),csrfToken};
   }
   function appendCookie(response,value){
     const existing=response.getHeader('Set-Cookie');
@@ -274,16 +286,26 @@ export async function createArenaServer(options={}){
   }
   function socialUser(draft,identity){
     const key=`${identity.provider}:${identity.subject}`,existing=draft.authIdentities[key];
-    if(existing){const user=draft.users[existing.userId];if(!user)fail(409,'Conta indisponível.','account_conflict');return user;}
+    if(existing){
+      const user=draft.users[existing.userId];if(!user)fail(409,'Conta indisponível.','account_conflict');
+      // Refresh authorization from the provider's current, server-verified identity.
+      Object.assign(existing,{email:identity.emailVerified===true?identity.email:null,emailVerified:identity.emailVerified===true,updatedAt:now()});
+      return user;
+    }
     // Never expose a Google/Apple full name or auto-link an existing account by e-mail.
     let name;
     do{name=`Jogador_${randomBytes(4).toString('hex')}`;}while(Object.values(draft.users).some(user=>normalizeNickname(user.nickname)===normalizeNickname(name)));
     const user=newUser(draft,name);
-    draft.authIdentities[key]={provider:identity.provider,subject:identity.subject,userId:user.id,email:identity.emailVerified?identity.email:null,emailVerified:identity.emailVerified,createdAt:now()};
+    draft.authIdentities[key]={provider:identity.provider,subject:identity.subject,userId:user.id,email:identity.emailVerified===true?identity.email:null,emailVerified:identity.emailVerified===true,createdAt:now()};
     return user;
   }
   const pendingDuels=(draft,user)=>Object.values(draft.duels).filter(duel=>member(duel,user)&&['invited','in_progress','pending_review','disputed'].includes(duel.status));
   const reservedBalance=(draft,user,legacy=false)=>pendingDuels(draft,user).filter(duel=>(duel.creditMode==='legacy_demo')===legacy).reduce((sum,duel)=>sum+duel.stake,0);
+  const adminUser=(draft,user)=>({id:user.id,publicPlayerId:user.publicPlayerId,nickname:user.nickname,clubId:user.clubId,createdAt:user.createdAt,balance:user.balance,reserved:reservedBalance(draft,user),verifiedEmails:verifiedEmails(draft,user)});
+  function adminOperation(draft,operation){
+    const actor=draft.users[operation.actorId],target=draft.users[operation.userId];
+    return {id:operation.id,type:operation.type,actor:{publicPlayerId:actor.publicPlayerId,nickname:actor.nickname},target:{publicPlayerId:target.publicPlayerId,nickname:target.nickname},amount:operation.amount,reason:operation.reason,balanceBefore:operation.balanceBefore,balanceAfter:operation.balanceAfter,createdAt:operation.createdAt};
+  }
   function ownDuel(draft,user,id){
     const duel=draft.duels[id];
     if(!duel||(!member(duel,user)&&duel.recipientId!==user.id))fail(404,'Desafio não encontrado.','not_found');
@@ -314,16 +336,16 @@ export async function createArenaServer(options={}){
   }
   const mimeTypes={'.html':'text/html; charset=utf-8','.js':'text/javascript; charset=utf-8','.mjs':'text/javascript; charset=utf-8','.css':'text/css; charset=utf-8','.png':'image/png','.jpg':'image/jpeg','.webp':'image/webp','.svg':'image/svg+xml'};
   const publicFiles=new Set([
-    'index.html','colecao.html','bootstrap.js','app.js','play.js','backend-client.mjs','model.mjs','clubs.mjs','football-trophies.mjs','rivalry-section.mjs',
-    'styles.css','arena.css','shop.css','profile.css','achievements.css','rivalry.css','competitive-modes.css','practical.css','lobby.css','wizard.css'
+    'index.html','colecao.html','bootstrap.js','app.js','play.js','backend-client.mjs','model.mjs','clubs.mjs','football-trophies.mjs','rivalry-section.mjs','admin-panel.mjs',
+    'styles.css','arena.css','shop.css','profile.css','achievements.css','rivalry.css','competitive-modes.css','practical.css','lobby.css','wizard.css','admin.css'
   ]);
-  const serverStatus=()=>({available:true,mode:'shared',storage:'sqlite',schemaVersion:storage.schemaVersion,paymentMode,realMoney:paymentMode==='pix_manual',noRealMoney:paymentMode!=='pix_manual',paymentsAvailable:paymentMode==='demo'||paymentMode==='pix_manual',authProviders:oauth.status(),apiVersion:1,reviewerConfigured:reviewerIds.size>0});
+  const serverStatus=()=>({available:true,mode:'shared',storage:'sqlite',schemaVersion:storage.schemaVersion,paymentMode,realMoney:paymentMode==='pix_manual',noRealMoney:paymentMode!=='pix_manual',paymentsAvailable:paymentMode==='demo'||paymentMode==='pix_manual',authProviders:oauth.status(),apiVersion:1,reviewerConfigured:reviewerIds.size>0||adminEmails.size>0});
   async function route(draft,request,response,url){
     const path=url.pathname,method=request.method;
     if(method==='GET'&&path==='/api/v1/status')return serverStatus();
     if(method==='GET'&&path==='/api/v1/session'){
       const session=sessionFor(draft,request),user=session&&draft.users[session.userId];
-      return user&&session.expiresAt>Date.now()?{user:{...publicPlayer(user),balance:user.balance,isReviewer:reviewer(user)},csrfToken:session.csrfToken}:{user:null,csrfToken:null};
+      return user&&session.expiresAt>Date.now()?{user:sessionPlayer(draft,user),csrfToken:session.csrfToken}:{user:null,csrfToken:null};
     }
     if(method==='POST'&&['/api/v1/auth/register','/api/v1/auth/login'].includes(path)){
       mutationAllowed(request);rateLimit(request,'auth',15,10*60*1000);
@@ -357,6 +379,39 @@ export async function createArenaServer(options={}){
     const {user,session}=authenticated(draft,request);
     if(method!=='GET')mutationAllowed(request,session);
     if(method==='POST')rateLimit(request,'mutation',120,60*1000);
+    if(path.startsWith('/api/v1/admin/')){
+      if(!admin(draft,user))fail(403,'Esta área é exclusiva para administradores autorizados.','admin_required');
+      if(method==='GET'&&path==='/api/v1/admin/overview'){
+        const duels=Object.values(draft.duels),deposits=Object.values(draft.deposits);
+        return {stats:{users:Object.keys(draft.users).length,activeMatches:duels.filter(duel=>['in_progress','pending_review','disputed'].includes(duel.status)).length,pendingInvites:duels.filter(duel=>duel.status==='invited').length,pendingResults:duels.filter(duel=>['pending_review','disputed'].includes(duel.status)).length,pendingDeposits:deposits.filter(deposit=>deposit.status==='review'&&deposit.userId!==user.id&&(paymentMode==='pix_manual'&&deposit.paymentMode==='pix_manual'&&deposit.method==='pix'||paymentMode==='demo'&&(deposit.paymentMode||'demo')==='demo'&&deposit.method==='transfer')).length},paymentMode,paymentsAvailable:paymentMode==='demo'||paymentMode==='pix_manual',authProviders:oauth.status()};
+      }
+      if(method==='GET'&&path==='/api/v1/admin/users'){
+        const search=(url.searchParams.get('search')||'').trim().toLocaleLowerCase('pt-BR');
+        if(search.length>100)fail(400,'Use até 100 caracteres na busca.');
+        const users=Object.values(draft.users).filter(candidate=>!search||[candidate.nickname,candidate.publicPlayerId,...verifiedEmails(draft,candidate)].some(value=>value.toLocaleLowerCase('pt-BR').includes(search))).sort((a,b)=>a.nickname.localeCompare(b.nickname,'pt-BR'));
+        return {users:users.slice(0,50).map(candidate=>adminUser(draft,candidate)),total:users.length,limit:50};
+      }
+      if(method==='GET'&&path==='/api/v1/admin/audit')return {entries:Object.values(draft.adminOperations||{}).sort((a,b)=>b.createdAt.localeCompare(a.createdAt)).slice(0,100).map(operation=>adminOperation(draft,operation)),limit:100};
+      if(method==='POST'&&path==='/api/v1/admin/credits'){
+        rateLimit(request,'admin-credits',30,60*1000);
+        const data=await jsonBody(request);fields(data,['userId','amount','reason','idempotencyKey']);
+        const amount=integer(data.amount,1,MAX_ADMIN_CREDIT_GRANT,'Quantidade de créditos'),text=reason(data.reason);
+        if(typeof data.idempotencyKey!=='string'||!/^[a-f0-9]{8}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{12}$/i.test(data.idempotencyKey))fail(400,'Chave da operação inválida.','invalid_idempotency_key');
+        if(typeof data.userId!=='string'||!Object.hasOwn(draft.users,data.userId))fail(404,'Jogador não encontrado.','not_found');
+        const target=draft.users[data.userId],key=`${user.id}:${data.idempotencyKey.toLowerCase()}`;
+        const operations=draft.adminOperations??={},existing=operations[key];
+        if(existing){
+          if(existing.userId!==target.id||existing.amount!==amount||existing.reason!==text)fail(409,'Esta chave já foi usada para outra operação. Atualize o formulário.','idempotency_conflict');
+          return {operation:adminOperation(draft,existing),user:adminUser(draft,target),replayed:true};
+        }
+        const operation={id:randomUUID(),type:'credit_grant',actorId:user.id,userId:target.id,amount,reason:text,balanceBefore:target.balance,createdAt:now()};
+        balanceChange(target,`admin:${operation.id}`,amount,'Créditos adicionados pela administração');
+        Object.assign(target.transactions[0],{source:'admin_adjustment',administrative:true,adminOperationId:operation.id});
+        operation.balanceAfter=target.balance;operations[key]=operation;
+        return {operation:adminOperation(draft,operation),user:adminUser(draft,target),replayed:false};
+      }
+      fail(404,'Ferramenta administrativa não encontrada.','not_found');
+    }
     if(method==='POST'&&codeMatch&&codeMatch[2]){
       if(!/^FG-[A-F0-9]{10}$/.test(codeMatch[1]))fail(400,'Código de partida inválido.','invite_invalid');
       const duel=Object.values(draft.duels).find(item=>item.publicMatchId===codeMatch[1]);
@@ -371,7 +426,7 @@ export async function createArenaServer(options={}){
     if(method==='GET'&&path==='/api/v1/me'){
       const duels=Object.values(draft.duels).filter(d=>member(d,user)||d.recipientId===user.id).sort((a,b)=>b.createdAt.localeCompare(a.createdAt));
       const closed=duels.filter(d=>['completed','cancelled','expired'].includes(d.status));
-      return {user:{...publicPlayer(user),balance:user.balance,demoBalance:user.demoBalance||0,legacyDemoBalance:user.demoBalance||0,isReviewer:reviewer(user),friends:user.friends.map(id=>publicPlayer(draft.users[id])),transactions:user.transactions},duels:duels.filter(d=>!closed.includes(d)).map(d=>duelView(draft,d,user)),history:closed.map(d=>duelView(draft,d,user)),stats:{played:closed.filter(d=>d.status==='completed').length,wins:closed.filter(d=>d.winnerId===user.id).length,reserved:reservedBalance(draft,user),legacyDemoReserved:reservedBalance(draft,user,true)},csrfToken:session.csrfToken};
+      return {user:{...sessionPlayer(draft,user),demoBalance:user.demoBalance||0,legacyDemoBalance:user.demoBalance||0,friends:user.friends.map(id=>publicPlayer(draft.users[id])),transactions:user.transactions},duels:duels.filter(d=>!closed.includes(d)).map(d=>duelView(draft,d,user)),history:closed.map(d=>duelView(draft,d,user)),stats:{played:closed.filter(d=>d.status==='completed').length,wins:closed.filter(d=>d.winnerId===user.id).length,reserved:reservedBalance(draft,user),legacyDemoReserved:reservedBalance(draft,user,true)},csrfToken:session.csrfToken};
     }
     if(method==='GET'&&path==='/api/v1/leaderboard'){
       const ranked=new Map();
@@ -391,7 +446,7 @@ export async function createArenaServer(options={}){
       const data=await jsonBody(request);
       if(Object.hasOwn(data,'nickname')){const name=nickname(data.nickname);if(Object.values(draft.users).some(u=>u.id!==user.id&&normalizeNickname(u.nickname)===normalizeNickname(name)))fail(409,'Este apelido já está em uso.');user.nickname=name;}
       if(Object.hasOwn(data,'clubId')){if(data.clubId!==null&&!CLUBS.some(c=>c.id===data.clubId))fail(400,'Escolha um clube do catálogo.');user.clubId=data.clubId;}
-      return {user:{...publicPlayer(user),balance:user.balance,isReviewer:reviewer(user)}};
+      return {user:sessionPlayer(draft,user)};
     }
     if(method==='GET'&&path==='/api/v1/wallet'){
       const deposits=Object.values(draft.deposits).filter(deposit=>deposit.userId===user.id).sort((a,b)=>b.createdAt.localeCompare(a.createdAt)).map(deposit=>depositView(draft,deposit,{includePaymentInfo:true,pixKey}));
@@ -453,19 +508,19 @@ export async function createArenaServer(options={}){
     const walletEvidenceMatch=/^\/api\/v1\/wallet\/evidence\/([a-f0-9-]{36})$/.exec(path);
     if(method==='GET'&&walletEvidenceMatch){
       const item=draft.walletEvidence[walletEvidenceMatch[1]],deposit=item&&draft.deposits[item.depositId];
-      if(!item||!deposit||(deposit.userId!==user.id&&!reviewer(user)))fail(404,'Comprovante não encontrado.','not_found');
+      if(!item||!deposit||(deposit.userId!==user.id&&!reviewer(draft,user)))fail(404,'Comprovante não encontrado.','not_found');
       const body=await readFile(join(dataDir,'wallet-evidence',item.id));
       response.writeHead(200,{'Content-Type':item.mime,'Content-Length':body.length,'Content-Disposition':`inline; filename="comprovante-${deposit.paymentMode==='pix_manual'?'pix':'demo'}-${item.id}${{'image/png':'.png','image/jpeg':'.jpg','image/webp':'.webp'}[item.mime]}"`});
       response.end(body);return null;
     }
     if(method==='GET'&&path==='/api/v1/wallet/reviews'){
-      if(!reviewer(user))fail(403,'Apenas a equipe autorizada pode revisar comprovantes.');
+      if(!reviewer(draft,user))fail(403,'Apenas a equipe autorizada pode revisar comprovantes.');
       return {deposits:Object.values(draft.deposits).filter(deposit=>deposit.status==='review'&&deposit.userId!==user.id&&(paymentMode==='pix_manual'&&deposit.paymentMode==='pix_manual'&&deposit.method==='pix'||paymentMode==='demo'&&(deposit.paymentMode||'demo')==='demo'&&deposit.method==='transfer')).sort((a,b)=>a.createdAt.localeCompare(b.createdAt)).map(deposit=>depositView(draft,deposit)),paymentMode,realMoney:paymentMode==='pix_manual'};
     }
     const walletReviewMatch=/^\/api\/v1\/wallet\/reviews\/([a-f0-9-]{36})$/.exec(path);
     if(method==='POST'&&walletReviewMatch){
       if(!['demo','pix_manual'].includes(paymentMode))fail(503,'Recargas desativadas até configurar os pagamentos.','payments_unavailable');
-      if(!reviewer(user))fail(403,'Apenas a equipe autorizada pode decidir sobre comprovantes.');
+      if(!reviewer(draft,user))fail(403,'Apenas a equipe autorizada pode decidir sobre comprovantes.');
       const deposit=draft.deposits[walletReviewMatch[1]];
       if(!deposit)fail(404,'Pedido de recarga não encontrado.','not_found');
       if(deposit.userId===user.id)fail(403,'Uma pessoa não pode julgar o próprio comprovante.');
@@ -591,18 +646,18 @@ export async function createArenaServer(options={}){
     const evidenceMatch=/^\/api\/v1\/evidence\/([a-f0-9-]{36})$/.exec(path);
     if(method==='GET'&&evidenceMatch){
       const item=draft.evidence[evidenceMatch[1]],duel=item&&draft.duels[item.duelId];
-      if(!item||!duel||(!member(duel,user)&&!reviewer(user)))fail(404,'Foto não encontrada.','not_found');
+      if(!item||!duel||(!member(duel,user)&&!reviewer(draft,user)))fail(404,'Foto não encontrada.','not_found');
       const body=await readFile(join(dataDir,'evidence',item.id));
       response.writeHead(200,{'Content-Type':item.mime,'Content-Length':body.length,'Content-Disposition':`inline; filename="placar-${item.id}${{ 'image/png':'.png','image/jpeg':'.jpg','image/webp':'.webp'}[item.mime]}"`});
       response.end(body);return null;
     }
     if(method==='GET'&&path==='/api/v1/reviews'){
-      if(!reviewer(user))fail(403,'Apenas a equipe autorizada pode revisar resultados.');
+      if(!reviewer(draft,user))fail(403,'Apenas a equipe autorizada pode revisar resultados.');
       return {duels:Object.values(draft.duels).filter(d=>['pending_review','disputed'].includes(d.status)).map(d=>duelView(draft,d,user))};
     }
     const reviewMatch=/^\/api\/v1\/reviews\/([a-f0-9-]{36})$/.exec(path);
     if(method==='POST'&&reviewMatch){
-      if(!reviewer(user))fail(403,'Apenas a equipe autorizada pode distribuir pontos.');
+      if(!reviewer(draft,user))fail(403,'Apenas a equipe autorizada pode distribuir pontos.');
       const duel=draft.duels[reviewMatch[1]];
       if(!duel||!duel.result||!['pending_review','disputed'].includes(duel.status))fail(409,'Resultado indisponível para revisão.');
       if(member(duel,user))fail(403,'Um participante não pode julgar o próprio desafio.');

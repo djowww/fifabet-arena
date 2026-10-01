@@ -154,6 +154,8 @@ FIFABET_DATA_DIR=/var/lib/fifago
 FIFABET_PAYMENT_MODE=unconfigured
 ```
 
+O painel administrativo usa a allowlist privada `FIFABET_ADMIN_EMAILS`, com e-mails sociais verificados. Configure-a somente no ambiente do VPS e reinicie `fifago.service`. Consulte [autorização e ferramentas administrativas](ADMINISTRACAO.md). Administradores também podem revisar resultados, respeitando os bloqueios de aprovação da própria partida.
+
 O Nginx sobrescreve o cabeçalho com `proxy_set_header X-Real-IP $remote_addr;`. A opção de confiança fica desligada por padrão no código. Quando habilitada (também por `options.trustProxyLoopback === true`), os limites de requisições usam `X-Real-IP` somente se a conexão vier de `127.0.0.1`, `::1` ou `::ffff:127.0.0.1` e o valor for um único IP válido. Cabeçalhos inválidos, arrays e conexões externas usam o endereço do socket. Autenticação, CSRF e limites permanecem iguais.
 
 A configuração existente de IP real do Nginx usa `CF-Connecting-IP` e `real_ip_recursive on` para reconhecer visitantes pelo proxy da Cloudflare antes de encaminhar `$remote_addr` à aplicação. Ela foi preservada. Em outra instalação, configurar somente as faixas confiáveis da Cloudflare: sem reconhecimento do IP real, os limites ficam compartilhados pelos visitantes da mesma saída do proxy. Não confiar em cabeçalhos enviados diretamente pelo cliente nem em toda a internet.

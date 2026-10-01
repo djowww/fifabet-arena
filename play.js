@@ -1,5 +1,6 @@
 import * as M from './model.mjs?v=19';
-import * as API from './backend-client.mjs?v=19';
+import * as API from './backend-client.mjs?v=20';
+import {createAdminPanel,adminIcon} from './admin-panel.mjs?v=1';
 const $=id=>document.getElementById(id);
 const esc=x=>String(x??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
 const fmt=M.points;
@@ -11,6 +12,8 @@ const ui={view:'arena',filter:'all',search:'',mode:'1v1',platform:'pc',stake:'10
 const names={invited:'Convite pendente',active:'Partida confirmada',review:'Resultado em análise',disputed:'Resultado contestado',settled:'Resultado concluído',rejected:'Recusado',cancelled:'Cancelado',expired:'Expirado'};
 const tones={invited:'amber',active:'mint',review:'violet',disputed:'live',settled:'lime'};
 const profile=()=>serviceUnavailable?null:online?arena?.user:M.current(state);
+let adminPanel;
+const administration=()=>adminPanel??=createAdminPanel({api:API,getUser:()=>online?profile():null,render,syncAccount:async()=>{arena=await API.getArena();},avatar});
 const productionHost=()=>['betfifa.com.br','www.betfifa.com.br'].includes(new URL(location.href).hostname);
 const creditUnit=()=>online?(backendStatus?.paymentMode==='pix_manual'?'créditos comprados':'créditos'):'créditos de teste';
 const creditAction=()=>online?(backendStatus?.paymentsAvailable?'Comprar créditos via Pix':'Adicionar créditos de teste'):'Adicionar créditos de teste';
@@ -58,9 +61,10 @@ function joinFeedback(message){if($('modal').open)return fail(message);const fee
 function intro(title,description){return `<div class='practical-intro'><div><p class='eyebrow'>FIFA GO · ENTRE AMIGOS</p><h1>${title}</h1><p class='muted'>${description}</p></div></div>`;}
 function header(){
  const p=profile(),items=[['arena','Início','⌂'],['carteira','Carteira','▣'],['historico','Histórico','◷'],['ranking','Ranking','🏆'],['perfil','Meu perfil','♙']];
- if(p?.isReviewer)items.push(['revisao','Revisão','✓']);
+ if(p?.isReviewer&&!p?.isAdmin)items.push(['revisao','Revisão','✓']);
+ if(online&&p?.isAdmin)items.push(['admin','Admin',adminIcon]);
  $('navigation').innerHTML=items.map(([hash,label,symbol])=>`<a class='nav-item ${ui.view===hash?'active':''}' href='#${hash}' ${ui.view===hash?`aria-current='page'`:''}><span aria-hidden='true'>${symbol}</span><span>${label}</span></a>`).join('');
- $('breadcrumb').textContent=items.find(([hash])=>ui.view===hash)?.[1]||(ui.view==='criar'?'Criar partida':'Início');
+ $('breadcrumb').textContent=ui.view==='admin'?'Administração':items.find(([hash])=>ui.view===hash)?.[1]||(ui.view==='criar'?'Criar partida':ui.view==='revisao'?'Revisão':'Início');
  $('headerActions').innerHTML=p?`<span class='meta'>${online?'Conta conectada':'Neste navegador'}</span><button class='profile-button' data-action='profile' aria-label='Abrir perfil de ${esc(p.nickname)}'>${avatar(p,'small')}<span>${esc(p.nickname)}</span></button>`:`<button class='btn secondary' data-action='login'>Entrar</button><button class='text-button header-signup' data-action='signup'>Criar conta</button>`;
 }
 function summaries(){return `<div class='summary-grid'><div><small>DISPONÍVEL</small><strong>${fmt(profile()?.balance||0)} <small>pts</small></strong></div><div><small>EM DISPUTA</small><strong>${fmt(reserved())} <small>pts</small></strong></div><div><small>DESAFIOS ABERTOS</small><strong>${duels().filter(open).length}</strong></div></div>`;}
@@ -259,12 +263,13 @@ async function reviewView(){
 let renderRevision=0;
 function render(){
  const revision=++renderRevision,hash=location.hash.slice(1);
- ui.view=({palpites:'historico',amigos:'arena'}[hash]||(['arena','criar','carteira','historico','ranking','perfil','revisao'].includes(hash)?hash:'arena'));
+ ui.view=({palpites:'historico',amigos:'arena'}[hash]||(['arena','criar','carteira','historico','ranking','perfil','revisao','admin'].includes(hash)?hash:'arena'));
+ if(!online||!profile()?.isAdmin)adminPanel?.reset();
  header();runtimeLabels();
  if(serviceUnavailable){$('headerActions').innerHTML='';$('screen').innerHTML=`<section class='card pad connection-unavailable' role='status'><p class='eyebrow'>FIFA GO</p><h1>A arena está temporariamente indisponível.</h1><p class='muted'>Não conseguimos conectar ao servidor de contas e partidas. Tente novamente em instantes.</p><button class='btn primary' data-action='retry'>Tentar novamente</button></section>`;return;}
- const asyncView=ui.view==='revisao'?reviewView:ui.view==='carteira'?walletView:ui.view==='ranking'&&online?sharedRankingView:null;
- $('screen').innerHTML=runtimeCopy(asyncView?`<div class='card pad' role='status'>Carregando…</div>`:ui.view==='criar'?createView():ui.view==='historico'?historyView():ui.view==='ranking'?rankingView():ui.view==='perfil'?profileView():arenaView());
- if(asyncView)asyncView().then(html=>{if(renderRevision===revision)$('screen').innerHTML=runtimeCopy(html);}).catch(e=>{if(renderRevision===revision)$('screen').innerHTML=`<section class='card pad'><h2>Não foi possível carregar.</h2><p>${esc(e.message)}</p><button class='btn secondary' data-action='refresh'>Tentar novamente</button></section>`;});
+ const asyncView=ui.view==='admin'?()=>administration().view():ui.view==='revisao'?reviewView:ui.view==='carteira'?walletView:ui.view==='ranking'&&online?sharedRankingView:null;
+ $('screen').innerHTML=runtimeCopy(asyncView?(ui.view==='admin'?administration().loading():`<div class='card pad' role='status'>Carregando…</div>`):ui.view==='criar'?createView():ui.view==='historico'?historyView():ui.view==='ranking'?rankingView():ui.view==='perfil'?profileView():arenaView());
+ if(asyncView)asyncView().then(html=>{if(renderRevision===revision){$('screen').innerHTML=runtimeCopy(html);if(ui.view==='admin')administration().afterRender();}}).catch(e=>{if(renderRevision===revision)$('screen').innerHTML=`<section class='card pad'><h2>Não foi possível carregar.</h2><p>${esc(e.message)}</p><button class='btn secondary' data-action='refresh'>Tentar novamente</button></section>`;});
 }
 function focusScreen(){ $('screen').focus({preventScroll:true}); }
 function go(view){history.replaceState(null,'',new URL('#'+view,location.href).href);closeModal();ui.filter='all';render();focusScreen();window.scrollTo({top:0});}
@@ -360,6 +365,7 @@ async function showInvite(){
 }
 async function execute(action,id){
  if(action==='close')return closeModal();
+ if(action.startsWith('admin-')){if(!online||!profile()?.isAdmin)throw Error('Entre com uma conta administradora para continuar.');return administration().handleAction(action,id);}
  if(serviceUnavailable&&!['retry','credits'].includes(action))throw Error('A conexão com a arena está indisponível. Tente novamente em instantes.');
  if(action==='oauth'){
   if(!online||!['google','apple'].includes(id)||!backendStatus?.authProviders?.[id]?.available)throw Error('Esse método de login está em configuração. Use sua conta Fifa GO.');
@@ -403,7 +409,7 @@ async function execute(action,id){
  if(action==='result')return showResult(id);
  if(action==='dispute')return showDispute(id);
  if(action==='select-profile'){save(M.change(read(),'login',{id}));ui.rival='';foundPlayer=null;walletData=null;closeModal();render();return continueIntent();}
- if(action==='logout'){if(online){await API.logoutAccount();arena=null;}else localChange('logout');walletData=null;pendingIntent=null;closeModal();render();return;}
+ if(action==='logout'){if(online){await API.logoutAccount();arena=null;}else localChange('logout');adminPanel?.reset();walletData=null;pendingIntent=null;closeModal();render();return;}
  if(action==='copy-code')return copy(id,online?'Convite copiado. Pronto para compartilhar.':'Código copiado. Use no perfil convidado deste navegador.');
  if(action==='refresh'){await refresh();return toast('Arena atualizada.');}
  if(action==='retry')return start();
@@ -438,6 +444,7 @@ document.addEventListener('click',async event=>{
 });
 document.addEventListener('input',event=>{
  const t=event.target;
+ adminPanel?.handleInput(t);
  if(t.id==='joinCode'||t.id==='dialogJoinCode'){ui.joinCode=t.value;if($('joinError'))$('joinError').hidden=true;}
  if(t.id==='duelStake'){updateDuelDraft({stake:t.value});$('potPreview').textContent=`${fmt(Number(t.value||0)*2)} créditos de teste`;}
  if(t.id==='rivalId'){updateDuelDraft({rival:t.value});if($('rivalPreview'))$('rivalPreview').textContent=online?'Com o ID, só esse jogador aceita. Sem ID, você compartilha um convite.':'';}
@@ -460,12 +467,13 @@ document.addEventListener('submit',async event=>{
   if(submit){submit.textContent=kind==='signup'?'Criando conta…':'Entrando…';submit.setAttribute?.('aria-busy','true');}
   if(online){if(kind==='signup')await API.registerAccount({nickname:data.get('nickname'),password:data.get('password')});else await API.loginAccount({nickname:data.get('nickname'),password:data.get('password')});arena=await API.getArena();}
   else save(M.change(read(),'create',{nickname:data.get('nickname')}));
-  ui.rival='';foundPlayer=null;walletData=null;closeModal();render();window.scrollTo({top:0});await continueIntent();return toast(kind==='signup'?'Seu ID Fifa GO está pronto.':'Você entrou na arena.');
+  ui.rival='';foundPlayer=null;walletData=null;adminPanel?.reset();closeModal();if(online&&profile()?.isAdmin)go('admin');else render();window.scrollTo({top:0});await continueIntent();return toast(kind==='signup'?'Seu ID Fifa GO está pronto.':'Você entrou na arena.');
  }
  if(kind==='join'){
   return await findInvitation(data.get('code'));
  }
  if(!profile()||profile().id!==profileId)throw Error('Entre na sua conta para continuar.');
+ if(kind.startsWith('admin-')){if(!online||!profile()?.isAdmin)throw Error('Entre com uma conta administradora para continuar.');await administration().handleForm(form,data);return;}
  if(kind==='deposit'){
   const payload={amount:Number(data.get('amount')),method:data.get('method'),installments:Number(data.get('installments')),idempotencyKey:form.dataset.operation};let id;
   if(online){if(!walletData?.paymentsAvailable||walletData.paymentMode!=='pix_manual')throw Error('Pagamentos em configuração. Nenhuma cobrança está disponível.');const created=await API.createDeposit(payload);id=(created.deposit||created).id;}
@@ -537,7 +545,8 @@ async function start(){
  const url=new URL(location.href),auth=url.searchParams.get('auth'),authError=url.searchParams.get('auth_error'),token=url.searchParams.get('convite');
  if(auth||authError)restoreAuthIntent();
  if(auth||authError||token){url.searchParams.delete('auth');url.searchParams.delete('auth_error');url.searchParams.delete('convite');history.replaceState(null,'',url.href);}
- render();if(auth==='success'&&profile())toast('Você entrou na arena.');else if(authError)toast(authErrors[authError]||'Não foi possível concluir o login. Use sua conta Fifa GO ou tente novamente.');
+ if(online&&profile()?.isAdmin&&(auth==='success'||!location.hash||location.hash==='#arena'))history.replaceState(null,'',location.pathname+'#admin');
+ render();if(auth==='success'&&profile())toast(profile().isAdmin?'Bem-vindo, administrador.':'Você entrou na arena.');else if(authError)toast(authErrors[authError]||'Não foi possível concluir o login. Use sua conta Fifa GO ou tente novamente.');
  if(token&&online)invite={token};
  if(invite&&online)await showInvite();
  else if(token)inviteNotice('Este convite precisa da versão conectada. Nesta demonstração, use um código entre perfis neste navegador.');

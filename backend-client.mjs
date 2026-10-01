@@ -33,6 +33,10 @@ export const logoutAccount=async()=>{const result=await request('/auth/logout',{
 export const getArena=()=>request('/me');
 export const getLeaderboard=()=>request('/leaderboard');
 export const getWallet=()=>request('/wallet');
+export const getAdminOverview=()=>request('/admin/overview');
+export const getAdminUsers=search=>request(`/admin/users?search=${encodeURIComponent(search||'')}`);
+export const getAdminAudit=()=>request('/admin/audit');
+export const addAdminCredits=data=>request('/admin/credits',{method:'POST',data});
 export const createDeposit=data=>request('/wallet/deposits',{method:'POST',data});
 export const simulateDeposit=(id,data)=>request(`/wallet/deposits/${encodeURIComponent(id)}/simulate`,{method:'POST',data});
 export const cancelDeposit=(id,version)=>request(`/wallet/deposits/${encodeURIComponent(id)}/cancel`,{method:'POST',data:{version}});

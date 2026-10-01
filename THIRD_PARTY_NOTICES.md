@@ -6,6 +6,12 @@
 
 Fontes anteriores de atletas e assinaturas: 29 de setembro de 2026. Expansão de avatares, pesquisa de assinaturas, bandeiras, fontes dos clubes e fotografias de uniformes: 30 de setembro de 2026.
 
+## Arte original do cartão de partida
+
+`assets/brand/lobby-footballer-v1.png` é uma ilustração original gerada com a ferramenta integrada de imagens para o cartão de criação: jogador genérico chutando uma bola em estádio noturno, com contornos grafite, prata e verde. Não representa um atleta real identificável e não contém marcas, patrocinadores ou brasões. [Prompt e registro de geração](assets/brand/lobby-footballer-v1.json).
+
+O campo na barra lateral, as camisetas genéricas, as moedas e o troféu da explicação de créditos são desenhos vetoriais próprios. Os valores dessa explicação são um exemplo ilustrativo, não o saldo de uma conta nem uma partida real.
+
 ## Fotografias de atletas
 
 As fotografias abaixo são referências editoriais de futebol e não são os avatares da loja. Atletas, clubes, federações, EA e FIFA não patrocinam nem endossam este aplicativo. Fotografias, caricaturas e reproduções de assinaturas não são produtos oficiais ou certificados de autenticidade.

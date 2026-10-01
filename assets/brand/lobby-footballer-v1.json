@@ -1,0 +1,15 @@
+{
+  "title": "Arte original de futebol para o início",
+  "asset": "lobby-footballer-v1.png",
+  "width": 1942,
+  "height": 809,
+  "bytes": 1644926,
+  "created": "2026-10-01",
+  "tool": "OpenAI built-in imagegen",
+  "useCase": "stylized-concept",
+  "role": "Fundo decorativo do cartão de criação de partida",
+  "description": "Jogador abstrato genérico chutando uma bola em estádio noturno, com contornos grafite, prata e verde.",
+  "thirdPartyIdentities": false,
+  "constraints": "Sem texto, interface, marcas, clubes ou atleta real identificável.",
+  "prompt": "Use case: stylized-concept.\nAsset type: standalone wide website hero BACKGROUND image only, about 1536x640 pixels, aspect ratio 2.4:1.\nInput image: reference of the approved Fifa GO website mockup. Use ONLY its center footballer and stadium atmosphere as a style/composition reference. REMOVE ALL website interface, text, logos, borders, cards and icons.\nPrimary request: recreate the original abstract generic male football player kicking a football in a dark nighttime stadium, elegant graphite and silver contour illustration with restrained thin green accents. No recognizable real athlete.\nComposition: full landscape background. A single player between 53% and 65% of the width, body in a dynamic kicking pose, one leg extending to a ball near 49% width at the base. Player takes about 85% image height. Left 40% must be nearly empty and very dark charcoal green (#151a17) for overlaying readable website text. Right 28% also quite dark and calm for a three-step list. Stadium floodlights subtle above the player, not directly in text areas. Pitch lines near the bottom only.\nStyle: premium understated sports illustration, cinematic and slightly abstract. More linework and dark silhouette than photorealism. Face obscured, no distinctive facial features. The kit is plain charcoal with no sponsor, crest, badge, text, or numbers.\nLighting/mood: very dark neutral charcoal; player moderately visible in silver edge lighting; faint green contour details and a few delicate motion traces. Avoid bright lights and intense green. No vignette panel border or artificial rounded frame.\nText: none.\nConstraints: ONLY the background illustration. No UI, no letters, no watermark, no logos, no real footballer, no club emblems. Opaque background. Match the original approved center card atmosphere, but no words from the reference."
+}

@@ -195,7 +195,8 @@ p.score-pair { display: block; padding: 12px; border: 1px solid #3f5747; border-
 .practical-app .toast { background: #193c25; border-color: #6ccf8d; color: #f1fff5; }
 
 @media (min-width: 821px) {
-  .practical-app .sidebar { width: 180px; padding: 25px 12px 18px; }
+  .practical-app .sidebar { width: 180px; padding: 25px 12px 18px; background-image: linear-gradient(180deg, #111211 0%, #111211 65%, #11121180 86%, #1112112e 100%), url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 250 280' fill='none'%3E%3Cg stroke='%2307f468' stroke-opacity='.25' stroke-width='1' transform='rotate(-17 125 170)'%3E%3Cpath d='M-5 70H255V251H-5zM125 70V251'/%3E%3Ccircle cx='125' cy='160.5' r='29'/%3E%3Ccircle cx='125' cy='160.5' r='1.5' fill='%2307f468'/%3E%3Cpath d='M-5 118H30V204H-5M255 118H220V204H255M-5 140H9V182H-5M255 140H241V182H255'/%3E%3Cpath d='M30 144a21 21 0 0 1 0 34M220 144a21 21 0 0 0 0 34'/%3E%3C/g%3E%3C/svg%3E"); background-position: 0 0, center bottom; background-size: auto, 240px 280px; background-repeat: no-repeat; }
+  .practical-app .nav-item.active { box-shadow: inset 2px 0 0 #07f46888; }
   .practical-app .shell { margin-left: 180px; }
   .practical-app .brand { margin: 0 7px 35px; gap: 8px; font-size: 24px; }
   .practical-app .brand > span:last-child { display: block; }

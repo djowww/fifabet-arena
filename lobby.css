@@ -4,7 +4,7 @@
 .lobby-intro p { max-width: 60ch; margin: 0; font-size: 14px; line-height: 1.6; color: var(--muted); }
 .lobby-layout { display: grid; grid-template-columns: minmax(0, 1fr); gap: 14px; margin-bottom: 18px; }
 .lobby-layout > * { min-width: 0; }
-.lobby-create { position: relative; isolation: isolate; display: grid; grid-template-columns: minmax(0, 1.2fr) minmax(230px, .8fr); align-items: center; gap: clamp(22px, 4vw, 48px); min-height: 286px; padding: clamp(24px, 2.7vw, 34px); border: 1px solid #405648; border-inline-start: 3px solid #4b8058; border-radius: 12px; background: #1b201d; overflow: hidden; }
+.lobby-create { position: relative; isolation: isolate; display: grid; grid-template-columns: minmax(0, 1.2fr) minmax(230px, .8fr); align-items: center; gap: clamp(22px, 4vw, 48px); min-height: 286px; padding: clamp(24px, 2.7vw, 34px); border: 1px solid #405648; border-radius: 12px; background: #1b201d; overflow: hidden; }
 .lobby-create::before { content: ""; position: absolute; inset: 0; z-index: -2; background: url("assets/brand/lobby-footballer-v1.png") center / auto 100% no-repeat; opacity: .82; pointer-events: none; }
 .lobby-create::after { content: ""; position: absolute; inset: 0; z-index: -1; background: linear-gradient(90deg, #171e19f2 0%, #171e19df 27%, #171e1966 48%, #171e1933 58%, #171e19c4 82%, #171e19db 100%), linear-gradient(0deg, #172019ba, transparent 40%); pointer-events: none; }
 .lobby-create-copy { max-width: 580px; min-width: 0; }
@@ -198,6 +198,38 @@
   .wallet-extract { overflow-x: auto; }
   .wallet-extract table { min-width: 360px; }
   .wallet-extract th, .wallet-extract td { padding-inline: 9px; }
+}
+
+/* Live arena cards use server data and keep invitation actions easy to scan. */
+.arena-open-rooms { margin: 24px 0; }
+.arena-open-rooms > .card-top { align-items: flex-start; gap: 16px; }
+.arena-open-rooms h2 { margin: 0; font-size: 24px; }
+.arena-open-rooms .card-top .meta { margin: 6px 0 0; max-width: 60ch; }
+.arena-room-grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 14px; margin-top: 16px; }
+.arena-room-card { min-width: 0; padding: 20px; border: 1px solid var(--line); border-radius: 12px; background: #17211b; }
+.arena-room-card .row { align-items: center; gap: 12px; }
+.arena-room-card .row > div { flex: 1; min-width: 0; }
+.arena-room-card h3 { margin: 0; font-size: 18px; overflow-wrap: anywhere; }
+.arena-room-card .row .meta { margin: 4px 0 0; }
+.arena-room-card .pill { flex: none; }
+.arena-room-card > .btn { min-height: 48px; margin-top: 16px; width: 100%; }
+.room-entry-price { margin: 18px 0 6px; color: var(--text); font-size: 20px; font-weight: 700; font-variant-numeric: tabular-nums; }
+.room-entry-price > span { font-size: 14px; font-weight: 450; color: var(--muted); }
+.room-alert-list { display: grid; gap: 10px; margin-bottom: 20px; }
+.room-alert { display: flex; align-items: center; gap: 14px; padding: 14px 18px; border: 1px solid #466651; border-radius: 10px; background: #182f22; }
+.room-alert > svg { width: 22px; height: 22px; flex: none; color: var(--lime); }
+.room-alert > p { flex: 1; min-width: 0; margin: 0; font-size: 14px; line-height: 1.5; }
+.room-alert .meta { display: block; margin-top: 3px; }
+.room-alert > .btn { flex: none; min-height: 48px; }
+.toast-room-action { margin-left: 12px; min-height: 44px; color: inherit; text-decoration: underline; }
+@media (max-width: 960px) { .arena-room-grid { grid-template-columns: minmax(0, 1fr); } }
+@media (max-width: 480px) {
+  .arena-room-card { padding: 16px; }
+  .arena-open-rooms h2 { font-size: 22px; }
+  .arena-open-rooms > .card-top { flex-wrap: wrap; gap: 8px; }
+  .room-alert { gap: 10px; padding: 12px; flex-wrap: wrap; }
+  .room-alert > p { flex-basis: calc(100% - 32px); }
+  .room-alert > .btn { width: 100%; }
 }
 @media (prefers-reduced-motion: reduce) {
   .lobby-create .btn, .lobby-invite .btn { transition: none; }

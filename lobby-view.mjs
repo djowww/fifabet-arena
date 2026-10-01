@@ -1,6 +1,6 @@
 // Presentation only: account, wallet and match state are supplied by play.js.
-export function renderLobbyView({user,online,friendly,unit,hint,reserved,joinForm,queue,activitySummary={},esc,fmt,icon}) {
-  const footnote=online?(friendly?'Amistosa · sem créditos':'Créditos reservados somente após sua confirmação'):'Demonstração local · créditos fictícios';
+export function renderLobbyView({user,online,friendly,unit,hint,reserved,joinForm,queue,rooms='',activitySummary={},esc,fmt,icon}) {
+  const footnote=online?'Amistosa sem Coin ou sala com Joga aí Coin':'Demonstração local · Coin fictícios';
   const sessionNote=online?'':'<div class="local-demo-note"><span><strong>Demonstração neste navegador.</strong> Convites entre aparelhos precisam da versão conectada.</span><button class="text-button" data-action="connection">Entenda</button></div>';
   const generatedNickname=user&&/^Jogador_[a-f0-9]{8}$/i.test(user.nickname);
   const identity=user?`<div class="taste-home-title home-player-bar"><div class="home-player-greeting">${generatedNickname?'<span>Deixe seu perfil com a sua cara.</span><button class="text-button" data-action="profile">Escolha seu apelido</button>':`<span>Joga aí, <strong>${esc(user.nickname)}</strong>.</span>`}</div><div class="home-player-id"><span>Seu ID</span><code>${esc(user.publicPlayerId)}</code><button class="text-button" data-action="copy-id" aria-label="Copiar meu ID de jogador">${icon('copy')} Copiar</button></div></div>`:'<div class="taste-home-title"><p>Entre amigos. Dentro do jogo.</p></div>';
@@ -12,5 +12,5 @@ export function renderLobbyView({user,online,friendly,unit,hint,reserved,joinFor
     `<section class="taste-home-hero" aria-labelledby="createTitle"><picture><source media="(max-width: 820px)" srcset="assets/brand/lobby-footballer-mobile-v2.webp" type="image/webp"><source srcset="assets/brand/lobby-footballer-desktop-v2.webp" type="image/webp"><img src="assets/brand/lobby-footballer-v1.png" alt="Ilustração original de jogador em movimento com uma bola em um estádio" width="1942" height="809" fetchpriority="high" decoding="async"></picture><div class="taste-hero-copy"><h1 id="createTitle">O próximo clássico<br>começa com <em>você.</em></h1><p>Chame um amigo. Combine as regras.<br>Resolva dentro de campo.</p><div class="taste-hero-actions"><button class="btn primary" data-action="create">Criar minha partida ${icon('arrow')}</button><span class="taste-hero-foot">${icon('ball')}${esc(footnote)}</span></div></div></section>`+
     activity+
     `<section class="taste-invite-strip" aria-labelledby="joinTitle"><div>${icon('copy')}<div><h2 id="joinTitle">Já tem um convite?</h2><p>Confira o desafio antes de aceitar.</p></div></div>${joinForm}</section>`+
-    (user?queue:'')+balance+'<div id="installApp"></div>';
+    (user?queue:'')+rooms+balance+'<div id="installApp"></div>';
 }

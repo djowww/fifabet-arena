@@ -1,6 +1,6 @@
 # Fifa GO
 
-Partidas entre amigos no EA SPORTS FC, com contas persistentes, IDs próprios do Fifa GO, foto do placar e revisão pela equipe. A integração de pagamentos reais está pendente; enquanto isso, a versão conectada permite partidas amistosas sem créditos.
+Partidas entre amigos no EA SPORTS FC, com contas persistentes, IDs próprios do Fifa GO e foto do placar. A compra de saldo permanece em configuração. A versão conectada permite partidas gratuitas ou salas com Joga aí Coin já disponíveis na carteira, com reserva obrigatória ao criar e entrar.
 
 **Domínio público:** https://betfifa.com.br/
 
@@ -23,23 +23,23 @@ Contas, convites, histórico e carteira da versão conectada ficam em SQLite pri
 ## Fluxo principal
 
 1. Crie um perfil e receba um ID permanente.
-2. Escolha o amigo pelo ID, modo, plataforma e regras. Na configuração atual, crie uma amistosa sem créditos.
-3. Compartilhe o código público `FG-XXXXXXXXXX` ou link de convite. O rival entra na própria conta e aceita.
-4. Envie o placar com uma foto. O rival pode confirmar ou sinalizar fraude/divergência com outra foto.
-5. Uma conta autorizada da equipe revisa a evidência antes de concluir o resultado. Um participante não pode julgar o próprio desafio.
+2. Escolha sala aberta na arena ou privada por convite, modo, plataforma e regras. Defina zero para jogar gratuitamente ou um valor em Joga aí Coin; a parte do anfitrião é reservada ao criar.
+3. O rival encontra a sala aberta na arena ou usa código/link. Entrar em uma sala com aposta exige saldo e reserva a parte do rival.
+4. Envie o placar com uma foto. O rival tem até cinco minutos para confirmar com sua própria foto e os mesmos gols, ou sinalizar divergência. Avisos de espera aparecem enquanto a página estiver aberta.
+5. Duas confirmações dentro do prazo, com leituras consistentes de telas finais e sem problemas ou fotos duplicadas, permitem validação automática. Casos inconclusivos, contestações e prazo vencido seguem para a equipe independente; não há vitória por ausência de resposta.
 6. Consulte rival, placar, situação e decisão no histórico dos dois jogadores.
 
-A página inicial usa a chamada **Joga aí com seus amigos**, com a marca **Fifa GO**, e tem dois cartões práticos: **Entrar em uma partida**, com campo direto para código ou link, e **Criar minha partida**, com uma ilustração original de futebol. As fotos de atletas foram retiradas da entrada; os itens e as atribuições da coleção continuam preservados. A criação tem três etapas: amigo/modo/plataforma, regras/créditos e resumo. A confirmação final cria o convite; na versão conectada sem provedor, `stake:0` permite jogar sem reserva. Voltar para editar preserva o rascunho.
+A página inicial destaca **Criar minha partida**, com uma ilustração original de futebol, e o campo de código ou link para entrar. As fotos de atletas foram retiradas da entrada; os itens e as atribuições da coleção continuam preservados. A criação tem três etapas: rival/visibilidade/modo/plataforma, regras/Joga aí Coin e resumo. A confirmação final cria a sala e reserva a parte do anfitrião quando há Coin. Voltar para editar preserva o rascunho. Salas públicas são listadas apenas para contas conectadas, com apelido, clube, modo, plataforma e valores; salas privadas exigem convite.
 
 Os convites recebidos aparecem primeiro na lista de partidas. Antes de aceitar, o jogador autenticado confere as regras. Códigos públicos do servidor usam `FG-` e 10 dígitos hexadecimais maiúsculos; a prévia anônima mostra somente código, modo, plataforma, stake/creditMode, estado e prazo, sem nomes, regras em texto livre, IDs de contas, saldo, fotos ou resultados. Aceitar exige autenticação e autorização. Links secretos continuam usando um token aleatório. Códigos da demonstração local usam `JOGO-XXXXXXXX` e permanecem separados dos códigos do servidor. A criação é idempotente e confere a conta que confirmou o resumo.
 
 Contas conectadas novas começam com saldo zero, sem bônus financeiro. O saldo disponível e o reservado são separados; o próximo passo enquanto os pagamentos estão pendentes é jogar uma amistosa. Créditos anteriores da demonstração conectada ficam separados em `demoBalance`/`demoTransactions`, sem conversão para dinheiro real. A referência ao EA SPORTS FC identifica compatibilidade, mantendo claro o caráter independente do Fifa GO.
 
-A classificação usa resultados revisados; não há adversários nem resultados inventados no fluxo principal. O ID e o histórico são internos do Fifa GO; não há consulta automática ao histórico da EA.
+A classificação usa resultados validados; não há adversários nem resultados inventados no fluxo principal. O ID e o histórico são internos do Fifa GO; não há consulta automática ao histórico da EA.
 
 ## Carteira e pagamentos pendentes
 
-- Produção com `paymentMode:'unconfigured'`, compras indisponíveis e partidas `friendly` com `stake:0`.
+- Produção com `paymentMode:'unconfigured'` e compras indisponíveis. Partidas gratuitas usam `friendly`/`stake:0`; novas salas com saldo existente usam `coins`, sem ativar pagamentos.
 - Carteira principal com saldo disponível, reservado e extrato próprios; nenhuma recarga real é apresentada como concluída.
 - Saldo, extrato e reservas da demonstração anterior ficam separados. Partidas antigas recebem `creditMode:'legacy_demo'` e movimentam somente essa carteira demonstrativa.
 - Cartão, Pix e transferência dependem da conexão futura do provedor comercial e sua confirmação no servidor.
@@ -57,11 +57,11 @@ Não há integração com processador de pagamentos, saques ou consulta automát
 
 A publicação no VPS é manual e separada do GitHub Pages. O servidor usa SQLite com transações atômicas e uma única instância escritora. Migra o JSON legado uma vez, preservando original e backup. Operação comercial ainda exige configuração de provedores, backups e recuperação de conta. Os modos locais e compartilhados têm cadastros separados, sem migração automática entre eles.
 
-O padrão do servidor é `FIFABET_PAYMENT_MODE=unconfigured`. Novas amistosas não usam créditos; créditos demonstrativos antigos continuam sem valor financeiro e não representam dinheiro depositado.
+O padrão do servidor é `FIFABET_PAYMENT_MODE=unconfigured`. Amistosas gratuitas não reservam saldo. Salas com Joga aí Coin exigem saldo disponível dos dois jogadores, independentemente do modo escolhido. Créditos demonstrativos antigos continuam separados, sem valor financeiro e sem representar dinheiro depositado.
 
 ## Executar
 
-Node.js **24 ou superior**, sem dependências externas. O SQLite é o módulo nativo `node:sqlite`.
+Node.js **24 ou superior**. O SQLite usa o módulo nativo `node:sqlite`; a leitura local opcional do placar usa Tesseract.js e os recursos privados de OCR configurados no servidor.
 
 ```powershell
 # Contas e partidas compartilhadas
@@ -86,7 +86,7 @@ Para verificar regras, integração da interface e API:
 node --test *.test.mjs backend/*.test.mjs
 ```
 
-A suíte existente documenta os fluxos anteriores de IDs, convites, reservas, fotos, revisão e carteira demonstrativa. Os casos do servidor precisam acompanhar o contrato SQLite, a carteira separada e o padrão `unconfigured`. A suíte não foi executada nesta atualização; dados temporários de testes devem ficar fora do projeto.
+A suíte cobre contas, convites, salas públicas, reservas atômicas, saldo insuficiente, confirmação em cinco minutos, leitura de tela final, divergências, distribuição única, revisão independente e carteira demonstrativa. Dados e fotos de testes ficam fora do projeto publicado. A leitura do placar compara números; não certifica a autenticidade de uma fotografia.
 
 ## Perfil e coleção preservados
 

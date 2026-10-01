@@ -106,7 +106,7 @@ test('admins can review existing matches but cannot settle their own result',asy
   const duelId=created.data.duel.id;
   assert.equal((await h.api('ordinary',`/duels/${duelId}/accept`,{method:'POST',data:{}})).status,200);
   const uploaded=await h.api('admin',`/evidence?duelId=${duelId}`,{method:'POST',body:PNG,mime:'image/png'});assert.equal(uploaded.status,200);
-  const result=await h.api('admin',`/duels/${duelId}/result`,{method:'POST',data:{homeScore:2,awayScore:1,evidenceId:uploaded.data.evidence.id}});assert.equal(result.status,200);
+  const result=await h.api('admin',`/duels/${duelId}/result`,{method:'POST',data:{homeScore:2,awayScore:1,evidenceId:uploaded.data.evidence.id,scoreSide:'host'}});assert.equal(result.status,200);
   const reviews=await h.api('admin','/reviews');assert.equal(reviews.status,200);assert.equal(reviews.data.duels.length,1);
   const overview=await h.api('admin','/admin/overview');assert.equal(overview.data.stats.activeMatches,1);assert.equal(overview.data.stats.pendingResults,1);
   const rejected=await h.api('admin',`/reviews/${duelId}`,{method:'POST',data:{winner:'host',reportId:result.data.duel.result.id,reason:'Conferi a imagem do placar recebido.'}});assert.equal(rejected.status,403);

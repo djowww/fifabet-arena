@@ -8,6 +8,8 @@
 .wizard-heading{margin:0 0 20px;font-size:1.2rem;outline-offset:6px;scroll-margin-top:90px}
 .wizard-available{margin:0 0 22px;color:var(--muted);font-size:.9rem}
 .wizard-available strong{color:var(--text)}
+.duel-wizard-fields #visibilityHint{margin:8px 0 20px;line-height:1.6}
+.duel-wizard-fields #roomVisibility{min-height:48px}
 .duel-wizard-fields textarea{resize:vertical;min-height:90px;line-height:1.55;font:inherit;color:var(--text);background:#131b18;border:1px solid #596b60;border-radius:8px;padding:12px;touch-action:manipulation}
 .duel-wizard-fields textarea:focus-visible{outline:3px solid var(--lime);outline-offset:4px}
 .duel-wizard-actions{display:flex;gap:12px;align-items:center;justify-content:space-between;margin-top:24px;flex-wrap:wrap}

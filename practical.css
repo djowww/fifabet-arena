@@ -283,3 +283,18 @@ p.score-pair { display: block; padding: 12px; border: 1px solid #3f5747; border-
 @media (prefers-reduced-motion: reduce) {
   .practical-app *, .practical-app *::before, .practical-app *::after { scroll-behavior: auto !important; transition: none !important; animation: none !important; }
 }
+
+.room-confirmation-wait { margin: 16px 0; padding: 14px 16px; border: 1px solid #466651; background: #172b1f; border-radius: 10px; }
+.room-confirmation-wait .room-waiting { margin: 0 0 8px; font-weight: 650; }
+.room-confirmation-wait .meta { margin: 0; font-size: 14px; line-height: 1.6; }
+[data-confirmation-deadline] { font-variant-numeric: tabular-nums; color: var(--text); font-size: 18px; white-space: nowrap; }
+.match-room .room-issue-action { min-height: 44px; }
+.practical-app .toast.show { pointer-events: auto; }
+.result-photo-actions { flex-wrap: wrap; }
+.result-photo-actions > .btn { min-height: 48px; }
+.result-photo-actions:has(#resultCamera:focus-visible) label[for='resultCamera'],
+.result-photo-actions:has(#resultImage:focus-visible) label[for='resultImage'] { outline: 3px solid var(--lime); outline-offset: 4px; }
+.result-photo-picker [role='status'] { overflow-wrap: anywhere; }
+.match-result-form .recognition-suggestion { padding: 12px 14px; background: #203b2a; border: 1px solid var(--line); border-radius: 8px; }
+.match-result-form .recognition-suggestion p { margin: 0 0 6px; }
+.match-result-form .recognition-suggestion p:last-child { margin-bottom: 0; }

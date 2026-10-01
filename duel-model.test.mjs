@@ -8,8 +8,11 @@ const counterPhoto='data:image/png;base64,Y29udGVzdGFjYW8=';
 const reviewer={demo:true,reviewerId:'demo-reviewer'};
 function profiles(){
   let s=change(emptyState(),'create',{nickname:'Jogador A'});const a=s.activeProfileId;
+  s=change(s,'deposit',{amount:1000,method:'pix',paymentId:`fixture-${a}`});
   s=change(s,'create',{nickname:'Jogador B'});const b=s.activeProfileId;
+  s=change(s,'deposit',{amount:1000,method:'pix',paymentId:`fixture-${b}`});
   s=change(s,'create',{nickname:'Jogador C'});const c=s.activeProfileId;
+  s=change(s,'deposit',{amount:1000,method:'pix',paymentId:`fixture-${c}`});
   return {s:change(s,'login',{id:a}),a,b,c};
 }
 function invite(s,b,stake=100,operationId='invitation-1'){

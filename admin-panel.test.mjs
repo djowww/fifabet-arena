@@ -40,7 +40,7 @@ test('credit additions require review and show the actual server balance after c
   await h.submit('admin-credit',{amount:'100',reason:'Créditos para teste acompanhado.'});
   const confirmation=await h.panel.view();assert.match(confirmation,/Confirme a adição/);assert.match(confirmation,/Saldo previsto/);assert.equal(h.grants.length,0);
   await h.submit('admin-credit-confirm');assert.equal(h.grants.length,1);assert.equal(h.target.balance,100);
-  const result=await h.panel.view();assert.match(result,/100 créditos adicionados/);assert.match(result,/Atividade administrativa/);assert.match(result,/Pagamentos: em configuração/);assert.doesNotMatch(result,/Pix confirmado/);
+  const result=await h.panel.view();assert.match(result,/100 em Joga aí Coin adicionados ao saldo/);assert.match(result,/Atividade administrativa/);assert.match(result,/Pagamentos: em configuração/);assert.doesNotMatch(result,/Pix confirmado/);
 });
 
 test('uncertain responses reuse the operation key and prevent recipient switching',async()=>{

@@ -3,7 +3,7 @@ import {mkdir,readFile,copyFile,chmod,realpath} from 'node:fs/promises';
 import {resolve,relative,join,isAbsolute,sep,basename} from 'node:path';
 import {fileURLToPath} from 'node:url';
 import {randomUUID} from 'node:crypto';
-import {createDuelEconomics,duelEconomics} from './duel-economy.mjs';
+import {createDuelEconomics,duelEconomics,automaticSettlementCheck} from './duel-economy.mjs';
 import {normalizeCountry,validTermsAcceptance,needsAccountOnboarding} from '../account-policy.mjs';
 
 export const DATABASE_FILENAME='arena.sqlite';
@@ -51,19 +51,21 @@ function validateState(draft){
     required(id,'ID do desafio');required(duel.hostId,'anfitrião');required(duel.inviteToken,'token do convite');
     if([duel.hostId,duel.guestId,duel.recipientId].some(userId=>userId&&needsAccountOnboarding(draft.users[userId])))invalid('partida contém jogador com cadastro pendente.');
     if(duel.publicMatchId!=null&&!/^FG-[A-F0-9]{10}$/.test(duel.publicMatchId))invalid('código público de partida inválido.');
-    if(duel.fundingVersion!==undefined&&duel.fundingVersion!==1)invalid('versão de reserva da partida não suportada.');
-    if(duel.fundingVersion===1||duel.economics!==undefined||duel.settlement!==undefined){
+    if(duel.fundingVersion!==undefined&&![1,2].includes(duel.fundingVersion))invalid('versão de reserva da partida não suportada.');
+    if(duel.visibility!==undefined&&(!['public','private'].includes(duel.visibility)||duel.visibility==='public'&&duel.recipientId))invalid('visibilidade da sala inválida.');
+    if([1,2].includes(duel.fundingVersion)||duel.economics!==undefined||duel.settlement!==undefined){
       const stake=integer(duel.stake,'valor combinado da partida');
       if(stake<0||stake>5000)invalid('valor combinado da partida fora do intervalo.');
-      const expected=createDuelEconomics(stake,duel.fundingVersion===1?900:0);
+      const expected=createDuelEconomics(stake,[1,2].includes(duel.fundingVersion)?900:0);
       if(duel.economics!==undefined&&(!plain(duel.economics)||Object.entries(expected).some(([key,value])=>duel.economics[key]!==value)))invalid('condições financeiras da partida inconsistentes.');
-      if(duel.fundingVersion===1){
+      if([1,2].includes(duel.fundingVersion)){
         if(!plain(duel.economics)||!Array.isArray(duel.fundedBy)||new Set(duel.fundedBy).size!==duel.fundedBy.length||duel.fundedBy.length>2)invalid('reservas da sala inválidas.');
-        if(!['demo','pix_manual','friendly'].includes(duel.creditMode)||duel.creditMode==='friendly'&&stake!==0)invalid('modo de crédito da sala inválido.');
+        if(!['demo','pix_manual','friendly','coins'].includes(duel.creditMode)||duel.creditMode==='friendly'&&stake!==0)invalid('modo de crédito da sala inválido.');
         if(!['invited','awaiting_funds','in_progress','pending_review','disputed','completed','cancelled','expired'].includes(duel.status))invalid('estado da sala inválido.');
         if(duel.guestId===duel.hostId)invalid('participantes da sala precisam ser diferentes.');
         if(duel.fundedBy.some(userId=>![duel.hostId,duel.guestId].includes(userId)||!draft.users[userId]))invalid('reserva pertence a quem não participa da sala.');
-        if(stake===0&&duel.fundedBy.length||duel.status==='invited'&&duel.fundedBy.length)invalid('sala sem reserva contém lançamento de participante.');
+        if(stake===0&&duel.fundedBy.length||duel.fundingVersion===1&&duel.status==='invited'&&duel.fundedBy.length)invalid('sala sem reserva contém lançamento de participante.');
+        if(duel.fundingVersion===2&&stake>0&&duel.status==='invited'&&(duel.fundedBy.length!==1||duel.fundedBy[0]!==duel.hostId))invalid('sala pública exige a reserva prévia do anfitrião.');
         if(duel.status==='awaiting_funds'&&(!duel.guestId||stake===0||duel.fundedBy.length===2))invalid('sala aguardando créditos em estado inconsistente.');
         if(['in_progress','pending_review','disputed','completed'].includes(duel.status)&&(!duel.guestId||stake>0&&![duel.hostId,duel.guestId].every(userId=>duel.fundedBy.includes(userId))))invalid('partida iniciada sem os participantes e suas reservas.');
         for(const userId of duel.fundedBy){
@@ -83,6 +85,10 @@ function validateState(draft){
         const winnerId=draw?null:(duel.winner==='host'?duel.hostId:duel.guestId),fee=draw?0:economics.houseFee,prize=draw?economics.pot:economics.winnerPayout;
         if(settlement.pot!==economics.pot||settlement.fee!==fee||settlement.prize!==prize||fee+prize!==economics.pot||settlement.winner!==duel.winner||settlement.winnerId!==winnerId||duel.winnerId!==winnerId)invalid('valores da liquidação inconsistentes.');
         if(!duel.review?.approvedAt||duel.review.resultId!==duel.result?.id)invalid('liquidação exige revisão do resultado atual.');
+        if(duel.review.source==='bilateral_verified'){
+          const checked=automaticSettlementCheck(draft,{...duel,status:'pending_review'},Date.parse(duel.result.confirmedAt));
+          if(duel.review.reviewerId!==null||!checked.eligible||checked.winner!==duel.winner)invalid('liquidação automática exige duas fotos distintas verificadas e confirmação bilateral dentro do prazo.');
+        }
         for(const userId of draw?[duel.hostId,duel.guestId]:[winnerId]){
           const user=draft.users[userId],amount=draw?stake:prize,transactions=duel.creditMode==='legacy_demo'?user?.demoTransactions:user?.transactions;
           if(amount>0&&!transactions?.some(entry=>entry.reference===`settlement:${id}`&&entry.amount===amount))invalid('crédito da liquidação não encontrado na carteira.');

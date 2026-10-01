@@ -9,6 +9,7 @@ import {createAdminPanel} from './admin-panel.mjs';
 import {accountArt} from './account-art.mjs';
 import {uiIcon} from './ui-icons.mjs';
 import {renderLobbyView} from './lobby-view.mjs';
+import {confirmationClock,safeRoomCards,notificationKey,notificationLabel} from './room-ui.mjs';
 import {renderWalletView,renderHistoryView,renderRankingView,renderProfileView} from './account-views.mjs';
 
 const source=fs.readFileSync(new URL('./play.js',import.meta.url),'utf8');
@@ -46,7 +47,7 @@ async function harness({initial=M.emptyState(),api={}}={}){
   }
   return liveForm;
  }
- const context={M,COUNTRY_CODES,TERMS_VERSION,createAdminPanel,accountArt,uiIcon,renderLobbyView,renderWalletView,renderHistoryView,renderRankingView,renderProfileView,API:{detectBackend:async()=>null,...api},document,localStorage,location,window:{addEventListener(name,callback){windowListeners[name]=callback;},scrollTo(){}},history:{replaceState(_state,_title,value){location.href=new URL(value,location.href).href;location.hash=new URL(location.href).hash;}},navigator:{clipboard:{async writeText(){}}},crypto,URL,console,setTimeout(){return 1;},clearTimeout(){},setInterval(){return 2;},clearInterval(){},FormData:class{constructor(form){this.fields=form.fields;}get(key){return this.fields[key]??null;}}};
+ const context={M,confirmationClock,safeRoomCards,notificationKey,notificationLabel,COUNTRY_CODES,TERMS_VERSION,createAdminPanel,accountArt,uiIcon,renderLobbyView,renderWalletView,renderHistoryView,renderRankingView,renderProfileView,API:{detectBackend:async()=>null,...api},document,localStorage,location,window:{addEventListener(name,callback){windowListeners[name]=callback;},scrollTo(){}},history:{replaceState(_state,_title,value){location.href=new URL(value,location.href).href;location.hash=new URL(location.href).hash;}},navigator:{clipboard:{async writeText(){}}},crypto,URL,console,setTimeout(){return 1;},clearTimeout(){},setInterval(){return 2;},clearInterval(){},FormData:class{constructor(form){this.fields=form.fields;}get(key){return this.fields[key]??null;}}};
  vm.createContext(context);
  vm.runInContext(source.replace(/^import .*?;\r?\n/gm,'').replace(/\nstart\(\)\.catch\(/,'\nglobalThis.__boot=start().catch(')+`\nglobalThis.wizard={getUI:()=>ui,getState:()=>state,render};`,context);
  await context.__boot;
@@ -71,7 +72,7 @@ test('wizard reserves credits only after the reviewed third step and creates one
  await nextCredits(h);
  assert.equal(h.ui().duelStep,3);assert.equal(h.persisted().profiles[host].balance,1000);
  assert.match(h.nodes.screen.innerHTML,/Bruna/);assert.match(h.nodes.screen.innerHTML,/Ultimate Team · PlayStation/);
- assert.match(h.nodes.screen.innerHTML,/Confirmar e criar convite/);assert.match(h.nodes.screen.innerHTML,/250 créditos de teste serão reservados/);
+ assert.match(h.nodes.screen.innerHTML,/Confirmar e criar convite/);assert.match(h.nodes.screen.innerHTML,/250 Joga aí Coin de teste serão reservados/);
  const confirmation=h.formData();await Promise.all([h.submit({},confirmation),h.submit({},confirmation)]);
  const saved=h.persisted(),duels=Object.values(saved.duels);assert.equal(duels.length,1);
  assert.equal(saved.profiles[host].balance,750);assert.equal(saved.profiles[guest].balance,1000);

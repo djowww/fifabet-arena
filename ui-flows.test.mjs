@@ -19,16 +19,25 @@ function harness(){
  vm.runInContext(source.replace(/^import .*?;\r?\n/gm,'')+`\nglobalThis.api={getState:()=>state,getUI:()=>ui,commit,render,go,showAuth,readSlip,renderWallet,renderFriends,renderTrophies,renderBets,slipHTML,showMatch};`,ctx);
  const click=(action,data={})=>listeners.click({target:{closest(selector){if(selector==='.skip-link')return null;return {dataset:{action,...data},disabled:false};}}});
  const submit=(kind,nickname,fields={})=>listeners.submit({preventDefault(){},submitter:{disabled:false},target:{closest(){return {dataset:{form:kind,id:fields.id,profileId:fields.profileId},values:{nickname,...fields},reportValidity:()=>true};}}});
+ const createFunded=nickname=>{
+  const previousId=ctx.api.getState().activeProfileId;
+  const result=submit('create',nickname),profile=model.current(ctx.api.getState());
+  assert.ok(profile&&profile.id!==previousId,'A funded fixture must create its own local profile.');
+  assert.equal(profile.balance,0,'New profiles start at zero before explicit fixture funding.');
+  ctx.api.commit('deposit',{amount:1000,method:'pix',paymentId:`fixture-${profile.id}`});
+  ctx.api.render();
+  return result;
+ };
  const tick=ms=>{for(const [id,t] of [...timers])if(t.ms===ms){timers.delete(id);t.f();}};
- return {api:ctx.api,nodes,click,submit,tick,document,location,localStorage,sessionStorage,listeners,windowListeners};
+ return {api:ctx.api,nodes,click,submit,createFunded,tick,document,location,localStorage,sessionStorage,listeners,windowListeners};
 }
 test('create/profile buttons render every route without runtime errors',()=>{
- const h=harness();assert.match(h.nodes.screen.innerHTML,/Desafie um amigo no EA SPORTS FC/);h.click('auth',{mode:'create'});assert.ok(h.nodes.modal.open);h.submit('create','Ricardo');assert.equal(model.current(h.api.getState()).nickname,'Ricardo');assert.match(h.nodes.headerActions.innerHTML,/1.000/);
+ const h=harness();assert.match(h.nodes.screen.innerHTML,/Desafie um amigo no EA SPORTS FC/);h.click('auth',{mode:'create'});assert.ok(h.nodes.modal.open);h.createFunded('Ricardo');assert.equal(model.current(h.api.getState()).nickname,'Ricardo');assert.match(h.nodes.headerActions.innerHTML,/1.000/);
  for(const view of model.VIEWS){h.api.getUI().view=view;h.api.render();assert.ok(h.nodes.screen.innerHTML.length>1000);}
  h.click('profile');h.submit('profile','RicoFC');assert.equal(model.current(h.api.getState()).nickname,'RicoFC');assert.equal(h.nodes.modal.open,false);
 });
 test('club picker searches without accents and previews selection without saving until confirmation',async()=>{
- const h=harness();h.submit('create','Ricardo');
+ const h=harness();h.createFunded('Ricardo');
  h.api.commit('profile',{nickname:'Ricardo',clubId:'internacional'});h.api.render();
  const before=JSON.stringify(h.api.getState());h.click('profile');
  const search=value=>{const input=h.document.getElementById('clubSearch');input.value=value;h.listeners.input({target:input});};
@@ -55,11 +64,11 @@ test('club picker searches without accents and previews selection without saving
 });
 
 test('profile edits preserve a legacy custom club until selection and reject stale profile saves',async()=>{
- const h=harness();h.submit('create','JogadorA');const first=h.api.getState().activeProfileId;
+ const h=harness();h.createFunded('JogadorA');const first=h.api.getState().activeProfileId;
  h.api.commit('profile',{nickname:'JogadorA',teamName:'Minha Turma FC'});
  h.click('profile');await h.submit('profile','JogadorA',{clubId:''});
  assert.equal(model.current(h.api.getState()).teamName,'Minha Turma FC');assert.equal(model.current(h.api.getState()).clubId,null);
- h.submit('create','JogadorB');const second=h.api.getState().activeProfileId;
+ h.createFunded('JogadorB');const second=h.api.getState().activeProfileId;
  h.click('login',{id:first});h.click('profile');h.click('selectClub',{id:'internacional'});
  const external=JSON.parse(h.localStorage.getItem(model.STORAGE_KEY));external.activeProfileId=second;
  const raw=JSON.stringify(external);h.localStorage.setItem(model.STORAGE_KEY,raw);
@@ -71,7 +80,7 @@ test('profile edits preserve a legacy custom club until selection and reject sta
 });
 
 test('football trophies retain achievement identities, earned timestamps and explorer progress without mutations',()=>{
- const h=harness();h.submit('create','Colecionador');h.api.commit('accept',{id:'bia'});
+ const h=harness();h.createFunded('Colecionador');h.api.commit('accept',{id:'bia'});
  const p=model.current(h.api.getState());
  p.achievements={welcome:'2026-09-01T12:00:00.000Z',friend:'2026-09-02T12:00:00.000Z'};
  p.visited=['arena','friends','store','friends','unrecognized'];
@@ -101,7 +110,7 @@ test('route aliases used by challenge and trophy buttons reach their views',()=>
  const h=harness();h.api.go('amigos');assert.equal(h.location.hash,'amigos');h.location.hash='#arena';h.api.go('conquistas');assert.equal(h.location.hash,'trofeus');h.location.hash='#arena';h.api.go('ranking');assert.equal(h.location.hash,'ranking');
 });
 test('EA ID dialog saves, displays and removes an unverified account without claiming sync',async()=>{
- const h=harness();h.submit('create','Ricardo');h.click('gameAccount');
+ const h=harness();h.createFunded('Ricardo');h.click('gameAccount');
  assert.match(h.nodes.modalContent.innerHTML,/CONEXÃO OFICIAL INDISPONÍVEL/);
  await h.submit('gameAccount','',{eaId:'DjowFC',platform:'pc'});
  assert.equal(model.current(h.api.getState()).gameAccount.eaId,'DjowFC');
@@ -124,7 +133,7 @@ test('shop initially shows thirteen current cards; tier and owned filters preser
  }
  h.click('storeFilter',{value:'owned'});assert.deepEqual(storeCardNames(h.nodes.screen.innerHTML),[]);
  assert.match(h.nodes.screen.innerHTML,/Sua coleção começa em campo/);
- h.submit('create','Colecionador');
+ h.createFunded('Colecionador');
  h.api.commit('purchaseSticker',{id:'senne-lammens'});
  h.api.commit('purchaseSticker',{id:'nilo-raio'});h.api.render();
  assert.deepEqual(storeCardNames(h.nodes.screen.innerHTML),['Senne Lammens','Nilo Raio']);
@@ -166,7 +175,7 @@ test('player details expose original signature sources or curation status and ac
 });
 
 test('new avatar confirmation charges once and equipping a purchased caricature renders its image',()=>{
- const h=harness();h.submit('create','Ricardo');h.api.getUI().view='store';h.api.render();
+ const h=harness();h.createFunded('Ricardo');h.api.getUI().view='store';h.api.render();
  const profileId=h.api.getState().activeProfileId;
  h.click('buySticker',{id:'cristiano-ronaldo'});
  assert.equal(h.api.getUI().pendingSticker.id,'cristiano-ronaldo');assert.equal(h.api.getUI().pendingSticker.profileId,profileId);
@@ -186,8 +195,8 @@ test('new avatar confirmation charges once and equipping a purchased caricature 
 });
 
 test('stale shop confirmation cannot charge a profile selected in another tab',()=>{
- const h=harness();h.submit('create','JogadorA');const first=h.api.getState().activeProfileId;
- h.submit('create','JogadorB');const second=h.api.getState().activeProfileId;
+ const h=harness();h.createFunded('JogadorA');const first=h.api.getState().activeProfileId;
+ h.createFunded('JogadorB');const second=h.api.getState().activeProfileId;
  h.click('login',{id:first});h.click('buySticker',{id:'cristiano-ronaldo'});
  assert.equal(h.api.getUI().pendingSticker.profileId,first);
  const external=JSON.parse(h.localStorage.getItem(model.STORAGE_KEY));external.activeProfileId=second;
@@ -207,25 +216,25 @@ test('stale shop confirmation cannot charge a profile selected in another tab',(
 });
 
 test('legacy bet history still records results in the account',()=>{
- const h=harness();h.submit('create','Ricardo');h.click('pick',{id:'m1',side:'away'});h.click('reviewBet');assert.match(h.nodes.modalContent.innerHTML,/220 pts/);h.click('confirmBet');assert.equal(model.current(h.api.getState()).balance,900);assert.equal(model.current(h.api.getState()).bets.length,1);assert.equal(h.api.getUI().pick,null);
+ const h=harness();h.createFunded('Ricardo');h.click('pick',{id:'m1',side:'away'});h.click('reviewBet');assert.match(h.nodes.modalContent.innerHTML,/220 pts/);h.click('confirmBet');assert.equal(model.current(h.api.getState()).balance,900);assert.equal(model.current(h.api.getState()).bets.length,1);assert.equal(h.api.getUI().pick,null);
  h.click('settle',{id:'m1'});h.click('settleResult',{id:'m1',side:'away'});assert.equal(model.current(h.api.getState()).balance,1120);assert.equal(model.current(h.api.getState()).bets[0].status,'won');h.api.getUI().view='bets';h.api.render();assert.match(h.nodes.screen.innerHTML,/LucasD10/);assert.match(h.nodes.screen.innerHTML,/Vencedor/);
 });
 test('payment rejection, retry, approval and close/cancel affect balance correctly',()=>{
- const h=harness();h.submit('create','Ricardo');h.click('deposit',{method:'card'});h.click('package',{value:'2500'});h.click('paymentReview');assert.match(h.nodes.modalContent.innerHTML,/4242/);h.click('paymentDecline');assert.equal(model.current(h.api.getState()).balance,1000);assert.match(h.nodes.modalContent.innerHTML,/recusado/);h.click('paymentRetry');h.click('paymentApprove');h.tick(650);assert.equal(model.current(h.api.getState()).balance,3500);assert.match(h.nodes.modalContent.innerHTML,/Pontos na carteira/);h.click('paymentApprove');h.tick(650);assert.equal(model.current(h.api.getState()).balance,3500);
+ const h=harness();h.createFunded('Ricardo');h.click('deposit',{method:'card'});h.click('package',{value:'2500'});h.click('paymentReview');assert.match(h.nodes.modalContent.innerHTML,/4242/);h.click('paymentDecline');assert.equal(model.current(h.api.getState()).balance,1000);assert.match(h.nodes.modalContent.innerHTML,/recusado/);h.click('paymentRetry');h.click('paymentApprove');h.tick(650);assert.equal(model.current(h.api.getState()).balance,3500);assert.match(h.nodes.modalContent.innerHTML,/Pontos na carteira/);h.click('paymentApprove');h.tick(650);assert.equal(model.current(h.api.getState()).balance,3500);
  h.click('closeDialog');h.click('deposit');h.click('paymentReview');h.click('paymentApprove');h.click('closeDialog');h.tick(650);assert.equal(model.current(h.api.getState()).balance,3500);
 });
 test('slips stay isolated across profile switches and guest selection carries into login',()=>{
- const h=harness();h.click('pick',{id:'m2',side:'home'});h.click('reviewBet');h.submit('create','JogadorA');h.tick(0);assert.match(h.nodes.modalContent.innerHTML,/Confira seu palpite/);const a=h.api.getState().activeProfileId;h.click('closeDialog');h.click('amount',{value:'250'});
- h.click('logoutConfirm');assert.equal(h.api.getUI().pick,null);h.submit('create','JogadorB');const b=h.api.getState().activeProfileId;assert.equal(h.api.getUI().pick,null);h.click('pick',{id:'m4',side:'away'});h.click('amount',{value:'50'});
+ const h=harness();h.click('pick',{id:'m2',side:'home'});h.click('reviewBet');h.createFunded('JogadorA');h.tick(0);assert.match(h.nodes.modalContent.innerHTML,/Confira seu palpite/);const a=h.api.getState().activeProfileId;h.click('closeDialog');h.click('amount',{value:'250'});
+ h.click('logoutConfirm');assert.equal(h.api.getUI().pick,null);h.createFunded('JogadorB');const b=h.api.getState().activeProfileId;assert.equal(h.api.getUI().pick,null);h.click('pick',{id:'m4',side:'away'});h.click('amount',{value:'50'});
  h.click('login',{id:a});assert.equal(h.api.getUI().pick.matchId,'m2');assert.equal(h.api.getUI().stake,'250');h.click('login',{id:b});assert.equal(h.api.getUI().pick.matchId,'m4');assert.equal(h.api.getUI().stake,'50');
  assert.equal(h.api.readSlip(a).pick.matchId,'m2');assert.equal(h.api.readSlip(b).pick.matchId,'m4');
 });
 test('invalid fractional input cannot masquerade as insufficient funds; skip link keeps route',()=>{
- const h=harness();h.submit('create','Ricardo');h.click('pick',{id:'m1',side:'home'});h.api.getUI().stake='1000.5';const html=h.api.slipHTML();assert.match(html,/Use apenas pontos inteiros/);assert.match(html,/data-review disabled/);assert.doesNotMatch(html,/Adicionar saldo/);
+ const h=harness();h.createFunded('Ricardo');h.click('pick',{id:'m1',side:'home'});h.api.getUI().stake='1000.5';const html=h.api.slipHTML();assert.match(html,/Use apenas pontos inteiros/);assert.match(html,/data-review disabled/);assert.doesNotMatch(html,/Adicionar saldo/);
  h.api.getUI().view='wallet';h.location.hash='#carteira';let prevented=false;h.listeners.click({preventDefault(){prevented=true;},target:{closest(selector){return selector==='.skip-link'?{}:null;}}});assert.equal(prevented,true);assert.equal(h.location.hash,'#carteira');assert.equal(h.document.activeElement.id,'screen');
 });
 test('challenge results require photo evidence and fraud reports block ranking points',async()=>{
- const h=harness();h.submit('create','Ricardo');h.click('accept',{id:'bia'});assert.ok(model.current(h.api.getState()).friends.includes('bia'));h.click('invite',{id:'leo'});h.click('simulateAccept',{id:'leo'});assert.ok(model.current(h.api.getState()).friends.includes('leo'));
+ const h=harness();h.createFunded('Ricardo');h.click('accept',{id:'bia'});assert.ok(model.current(h.api.getState()).friends.includes('bia'));h.click('invite',{id:'leo'});h.click('simulateAccept',{id:'leo'});assert.ok(model.current(h.api.getState()).friends.includes('leo'));
  h.click('challenge',{id:'leo'});h.submit('challenge','',{id:'leo',mode:'Ultimate Team',stake:'250'});let p=model.current(h.api.getState()),challenge=p.challenges[0];assert.equal(p.challenges.length,1);assert.equal(challenge.mode,'Ultimate Team');assert.equal(challenge.stake,250);assert.equal(challenge.status,'sent');assert.equal(p.balance,1000);
  h.click('acceptChallenge',{id:challenge.id});assert.equal(model.current(h.api.getState()).challenges[0].status,'accepted');h.click('challengeResult',{id:challenge.id});assert.match(h.nodes.modalContent.innerHTML,/type='file'/);assert.match(h.nodes.modalContent.innerHTML,/Salvar placar e deixar em análise/);
  const image={type:'image/png',size:50000,name:'placar.png'};await h.submit('challengeResult','',{id:challenge.id,winner:'you',evidence:image});p=model.current(h.api.getState());assert.equal(p.challenges[0].status,'review');assert.equal(p.challenges[0].winner,'');assert.equal(p.challenges[0].reportedWinner,'you');assert.equal(p.balance,1000);

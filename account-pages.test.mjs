@@ -12,6 +12,7 @@ import {createAdminPanel, adminIcon} from './admin-panel.mjs';
 import {accountArt} from './account-art.mjs';
 import {uiIcon} from './ui-icons.mjs';
 import {renderLobbyView} from './lobby-view.mjs';
+import {confirmationClock,safeRoomCards,notificationKey,notificationLabel} from './room-ui.mjs';
 import {renderWalletView, renderHistoryView, renderRankingView, renderProfileView} from './account-views.mjs';
 import {createArenaServer} from './backend/server.mjs';
 
@@ -37,7 +38,7 @@ async function harness({sessionUser = {...user}, backendStatus = status, arena =
     let markup = '', children = [];
     const attributesMap = new Map(Object.entries(attributes)), element = {tagName: tagName.toUpperCase(), id: attributes.id || '', textContent: '', value: '', hidden: Object.hasOwn(attributes, 'hidden'), open: false, disabled: false, isConnected: true, dataset: {},
       classList: {add() {}, remove() {}, toggle() {}}, focus() {document.activeElement = this;}, setSelectionRange() {},
-      showModal() {this.open = true;}, close() {this.open = false;}, contains(target) {return children.includes(target);}, closest() {return null;},
+      append() {}, showModal() {this.open = true;}, close() {this.open = false;}, contains(target) {return children.includes(target);}, closest() {return null;},
       setAttribute(name, value) {attributesMap.set(name, String(value));}, getAttribute(name) {return attributesMap.get(name) ?? null;}, removeAttribute(name) {attributesMap.delete(name);},
       remove() {this.isConnected = false; if (nodes[this.id] === this) delete nodes[this.id];},
       scrollIntoView(options) {this.scrollOptions = options;},
@@ -66,7 +67,7 @@ async function harness({sessionUser = {...user}, backendStatus = status, arena =
   }
   function elementForTag(tag, markup) {return element(tag, readAttributes(markup));}
   function node(id) {return nodes[id] ??= element('div', {id});}
-  const document = {activeElement: null, hidden: false, getElementById: id => ['roomError', 'mobileMoreNav', 'queueTitle'].includes(id) ? nodes[id] ?? null : node(id), querySelector: () => null,
+  const document = {activeElement: null, hidden: false, createElement: tag => ({...element(tag),append(){}}), getElementById: id => ['roomError', 'mobileMoreNav', 'queueTitle'].includes(id) ? nodes[id] ?? null : node(id), querySelector: () => null,
     addEventListener(event, callback) {listeners[event] = callback;}};
   const API = {
     async detectBackend() {return backendStatus;}, async loadSession() {return {user: sessionUser};},
@@ -76,7 +77,7 @@ async function harness({sessionUser = {...user}, backendStatus = status, arena =
     ...api
   };
   const sessionStorage = storage(session);
-  const context = {M, API, COUNTRY_CODES, TERMS_VERSION, accountArt, uiIcon, renderLobbyView, renderWalletView, renderHistoryView, renderRankingView, renderProfileView, adminIcon, createAdminPanel: options => createAdminPanel({...options, storage: sessionStorage}),
+  const context = {M, API, confirmationClock,safeRoomCards,notificationKey,notificationLabel, COUNTRY_CODES, TERMS_VERSION, accountArt, uiIcon, renderLobbyView, renderWalletView, renderHistoryView, renderRankingView, renderProfileView, adminIcon, createAdminPanel: options => createAdminPanel({...options, storage: sessionStorage}),
     document, location, URL, crypto, Intl, console, localStorage: storage(stored), sessionStorage,
     navigator: {clipboard: {async writeText(value) {copies.push(value);}}},
     window: {addEventListener(event, callback) {windowListeners[event] = callback;}, scrollTo() {}},
@@ -315,4 +316,80 @@ test('production HTTP serves the new account assets with correct types and keeps
   const privateSource = await fetch(`${base}/account-pages.test.mjs`); assert.equal(privateSource.status, 404); await privateSource.text();
   const home = await fetch(base); const homeHTML = await home.text();
   assert.match(homeHTML, /href=["']account-pages\.css\?v=/);
+});
+
+test('the connected arena renders only current server rooms and escapes public nicknames', async()=>{
+  const room={publicMatchId:'FG-0000000001',host:{nickname:'<img onerror=alert(1)>',clubId:null},stake:1000,mode:'1v1',platform:'playstation',creditMode:'coins',expiresAt:new Date(Date.now()+3600000).toISOString(),economics:{winnerPayout:1820}};
+  const h=await harness({api:{getRooms:async()=>({rooms:[room]})}});
+  assert.match(h.html(),/Encontre uma partida/);
+  assert.match(h.html(),/data-action='public-room' data-id='FG-0000000001'/);
+  assert.match(h.html(),/&lt;img onerror=alert\(1\)&gt;/);
+  assert.match(h.html(),/Conferir Coin exigidos/);
+  assert.doesNotMatch(h.html(),/data-action='public-room' data-id='private/);
+});
+
+test('a public room load failure keeps the account and normal arena available', async()=>{
+  const h=await harness({api:{getRooms:async()=>{throw Error('private server detail');}}});
+  assert.match(h.html(),/Não foi possível atualizar as salas/);
+  assert.match(h.html(),/data-action="create"/);
+  assert.doesNotMatch(h.html(),/temporariamente indisponível|private server detail/);
+});
+
+test('a preset Coin room blocks entry for an incoming player with insufficient balance', async()=>{
+  const invited=duel({status:'invited',hostId:opponent.id,guestId:null,recipientId:user.id,host:{...opponent},guest:null,recipient:{...user},stake:1000,fundingVersion:2,result:null});
+  const h=await harness({arena:{duels:[invited]},route:'partida/private-match-a'});
+  assert.match(h.html(),/precisa de 1.000 Coin disponíveis/);
+  assert.doesNotMatch(h.html(),/data-action='accept'/);
+  assert.match(h.html(),/Ver minha carteira/);
+});
+
+test('result confirmation opens a separate photo form and never confirms from a click alone', async()=>{
+  let confirms=0;
+  const pending=duel({status:'pending_review',fundingVersion:2,result:{id:'result-a',reporterId:opponent.id,evidenceId:'photo-rival',homeScore:2,awayScore:1,confirmationDeadline:new Date(Date.now()+300000).toISOString()}});
+  const h=await harness({arena:{duels:[pending]},route:'partida/private-match-a',api:{confirmResult:async()=>{confirms++;}}});
+  assert.match(h.html(),/Enviar minha foto e confirmar/);
+  await h.click('confirm',pending.id);
+  assert.equal(confirms,0);
+  assert.match(h.nodes.modalContent.innerHTML,/data-form='confirm-result'/);
+  assert.match(h.nodes.modalContent.innerHTML,/name='scoreSide' required/);
+  assert.match(h.nodes.modalContent.innerHTML,/Fotos de até 30 MB/);
+  assert.match(h.nodes.modalContent.innerHTML,/Envie uma foto própria/);
+});
+
+test('waiting alerts point to the actual room and nudge uses the existing room API', async()=>{
+  const active=duel({status:'in_progress',fundingVersion:2,result:null}),nudges=[];
+  const h=await harness({arena:{duels:[active],notifications:[{id:'wait-a',type:'waiting',duelId:active.id,publicMatchId:active.publicMatchId,createdAt:new Date().toISOString()}]},api:{nudgeDuel:async id=>{nudges.push(id);}}});
+  assert.match(h.html(),/Seu rival está esperando você/);
+  assert.match(h.html(),/data-action='room' data-id='private-match-a'/);
+  await h.routeTo('partida/private-match-a');
+  assert.match(h.html(),/Avisar que estou esperando/);
+  await h.click('nudge',active.id);
+  assert.deepEqual(nudges,[active.id]);
+  assert.match(h.nodes.toast.textContent,/Aviso enviado/);
+});
+
+test('confirmation timeout explains team review and never renders an automatic win', async()=>{
+  const pending=duel({status:'pending_review',fundingVersion:2,result:{id:'result-a',reporterId:user.id,evidenceId:'photo-a',homeScore:3,awayScore:1,confirmationDeadline:new Date(Date.now()-1).toISOString()}});
+  const h=await harness({arena:{duels:[pending]},route:'partida/private-match-a'});
+  assert.match(h.html(),/ninguém vence por falta de resposta/);
+  assert.doesNotMatch(h.html(),/Você venceu|Prêmio creditado/);
+});
+
+test('a legacy confirmation without a second evidence never claims two photos were received', async()=>{
+  const pending=duel({status:'pending_review',fundingVersion:1,result:{id:'result-a',reporterId:user.id,evidenceId:'photo-a',homeScore:3,awayScore:1,confirmedBy:opponent.id}});
+  const h=await harness({arena:{duels:[pending]},route:'partida/private-match-a'});
+  assert.match(h.html(),/Placar confirmado pelo rival/);
+  assert.match(h.html(),/revisar a evidência desta partida anterior/);
+  assert.doesNotMatch(h.html(),/As duas fotos foram recebidas|compara os placares das duas fotos/);
+});
+
+test('completed rooms distinguish automatic validation from a team decision without claiming one photo',async()=>{
+  for(const source of ['bilateral_verified','team_review']){
+    const completed=duel({fundingVersion:2,review:{source,reason:'Resultado conferido.'},result:{id:'result-a',reporterId:user.id,evidenceId:'photo-a',confirmationEvidenceId:'photo-b',confirmedBy:opponent.id,homeScore:3,awayScore:1},economics:{pot:200,houseFee:18,winnerPayout:182,feeBps:900},settlement:{pot:200,fee:18,prize:182,winner:'host',winnerId:user.id}});
+    const h=await harness({arena:{history:[completed]},route:'partida/private-match-a'});
+    assert.match(h.html(),source==='bilateral_verified'?/Validação automática:/ : /Decisão da equipe:/);
+    assert.doesNotMatch(h.html(),source==='bilateral_verified'?/Decisão da equipe:/ : /Validação automática:/);
+    assert.match(h.html(),/Foto do placar · resultado validado/);
+    assert.doesNotMatch(h.html(),/Foto enviada por um participante/);
+  }
 });

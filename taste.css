@@ -363,8 +363,9 @@ html:has(body.taste-app) { scroll-padding-block: 92px; }
   .taste-invite-strip { grid-template-columns: minmax(0, 1fr); gap: 19px; padding: 22px; }
   .taste-activity-grid { grid-template-columns: minmax(0, 1fr); }
   .taste-wallet-inline { align-items: flex-start; flex-wrap: wrap; gap: 15px; }
-  .taste-onboard-inline { gap: 16px; flex-wrap: wrap; }
-  .taste-onboard-inline .btn { margin-left: 48px; }
+  .taste-onboard-inline { display: grid; grid-template-columns: 32px minmax(0, 1fr); align-items: start; gap: 16px; }
+  .taste-onboard-inline > :is(.icon, .ui-icon) { width: 32px; height: 32px; }
+  .taste-onboard-inline .btn { grid-column: 2; margin-left: 0; justify-self: start; max-width: 100%; }
   .taste-app .admin-workspace { grid-template-columns: minmax(0, 1fr); }
   .taste-app .admin-heading { align-items: flex-start; flex-wrap: wrap; }
   .taste-app .admin-heading p { font-size: 15px; }

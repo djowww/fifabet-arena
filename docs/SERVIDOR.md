@@ -195,9 +195,11 @@ O retorno por DNS não desfaz dados da API nem altera a zona, os nameservers, o 
 - Senhas derivadas com `scrypt`, sal individual, sessão de 14 dias armazenada por hash e cookie `HttpOnly`/`SameSite=Lax`; logout revoga a sessão.
 - Login Google/Apple validado no servidor, com identity provider/subject única no SQLite; credenciais externas ficam fora da interface e do repositório.
 - Mutações exigem a origem configurada e, para contas autenticadas, token CSRF. Não há CORS aberto.
+- Respostas incluem CSP restritiva, proteção contra MIME sniffing e framing, política same-origin para recursos, referrer sem encaminhamento e permissões de câmera limitadas à própria origem; microfone e geolocalização ficam desativados.
 - Saldo e reservas calculados no servidor, com carteira demonstrativa anterior separada. Compras ficam desativadas em `unconfigured`; enviar `balance` ou `isReviewer` pelo perfil não muda esses campos.
 - Fotos limitadas a PNG/JPG/WebP, até 5 MiB e 24 megapixels, acessíveis somente aos participantes e revisores. Nome original do arquivo não é salvo ou exposto.
 - Limites de tentativas de login, requisições e uploads; 12 fotos por participante/desafio, 20 versões de placar, 10 divergências, 20 convites pendentes e 50 desafios ativos por criador; 10 recargas pendentes/aguardando revisão e três comprovantes por recarga. Esses limites são da aplicação; não são uma promessa de proteção contra DDoS.
+- A fila serial de acesso ao SQLite admite no máximo 128 operações ativas ou aguardando; o excesso recebe HTTP 503. O HTTP também limita conexões simultâneas, quantidade de cabeçalhos, requisições por conexão, duração de requisição e conexões keep-alive. Isso reduz filas e consumo por rajadas, mas ataques volumétricos distribuídos ainda dependem das proteções de borda do provedor/CDN.
 - Armazenamento total de fotos limitado a 200 MiB por padrão. Pode ser configurado por `FIFABET_MAX_EVIDENCE_BYTES`, em bytes, junto a uma política de retenção.
 - Arquivos de backend, documentos, `.env`, dados e testes não são servidos pelo HTTP estático do backend.
 
@@ -277,7 +279,7 @@ O campo opcional `expectedHostId` contém o ID interno da conta que conferiu o r
 ## Suíte existente
 
 ```powershell
-node --test backend/server.test.mjs
+npm test
 ```
 
-A suíte existente descreve autenticação, origem/CSRF, reservas, idempotência, fotos privadas, revisão, cancelamento, histórico e carteira demonstrativa da versão anterior. Os casos precisam acompanhar o contrato SQLite, a separação do ledger, `stake:0` em produção e o padrão `unconfigured`. Não foi executada nesta atualização. Os dados temporários de qualquer execução devem ficar fora do projeto; a documentação da suíte não confirma implantação nem configuração de provedores externos.
+O comando é o definido em `package.json` e executa os arquivos `*.test.mjs` da raiz e `backend/*.test.mjs`. Os testes são uma verificação de regressão do código, não substituem a revisão operacional do SQLite, credenciais externas, backups, CDN ou limites do VPS. Qualquer execução deve usar dados temporários fora do projeto.

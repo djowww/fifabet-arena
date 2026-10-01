@@ -14,6 +14,7 @@ const scrypt=promisify(scryptCallback);
 const ROOT=fileURLToPath(new URL('../',import.meta.url));
 const DAY=86_400_000;
 const MAX_IMAGE=5*1024*1024;
+const MAX_PENDING_OPERATIONS=128;
 const MODES=['1v1','Ultimate Team','Clubes'];
 const PLATFORMS=['playstation','xbox','pc','switch'];
 const DEPOSIT_AMOUNTS=[100,250,500,1000];
@@ -36,6 +37,18 @@ const token=()=>randomBytes(32).toString('base64url');
 const sha=value=>createHash('sha256').update(value).digest('hex');
 const now=()=>new Date().toISOString();
 const fail=(status,message,code='invalid_request')=>{const error=new Error(message);error.status=status;error.code=code;throw error;};
+const CONTENT_SECURITY_POLICY="default-src 'self'; base-uri 'self'; object-src 'none'; script-src 'self'; script-src-attr 'none'; style-src 'self' 'unsafe-inline'; img-src 'self' data: blob:; font-src 'self' data:; connect-src 'self'; form-action 'self'; frame-src 'none'; frame-ancestors 'none'";
+function setSecurityHeaders(response,secureCookie){
+  response.setHeader('Cache-Control','no-store');
+  response.setHeader('X-Content-Type-Options','nosniff');
+  response.setHeader('Referrer-Policy','no-referrer');
+  response.setHeader('X-Frame-Options','DENY');
+  response.setHeader('X-Permitted-Cross-Domain-Policies','none');
+  response.setHeader('Cross-Origin-Resource-Policy','same-origin');
+  response.setHeader('Permissions-Policy','camera=(self), microphone=(), geolocation=()');
+  response.setHeader('Content-Security-Policy',CONTENT_SECURITY_POLICY);
+  if(secureCookie)response.setHeader('Strict-Transport-Security','max-age=31536000');
+}
 const plain=value=>value&&typeof value==='object'&&!Array.isArray(value);
 function nickname(value){
   const name=typeof value==='string'?value.trim():'';
@@ -201,8 +214,14 @@ export async function createArenaServer(options={}){
     storage?.close();await lock.close();await unlink(lockPath);throw error;
   }
   const persist=draft=>storage.save(draft);
-  let tail=Promise.resolve();
-  const serial=fn=>{const next=tail.then(fn,fn);tail=next.catch(()=>{});return next;};
+  let tail=Promise.resolve(),pendingOperations=0;
+  const serial=fn=>{
+    if(pendingOperations>=MAX_PENDING_OPERATIONS){const error=new Error('A arena está ocupada. Tente novamente em alguns segundos.');error.status=503;error.code='server_busy';return Promise.reject(error);}
+    pendingOperations++;
+    const next=tail.then(fn,fn);
+    tail=next.catch(()=>{}).finally(()=>{pendingOperations--;});
+    return next;
+  };
   const limits=new Map();
   const MAX_RATE_LIMIT_BUCKETS=10_000;
   let nextRateLimitSweep=0;
@@ -294,7 +313,10 @@ export async function createArenaServer(options={}){
     return duelView(draft,duel,user);
   }
   const mimeTypes={'.html':'text/html; charset=utf-8','.js':'text/javascript; charset=utf-8','.mjs':'text/javascript; charset=utf-8','.css':'text/css; charset=utf-8','.png':'image/png','.jpg':'image/jpeg','.webp':'image/webp','.svg':'image/svg+xml'};
-  const publicFiles=new Set(['index.html','legacy.html','colecao.html','bootstrap.js','app.js','play.js','arena-app.js','backend-client.mjs','model.mjs','clubs.mjs','football-trophies.mjs','rivalry-section.mjs','styles.css','arena.css','shop.css','profile.css','achievements.css','rivalry.css','competitive-modes.css','practical.css','lobby.css','wizard.css','arena-app.css']);
+  const publicFiles=new Set([
+    'index.html','colecao.html','bootstrap.js','app.js','play.js','backend-client.mjs','model.mjs','clubs.mjs','football-trophies.mjs','rivalry-section.mjs',
+    'styles.css','arena.css','shop.css','profile.css','achievements.css','rivalry.css','competitive-modes.css','practical.css','lobby.css','wizard.css'
+  ]);
   const serverStatus=()=>({available:true,mode:'shared',storage:'sqlite',schemaVersion:storage.schemaVersion,paymentMode,realMoney:paymentMode==='pix_manual',noRealMoney:paymentMode!=='pix_manual',paymentsAvailable:paymentMode==='demo'||paymentMode==='pix_manual',authProviders:oauth.status(),apiVersion:1,reviewerConfigured:reviewerIds.size>0});
   async function route(draft,request,response,url){
     const path=url.pathname,method=request.method;
@@ -596,9 +618,7 @@ export async function createArenaServer(options={}){
     fail(404,'Endpoint não encontrado.','not_found');
   }
   const server=createServer(async(request,response)=>{
-    response.setHeader('Cache-Control','no-store');response.setHeader('X-Content-Type-Options','nosniff');response.setHeader('Referrer-Policy','no-referrer');response.setHeader('X-Frame-Options','DENY');
-    response.setHeader('Content-Security-Policy',"default-src 'self'; base-uri 'self'; object-src 'none'; script-src 'self'; script-src-attr 'none'; style-src 'self' 'unsafe-inline'; img-src 'self' data: blob:; font-src 'self' data:; connect-src 'self'; form-action 'self'; frame-ancestors 'none'");
-    if(secureCookie)response.setHeader('Strict-Transport-Security','max-age=31536000');
+    setSecurityHeaders(response,secureCookie);
     try{
       let url;
       try{url=new URL(request.url||'/',publicOrigin||'http://localhost');}
@@ -671,7 +691,7 @@ export async function createArenaServer(options={}){
       response.end(JSON.stringify({error:status===500?'O servidor não conseguiu concluir o pedido.':error.message,code:error.status?error.code:'server_error'}));
     }
   });
-  server.requestTimeout=30_000;server.headersTimeout=15_000;server.keepAliveTimeout=5_000;
+  server.requestTimeout=30_000;server.headersTimeout=15_000;server.keepAliveTimeout=5_000;server.maxHeadersCount=100;server.maxRequestsPerSocket=100;server.maxConnections=256;
   let cleanupPromise;
   const cleanup=()=>cleanupPromise||(cleanupPromise=tail.then(async()=>{storage.close();await lock.close().catch(()=>{});await unlink(lockPath).catch(()=>{});}));
   server.on('close',()=>{void cleanup();});

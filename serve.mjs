@@ -2,6 +2,17 @@ import { createServer } from "node:http";
 import { readFile } from "node:fs/promises";
 
 const port = Number(process.env.PORT || 4173);
+const contentSecurityPolicy = "default-src 'self'; base-uri 'self'; object-src 'none'; script-src 'self'; script-src-attr 'none'; style-src 'self' 'unsafe-inline'; img-src 'self' data: blob:; font-src 'self' data:; connect-src 'self'; form-action 'self'; frame-src 'none'; frame-ancestors 'none'";
+function setSecurityHeaders(response) {
+  response.setHeader("Cache-Control", "no-store");
+  response.setHeader("X-Content-Type-Options", "nosniff");
+  response.setHeader("Referrer-Policy", "no-referrer");
+  response.setHeader("X-Frame-Options", "DENY");
+  response.setHeader("X-Permitted-Cross-Domain-Policies", "none");
+  response.setHeader("Cross-Origin-Resource-Policy", "same-origin");
+  response.setHeader("Permissions-Policy", "camera=(self), microphone=(), geolocation=()");
+  response.setHeader("Content-Security-Policy", contentSecurityPolicy);
+}
 const files = new Map([
   ["/", ["index.html", "text/html; charset=utf-8"]],
   ["/index.html", ["index.html", "text/html; charset=utf-8"]],
@@ -28,6 +39,7 @@ const files = new Map([
 ]);
 
 const server = createServer(async (request, response) => {
+  setSecurityHeaders(response);
   if (request.method !== "GET" && request.method !== "HEAD") {
     response.writeHead(405, { Allow: "GET, HEAD" });
     response.end("Method Not Allowed");
@@ -65,8 +77,6 @@ const server = createServer(async (request, response) => {
     const body = await readFile(new URL(file[0], import.meta.url));
     response.writeHead(200, {
       "Content-Type": file[1],
-      "Cache-Control": "no-store",
-      "X-Content-Type-Options": "nosniff",
     });
     response.end(request.method === "HEAD" ? undefined : body);
   } catch {
@@ -74,6 +84,12 @@ const server = createServer(async (request, response) => {
     response.end("Unable to read the requested app file");
   }
 });
+server.requestTimeout = 30_000;
+server.headersTimeout = 15_000;
+server.keepAliveTimeout = 5_000;
+server.maxHeadersCount = 100;
+server.maxRequestsPerSocket = 100;
+server.maxConnections = 256;
 
 server.listen(port, "127.0.0.1", () => {
   console.log(`FifaBet Arena local: http://localhost:${port}`);

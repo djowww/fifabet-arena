@@ -4,7 +4,7 @@ import {COUNTRY_CODES,TERMS_VERSION} from './account-policy.mjs?v=1';
 import {createAdminPanel} from './admin-panel.mjs?v=3';
 import {accountArt} from './account-art.mjs?v=1';
 import {uiIcon} from './ui-icons.mjs?v=1';
-import {renderLobbyView} from './lobby-view.mjs?v=4';
+import {renderLobbyView} from './lobby-view.mjs?v=5';
 import {renderWalletView,renderHistoryView,renderRankingView,renderProfileView} from './account-views.mjs?v=2';
 import {preparePhoto as prepareEvidencePhoto} from './image-preparation.mjs?v=1';
 import {confirmationClock,safeRoomCards,notificationKey,notificationLabel,preparationState} from './room-ui.mjs?v=2';
@@ -20,7 +20,7 @@ const brl=cents=>new Intl.NumberFormat('pt-BR',{style:'currency',currency:'BRL'}
 const read=()=>{try{return M.restore(localStorage.getItem(M.STORAGE_KEY),localStorage.getItem('fifabet-profile'),localStorage.getItem('fifabet-bets'));}catch{return M.emptyState();}};
 let state=read(),online=false,arena=null,busy=false,foundPlayer=null,invite=null,reviewDuels=[],walletData=null,depositReviews=[],pendingIntent=null,opener,toastTimer,backendStatus=null,serviceUnavailable=false,arenaSyncRevision=0,modalRevision=0;
 let publicRooms=[],publicRoomsError='',publicRoomsRevision=0,notifiedOwner=null,seenNotifications=new Set();
-const ui={view:'arena',filter:'all',search:'',mode:'1v1',platform:'pc',stake:'0',rival:'',rules:'',visibility:'public',duelStep:1,duelOwner:null,duelRevision:0,duelOperation:'',duelError:''};
+const ui={view:'arena',arenaTab:'open',filter:'all',search:'',mode:'1v1',platform:'pc',stake:'0',rival:'',rules:'',visibility:'public',duelStep:1,duelOwner:null,duelRevision:0,duelOperation:'',duelError:''};
 const names={invited:'Convite pendente',awaiting_funds:'Aguardando os valores',preparing:'Preparação da partida',active:'Partida em andamento...',review:'Resultado em análise',disputed:'Resultado contestado',settled:'Resultado concluído',rejected:'Recusado',cancelled:'Cancelado',expired:'Expirado'};
 const tones={invited:'amber',awaiting_funds:'amber',preparing:'mint',active:'mint',review:'violet',disputed:'live',settled:'lime'};
 const profile=()=>serviceUnavailable?null:online?arena?.user:M.current(state);
@@ -110,7 +110,7 @@ function accountIntro(kind,title,description){return `<header class='account-int
 function accountEmpty(kind,title,description,actions=''){return `<section class='account-empty'>${accountIcon(kind)}<div><h2>${esc(title)}</h2><p>${esc(description)}</p>${actions?`<div class='account-actions'>${actions}</div>`:''}</div></section>`;}
 function accountGuest(kind,title,description){return `<div class='account-page'>${accountIntro(kind,title,description)}${accountEmpty('lock','Sua conta, seu jogo.','Entre para ver seus dados ou crie uma conta para receber seu ID Fifa GO.',`<button class='btn primary' data-action='login'>Entrar na minha conta</button><button class='text-button' data-action='signup'>Criar conta</button>`)}</div>`;}
 function header(){
- const p=profile(),items=[['arena','Início',uiIcon('home')],['carteira','Carteira',accountIcon('wallet')],['historico','Histórico',accountIcon('history')],['ranking','Ranking',accountIcon('ranking')],['perfil','Meu perfil',accountIcon('profile')]];
+ const p=profile(),items=[['arena','Início',uiIcon('home')],['salas','Arena',uiIcon('ball')],['carteira','Carteira',accountIcon('wallet')],['historico','Histórico',accountIcon('history')],['ranking','Ranking',accountIcon('ranking')],['perfil','Meu perfil',accountIcon('profile')]];
  if(online&&p?.isReviewer&&!p?.isAdmin)items.push(['revisao','Revisão',uiIcon('check')]);
  if(online&&p?.isAdmin)items.push(['admin','Admin',uiIcon('shield')]);
  const extraItems=items.length>5?items.slice(4):[],extraViews=extraItems.map(([hash])=>hash),navigation=$('navigation');
@@ -129,8 +129,8 @@ function closeMoreNav(returnFocus=false){
  if(returnFocus)button?.focus({preventScroll:true});
 }
 function toggleMoreNav(){
- const p=profile(),panel=$('mobileMoreNav'),button=$('navigation')?.querySelector('.nav-more');
- if(!online||(!p?.isAdmin&&!p?.isReviewer)||!panel||!button)return;
+ const panel=$('mobileMoreNav'),button=$('navigation')?.querySelector('.nav-more');
+ if(!panel||!button)return;
  const expanded=panel.hidden;panel.hidden=!expanded;button.setAttribute('aria-expanded',String(expanded));
  if(expanded)panel.querySelector('a')?.focus({preventScroll:true});
 }
@@ -189,7 +189,7 @@ function composer(){
 }
 function actions(d){
  const p=profile(),host=d.hostId===p?.id;if(!p||(!host&&d.guestId!==p.id&&d.recipientId!==p.id))return '';
- if(d.status==='invited')return host?btn('copy-code',matchCode(d),'Copiar código',true)+(online&&d.inviteToken?btn('share',d.id,'Copiar link')+btn('share-native',d.id,'Compartilhar'):'')+btn('cancel',d.id,'Cancelar convite'):btn('accept-preview',d.id,'Conferir e aceitar',true)+btn('decline',d.id,'Recusar');
+ if(d.status==='invited')return host?(ui.view!=='sala'?btn('room',d.id,'Abrir sala',true):'')+btn('copy-code',matchCode(d),'Copiar código',ui.view==='sala')+(online&&d.inviteToken?btn('share',d.id,'Copiar link')+btn('share-native',d.id,'Compartilhar'):'')+btn('cancel',d.id,'Cancelar convite'):btn('accept-preview',d.id,'Conferir e aceitar',true)+btn('decline',d.id,'Recusar');
  if(d.status==='awaiting_funds')return btn('room',d.id,'Entrar na sala',true);
  if(d.status==='preparing')return btn('room',d.id,'Preparar e conversar',true);
  if(d.cancelRequestedBy&&(!online||d.status==='active'))return d.cancelRequestedBy!==p.id?btn('cancel',d.id,'Confirmar cancelamento')+btn('withdraw-cancel',d.id,'Recusar cancelamento'):btn('withdraw-cancel',d.id,'Retirar pedido de cancelamento');
@@ -205,7 +205,7 @@ function queue(){
  const list=all.filter(d=>ui.filter==='all'||(ui.filter==='incoming'?incoming(d):ui.filter==='review'?['review','disputed'].includes(d.status):d.status===ui.filter)).sort((a,b)=>Number(incoming(b))-Number(incoming(a)));
  const filters=all.length?`<div class='tabs' role='group' aria-label='Filtrar convites e partidas'>${[['all','Todos'],['incoming',`Recebidos (${count})`],['invited','Convites'],['preparing','Preparação'],['active','Em andamento'],['review','Em análise']].map(([v,label])=>`<button class='tab ${ui.filter===v?'active':''}' data-action='filter' data-id='${v}' aria-pressed='${ui.filter===v}'>${label}</button>`).join('')}</div>`:'';
  const empty=all.length?`<div class='card pad'><h3>Nenhuma partida nessa etapa.</h3><p class='muted'>Escolha outro filtro para consultar seus convites e partidas.</p></div>`:`<div class='lobby-empty-activity'><strong>Nenhum convite ou partida em andamento.</strong><p>Quando você receber ou criar um desafio, ele aparecerá aqui.</p></div>`;
- return `<section class='duel-queue lobby-queue' aria-labelledby='queueTitle'><div class='card-top'><h2 id='queueTitle' tabindex='-1'>Seu jogo continua</h2><button class='text-button' data-action='refresh'>Atualizar</button></div>${count?`<p class='queue-nudge'>${count===1?'Você recebeu um convite.':`Você recebeu ${count} convites.`} Confira as regras antes de aceitar.</p>`:''}${filters}${list.length?"<div class='taste-activity-grid'>"+list.map(duelCard).join('')+"</div>":empty}</section>`;
+ return `<section class='duel-queue lobby-queue' aria-labelledby='queueTitle'><div class='card-top'><h2 id='queueTitle' tabindex='-1'>Minhas salas e partidas</h2></div>${count?`<p class='queue-nudge'>${count===1?'Você recebeu um convite.':`Você recebeu ${count} convites.`} Confira as regras antes de aceitar.</p>`:''}${filters}${list.length?"<div class='taste-activity-grid'>"+list.map(duelCard).join('')+"</div>":empty}</section>`;
 }
 function joinForm(dialog=false){const id=dialog?'dialogJoinCode':'joinCode';return `<form data-form='join' class='join-form'><label class='form-label' for='${id}'>Código ou link de convite</label><input class='form-input' id='${id}' name='code' maxlength='1024' value='${esc(ui.joinCode||'')}' required placeholder='Ex.: FG-0123456789 ou cole o link' autocomplete='off' spellcheck='false' ${!dialog?`aria-describedby='joinError'`:''}><button class='btn primary' type='submit'>Conferir convite</button>${!dialog?`<p id='joinError' class='error-message' role='alert' hidden></p>`:''}</form>`;}
 function balanceHint(p){
@@ -216,20 +216,36 @@ function balanceHint(p){
 
 function arenaView(){
  const p=profile(),all=p?duels().filter(open):[],activitySummary={incoming:all.filter(d=>d.status==='invited'&&d.hostId!==p?.id).length,active:all.filter(d=>d.status==='active').length};
- return roomNotices()+renderLobbyView({user:p,online,friendly:friendlyMode(),unit:creditUnit(),hint:balanceHint(p),reserved:reserved(),joinForm:joinForm(),queue:p&&(online||all.length)?queue():'',rooms:publicRoomsView(),activitySummary,esc,fmt,icon:uiIcon});
+ const shortcut=p?`<section class='arena-home-link'><div>${uiIcon('ball')}<div><h2>Suas salas estão na Arena.</h2><p>${all.length?`${fmt(all.length)} ${all.length===1?'sala ou partida para acompanhar':'salas e partidas para acompanhar'}.`:'Encontre uma sala aberta ou acompanhe os desafios que você criar.'}</p></div></div><button class='btn secondary' data-action='browse-arena'>Ir para a Arena ${uiIcon('arrow')}</button></section>`:'';
+ return roomNotices()+renderLobbyView({user:p,online,friendly:friendlyMode(),unit:creditUnit(),hint:balanceHint(p),reserved:reserved(),joinForm:joinForm(),queue:shortcut,activitySummary,esc,fmt,icon:uiIcon});
 }
 function roomNotices(){
  const notices=(arena?.notifications||[]).filter(n=>n.duelId&&['waiting','result_confirmation','joined'].includes(n.type)).slice(0,3);
  return online&&profile()&&notices.length?`<section class='room-alert-list' aria-label='Avisos das suas partidas'>${notices.map(n=>`<div class='room-alert'>${uiIcon('ball')}<p>${esc(notificationLabel(n))}<span class='meta'>${esc(n.publicMatchId||'')}</span></p><button class='btn secondary' data-action='room' data-id='${esc(n.duelId)}'>Ver sala</button></div>`).join('')}</section>`:'';
 }
+function ownPublicRooms(){
+ return online?safeRoomCards(duels().filter(d=>d.hostId===profile()?.id&&d.status==='invited'&&d.visibility==='public'&&!d.recipientId&&!d.guestId&&d.fundingVersion===2)):[];
+}
+function availableRooms(){
+ const ownCodes=new Set(duels().map(matchCode));return safeRoomCards(publicRooms).filter(room=>!ownCodes.has(room.publicMatchId));
+}
+function openRoomCard(room,own=false){
+ const enough=profile().balance>=room.stake,platform=({pc:'PC',playstation:'PlayStation',xbox:'Xbox',switch:'Nintendo Switch'})[room.platform]||room.platform;
+ return `<article class='arena-room-card ${own?'arena-own-room':''}'><div class='row'>${avatar(room.host,'small')}<div><h3>${own?'Sua sala':esc(room.host.nickname)}</h3><p class='meta'>${esc(room.mode)} · ${esc(platform)}</p></div><span class='pill ${own?'amber':'mint'}'>${own?'Aguardando rival':'Aberta'}</span></div><p class='room-entry-price'>${room.stake?`${fmt(room.stake)} <span>Joga aí Coin por jogador</span>`:'Amistosa · sem Coin'}</p><p class='meta arena-room-code'>${esc(room.publicMatchId)}</p><p class='meta'>${own?(room.stake?'Sua sala aparece para outros jogadores. Sua parte já está reservada.':'Sua sala aparece para outros jogadores. Nenhum Coin é reservado nesta amistosa.'):room.stake?(room.economics?`Prêmio previsto: ${fmt(room.economics.winnerPayout)} Coin · taxa de 9%.`:'A reserva é exigida ao entrar.'):'Jogue e registre o resultado com uma foto.'}</p>${own?btn('room',room.id,'Abrir sala',true):btn('public-room',room.publicMatchId,(enough?'Conferir e entrar':'Conferir Coin exigidos')+' '+uiIcon('arrow'),enough)}</article>`;
+}
 function publicRoomsView(){
- if(!online)return '';
- if(!profile())return `<section class='arena-open-rooms'><div class='card-top'><h2>Salas na arena</h2></div><p class='muted'>Entre com sua conta para encontrar jogadores e conferir as salas abertas.</p><button class='btn secondary' data-action='login'>Ver salas abertas</button></section>`;
- const ownCodes=new Set(duels().map(matchCode)),rooms=safeRoomCards(publicRooms).filter(room=>!ownCodes.has(room.publicMatchId));
- return `<section class='arena-open-rooms' aria-labelledby='openRoomsTitle'><div class='card-top'><div><h1 id='openRoomsTitle'>Salas da arena</h1><p class='meta'>Confira o valor por jogador. Ao entrar, conversem na sala e confirmem juntos o início da partida.</p></div><button class='text-button' data-action='refresh'>Atualizar salas</button></div>${publicRoomsError?`<p class='error-message' role='status'>${esc(publicRoomsError)}</p>`:''}${rooms.length?`<div class='arena-room-grid'>${rooms.map(room=>`<article class='arena-room-card'><div class='row'>${avatar(room.host,'small')}<div><h3>${esc(room.host.nickname)}</h3><p class='meta'>${esc(room.mode)} · ${esc(({pc:'PC',playstation:'PlayStation',xbox:'Xbox',switch:'Nintendo Switch'})[room.platform]||room.platform)}</p></div><span class='pill mint'>Aberta</span></div><p class='room-entry-price'>${room.stake?`${fmt(room.stake)} <span>Joga aí Coin por jogador</span>`:'Amistosa · sem Coin'}</p>${room.stake?`<p class='meta'>${room.economics?`Prêmio previsto: ${fmt(room.economics.winnerPayout)} Coin · taxa de 9%.`:'A reserva é exigida ao entrar.'}</p>`:`<p class='meta'>Jogue e registre o resultado com uma foto.</p>`}<button class='btn ${profile().balance>=room.stake?'primary':'secondary'}' data-action='public-room' data-id='${esc(room.publicMatchId)}'>${profile().balance>=room.stake?'Conferir e entrar':'Conferir Coin exigidos'} ${uiIcon('arrow')}</button></article>`).join('')}</div>`:`<p class='lobby-empty-activity'>Nenhuma sala aberta agora. Crie a sua para encontrar um rival.</p>`}</section>`;
+ const own=ownPublicRooms(),rooms=availableRooms();
+ return `<section class='arena-open-rooms' aria-labelledby='openRoomsTitle'><div class='card-top'><div><h2 id='openRoomsTitle'>Salas abertas</h2><p class='meta'>Confira o valor por jogador. Ao entrar, conversem e confirmem juntos o início da partida.</p></div></div>${publicRoomsError?`<p class='error-message' role='status'>${esc(publicRoomsError)}</p>`:''}${own.length||rooms.length?`<div class='arena-room-grid'>${own.map(room=>openRoomCard(room,true)).join('')}${rooms.map(room=>openRoomCard(room)).join('')}</div>`:`<div class='lobby-empty-activity'><strong>${publicRoomsError?'As salas não puderam ser atualizadas.':'Nenhuma sala pública aguardando rival agora.'}</strong><p>Suas partidas confirmadas e convites privados ficam em “Minhas partidas”.</p><button class='btn secondary' data-action='create'>Criar uma sala</button></div>`}</section>`;
+}
+function roomsView(){
+ const p=profile();
+ if(!p)return intro('Arena','Encontre uma sala e combine a próxima partida.')+accountEmpty('lock','Entre para ver as salas.','Use sua conta para conferir o valor de entrada e acompanhar seus desafios.',`<button class='btn primary' data-action='login'>Entrar na minha conta</button><button class='text-button' data-action='signup'>Criar conta</button>`);
+ const mine=duels().filter(open).length,available=ownPublicRooms().length+availableRooms().length;
+ const tabs=`<div class='arena-directory-tabs' role='group' aria-label='Escolher salas da arena'>${[['open','Salas abertas',available],['mine','Minhas partidas',mine]].map(([id,label,count])=>`<button class='tab ${ui.arenaTab===id?'active':''}' data-action='arena-tab' data-id='${id}' aria-pressed='${ui.arenaTab===id}' aria-controls='arenaList'>${label}<span>${fmt(count)}</span></button>`).join('')}</div>`;
+ return `<div class='arena-directory'><header class='arena-directory-heading'><div><h1>Arena</h1><p>Encontre um rival ou continue suas partidas. Tudo em um só lugar.</p></div><div class='arena-directory-actions'><button class='btn secondary' data-action='join'>Tenho um convite</button><button class='btn primary' data-action='create'>${uiIcon('plus')} Criar sala</button></div></header><div class='arena-directory-toolbar'>${tabs}<button class='text-button' data-action='refresh'>Atualizar salas</button></div><div id='arenaList' tabindex='-1'>${ui.arenaTab==='mine'?queue():online?publicRoomsView():`<p class='hint'>As salas públicas entre aparelhos precisam da versão conectada. Seus desafios locais ficam em “Minhas partidas”.</p>`}</div>${roomNotices()}</div>`;
 }
 function createView(){
- return intro('Chame seu rival.','Escolha o amigo, combine as regras e confira o convite antes de enviar.')+"<a class='text-button taste-back' href='#arena'>Voltar ao início</a><div class='arena-workspace'>"+composer()+identity()+"</div>";
+ return intro('Chame seu rival.','Escolha o amigo, combine as regras e confira o convite antes de enviar.')+"<a class='text-button taste-back' href='#salas'>Voltar à Arena</a><div class='arena-workspace'>"+composer()+identity()+"</div>";
 }
 function roomFunders(d){
  if(online)return d.fundedBy||[];
@@ -327,8 +343,8 @@ async function sendRoomChat(form,data){
  finally{state.sending=false;if(privateChat.valid(ticket))updateChatControls();}
 }
 function roomView(){
- if(!profile())return `<section class='card pad'><h1>Sala da partida</h1><p class='muted'>Entre com sua conta para acompanhar esta partida.</p><button class='btn primary' data-action='login'>Entrar</button><a class='text-button' href='#arena'>Voltar ao início</a></section>`;
- let d;try{d=byId(ui.roomId);}catch{return `<section class='card pad'><h1>Partida não encontrada.</h1><p class='muted'>Confira suas partidas ou atualize para tentar novamente.</p><div class='duel-actions'><a class='btn secondary' href='#arena'>Voltar ao início</a><button class='btn primary' data-action='refresh'>Atualizar</button></div></section>`;}
+ if(!profile())return `<section class='card pad'><h1>Sala da partida</h1><p class='muted'>Entre com sua conta para acompanhar esta partida.</p><button class='btn primary' data-action='login'>Entrar</button><a class='text-button' href='#salas'>Voltar à Arena</a></section>`;
+ let d;try{d=byId(ui.roomId);}catch{return `<section class='card pad'><h1>Partida não encontrada.</h1><p class='muted'>Confira suas partidas ou atualize para tentar novamente.</p><div class='duel-actions'><a class='btn secondary' href='#salas'>Voltar à Arena</a><button class='btn primary' data-action='refresh'>Atualizar</button></div></section>`;}
  const p=profile(),participant=[d.hostId,d.guestId,d.recipientId].includes(p.id),funded=roomFunders(d),ownFunded=funded.includes(p.id),incoming=d.status==='invited'&&d.hostId!==p.id;
  if(!participant)return `<section class='card pad'><a class='text-button muted' href='#revisao'>← Voltar à revisão</a><h1>${esc(d.host.nickname)} × ${esc(d.guest.nickname)}</h1><p class='muted'>${esc(names[d.status])}</p>${d.result?`<p class='score-pair'>${score(d)}</p><img class='review-image' src='${esc(photoUrl(d.result))}' alt='Foto do resultado enviada para revisão'>`:''}${issuesContent(d)}${economicsContent(d)}</section>`;
  const bilateralPhotos=!!(d.result?.evidenceId&&d.result?.confirmationEvidenceId&&d.result.evidenceId!==d.result.confirmationEvidenceId);
@@ -344,7 +360,7 @@ function roomView(){
  else if(['review','disputed'].includes(d.status))main=`<div class='room-state'><h2>${d.status==='disputed'?'Resultado contestado.':d.peerConfirmed?(online&&bilateralPhotos?'As duas fotos foram recebidas.':'Placar confirmado pelo rival.'):'Confirmação do resultado.'}</h2>${confirmationStatus(d)}<p>${!online?'Nesta demonstração, o placar e a foto ficam no navegador. A conferência com duas fotos exige a versão conectada.':d.peerConfirmed&&!bilateralPhotos?'O rival confirmou o placar. A equipe precisa revisar a evidência desta partida anterior.':d.peerConfirmed?'A conferência compara os placares das duas fotos. Se houver dúvida, divergência ou problema sinalizado, a equipe revisa antes de liberar Coin.':'Cada jogador precisa enviar a própria foto do placar. Uma única foto não libera o prêmio.'}</p>${reviewReasonText(d)?`<p class='hint'>${esc(reviewReasonText(d))}</p>`:''}<div class='duel-actions'>${d.result?.submittedBy!==p.id&&d.status==='review'?(!d.peerConfirmed?btn('confirm',d.id,'Enviar minha foto e confirmar',true):'')+btn('dispute',d.id,'Sinalizar divergência'):''}${d.status==='disputed'?btn('result',d.id,'Enviar novo placar',true):''}</div></div>`;
  else main=`<div class='room-state'><h2>${esc(resultText(d))}</h2><p>${d.status==='settled'?d.stake?'O resultado e a distribuição dos Joga aí Coin foram registrados.':'O resultado desta amistosa foi registrado.':'Confira o histórico e a situação desta partida.'}</p></div>`;
  const cancel=!closed&&d.cancelRequestedBy?`<div class='hint'>Cancelamento solicitado. Os dois precisam concordar.<div class='duel-actions'>${d.cancelRequestedBy!==p.id?btn('cancel',d.id,'Confirmar cancelamento')+btn('withdraw-cancel',d.id,'Recusar cancelamento'):btn('withdraw-cancel',d.id,'Retirar pedido')}</div></div>`:'';
- return `<section class='match-room' aria-labelledby='roomTitle'><a class='text-button muted' href='#arena'>← Voltar ao início</a><div class='room-heading'><div><h1 id='roomTitle'>Sala da partida</h1><p class='muted'><code>${esc(matchCode(d))}</code> · ${esc(d.mode)} · ${esc(({pc:'PC',playstation:'PlayStation',xbox:'Xbox',switch:'Nintendo Switch'})[d.platform]||'PC')}</p></div><button class='text-button' data-action='refresh'>Atualizar</button></div><div class='room-layout'><div class='room-play'><div class='room-participants'>${playerRow(d.host,d.hostId)}${playerRow(d.guest,d.guestId)}</div>${cancel}<div id='roomMainState'>${main}</div>${chatView(d)}${d.result?`<figure class='room-result'><figcaption><strong>${esc(d.host.nickname)} ${d.result.homeScore} × ${d.result.awayScore} ${esc(d.guest.nickname)}</strong><span class='meta'>Foto do placar · resultado ${d.status==='settled'?'validado':closed?'encerrado':'em análise'}</span></figcaption><img class='review-image' src='${esc(photoUrl(d.result))}' alt='Foto do placar enviada para esta partida'></figure>`:''}${reportHistory(d)}${issuesContent(d)}${(d.disputes||[d.dispute].filter(Boolean)).map(x=>`<p class='hint'>Divergência: ${esc(x.reason)}</p>`).join('')}${d.review?`<p class='hint'>${d.review.source==='bilateral_verified'?'Validação automática:':'Decisão da equipe:'} ${esc(d.review.reason)}</p>`:''}<p id='roomSyncStatus' class='meta' role='status' aria-live='polite'></p><p id='roomError' class='error-message' role='alert' hidden></p></div><aside class='room-summary'><h2>${d.stake?(d.status==='settled'?'Liquidação da partida':closed?'Devolução dos Joga aí Coin':'Valores da partida'):'Partida amistosa'}</h2>${economicsContent(d)}${d.rules?`<div class='room-rules'><h3>Regras combinadas</h3><p>${esc(d.rules)}</p></div>`:''}<p class='meta'>A foto ajuda a conferir o resultado. O Fifa GO não acessa o histórico do jogo automaticamente.</p></aside></div></section>`;
+ return `<section class='match-room' aria-labelledby='roomTitle'><a class='text-button muted' href='#salas'>← Voltar à Arena</a><div class='room-heading'><div><h1 id='roomTitle'>Sala da partida</h1><p class='muted'><code>${esc(matchCode(d))}</code> · ${esc(d.mode)} · ${esc(({pc:'PC',playstation:'PlayStation',xbox:'Xbox',switch:'Nintendo Switch'})[d.platform]||'PC')}</p></div><button class='text-button' data-action='refresh'>Atualizar</button></div><div class='room-layout'><div class='room-play'><div class='room-participants'>${playerRow(d.host,d.hostId)}${playerRow(d.guest,d.guestId)}</div>${cancel}<div id='roomMainState'>${main}</div>${chatView(d)}${d.result?`<figure class='room-result'><figcaption><strong>${esc(d.host.nickname)} ${d.result.homeScore} × ${d.result.awayScore} ${esc(d.guest.nickname)}</strong><span class='meta'>Foto do placar · resultado ${d.status==='settled'?'validado':closed?'encerrado':'em análise'}</span></figcaption><img class='review-image' src='${esc(photoUrl(d.result))}' alt='Foto do placar enviada para esta partida'></figure>`:''}${reportHistory(d)}${issuesContent(d)}${(d.disputes||[d.dispute].filter(Boolean)).map(x=>`<p class='hint'>Divergência: ${esc(x.reason)}</p>`).join('')}${d.review?`<p class='hint'>${d.review.source==='bilateral_verified'?'Validação automática:':'Decisão da equipe:'} ${esc(d.review.reason)}</p>`:''}<p id='roomSyncStatus' class='meta' role='status' aria-live='polite'></p><p id='roomError' class='error-message' role='alert' hidden></p></div><aside class='room-summary'><h2>${d.stake?(d.status==='settled'?'Liquidação da partida':closed?'Devolução dos Joga aí Coin':'Valores da partida'):'Partida amistosa'}</h2>${economicsContent(d)}${d.rules?`<div class='room-rules'><h3>Regras combinadas</h3><p>${esc(d.rules)}</p></div>`:''}<p class='meta'>A foto ajuda a conferir o resultado. O Fifa GO não acessa o histórico do jogo automaticamente.</p></aside></div></section>`;
 }
 function openRoom(id){go(`partida/${encodeURIComponent(id)}`);}
 function showIssue(id){const d=byId(id);if(!online||d.status!=='active')throw Error('Problemas durante a partida podem ser sinalizados na versão conectada.');modal('Sinalizar um problema','A equipe verá seu relato junto ao resultado.',`<form data-form='issue' data-id='${esc(id)}' data-owner='${esc(profile().id)}'><label class='form-label' for='issueReason'>O que aconteceu?</label><textarea class='form-input' id='issueReason' name='reason' minlength='10' maxlength='300' required placeholder='Descreva desconexão, regras descumpridas ou outro problema.'></textarea><p class='meta'>O relato é registrado sem encerrar a partida ou liberar Joga aí Coin. A equipe decide depois de conferir as evidências.</p><button class='btn primary wide' type='submit'>Enviar relato para a equipe</button></form>`);}
@@ -456,7 +472,7 @@ function render(){
  const revision=++renderRevision,hash=location.hash.slice(1);
   if(resultDraft&&resultDraft.owner!==profile()?.id)clearResultDraft();
   const roomMatch=/^partida\/([A-Za-z0-9_-]{1,100})$/.exec(hash);ui.roomId=roomMatch?decodeURIComponent(roomMatch[1]):null;
-  ui.view=roomMatch?'sala':({palpites:'historico',amigos:'arena'}[hash]||(['arena','criar','carteira','historico','ranking','perfil','revisao','admin'].includes(hash)?hash:'arena'));
+  ui.view=roomMatch?'sala':({palpites:'historico',amigos:'arena'}[hash]||(['arena','salas','criar','carteira','historico','ranking','perfil','revisao','admin'].includes(hash)?hash:'arena'));
  syncChatContext();
  if(!online||!profile()?.isAdmin)adminPanel?.reset();
  header();runtimeLabels();
@@ -464,7 +480,7 @@ function render(){
  if(online&&profile()?.needsOnboarding){$('screen').innerHTML=`<section class='card pad'><h1>Falta só seu perfil.</h1><p class='muted'>Escolha seu apelido, informe seu país e confira os termos antes de criar ou aceitar uma partida.</p><div class='duel-actions'><button class='btn primary' data-action='complete-signup'>Completar cadastro</button><button class='text-button' data-action='logout'>Sair da conta</button></div></section>`;return;}
  const accountKind={carteira:'wallet',historico:'history',ranking:'ranking',perfil:'profile'}[ui.view];
  const asyncView=ui.view==='admin'?()=>administration().view():ui.view==='revisao'?reviewView:ui.view==='carteira'?walletView:ui.view==='ranking'&&online?sharedRankingView:null;
-  $('screen').innerHTML=runtimeCopy(asyncView?(ui.view==='admin'?administration().loading():accountKind?`<div class='account-page'>${accountIntro(accountKind,ui.view==='carteira'?'Sua carteira.':'Cada vitória conta.','Buscando os dados da sua conta.')}<div class='account-surface account-loading' role='status'>${accountIcon(accountKind)}Carregando…</div></div>`:`<div class='card pad' role='status'>Carregando…</div>`):ui.view==='sala'?roomView():ui.view==='criar'?createView():ui.view==='historico'?historyView():ui.view==='ranking'?rankingView():ui.view==='perfil'?profileView():arenaView());
+  $('screen').innerHTML=runtimeCopy(asyncView?(ui.view==='admin'?administration().loading():accountKind?`<div class='account-page'>${accountIntro(accountKind,ui.view==='carteira'?'Sua carteira.':'Cada vitória conta.','Buscando os dados da sua conta.')}<div class='account-surface account-loading' role='status'>${accountIcon(accountKind)}Carregando…</div></div>`:`<div class='card pad' role='status'>Carregando…</div>`):ui.view==='sala'?roomView():ui.view==='salas'?roomsView():ui.view==='criar'?createView():ui.view==='historico'?historyView():ui.view==='ranking'?rankingView():ui.view==='perfil'?profileView():arenaView());
  if(ui.view==='sala'&&privateChat.valid(savedTicket)){
   const replacement=$('screen').querySelector?.('[data-form=chat]');if(savedComposer&&replacement){replacement.replaceWith(savedComposer);if(savedFocus)savedComposer.querySelector('textarea')?.focus({preventScroll:true});}
   const list=$('screen').querySelector?.('#chatMessages');if(list)list.scrollTop=savedBottom?list.scrollHeight:savedScroll||0;
@@ -655,9 +671,14 @@ async function execute(action,id){
  if(action==='complete-signup')return showCompleteSignup();
  if(online&&profile()?.needsOnboarding&&!['logout','close','help','credits'].includes(action))return showCompleteSignup();
  if(action==='close')return closeModal();
+ if(action==='browse-arena')return go('salas');
+ if(action==='arena-tab'){
+  if(ui.view!=='salas'||!profile()||!['open','mine'].includes(id))return;
+  ui.arenaTab=id;render();$('arenaList')?.focus({preventScroll:true});return;
+ }
  if(action==='view-activity'){
-  if(!profile()||ui.view!=='arena'||!['incoming','active'].includes(id))return;
-  ui.filter=id;render();const title=$('queueTitle');title?.focus({preventScroll:true});title?.scrollIntoView({block:'start',behavior:'auto'});return;
+  if(!profile()||!['arena','salas'].includes(ui.view)||!['incoming','active'].includes(id))return;
+  ui.arenaTab='mine';if(ui.view!=='salas')go('salas');ui.filter=id;render();const title=$('queueTitle');title?.focus({preventScroll:true});title?.scrollIntoView({block:'start',behavior:'auto'});return;
  }
  if(action.startsWith('admin-')){if(!online||!profile()?.isAdmin)throw Error('Entre com uma conta administradora para continuar.');return administration().handleAction(action,id);}
  if(serviceUnavailable&&!['retry','credits'].includes(action))throw Error('A conexão com a arena está indisponível. Tente novamente em instantes.');
@@ -805,7 +826,7 @@ document.addEventListener('submit',async event=>{
     if(form.dataset.owner!==profileId)throw Error('A conta mudou. Abra o cadastro novamente.');
     try{await API.completeAccountSignup(details);}catch(error){if(error.code!=='onboarding_complete')throw error;await API.loadSession();const latest=await API.getArena();if(latest.user?.id!==profileId||latest.user.needsOnboarding)throw error;arena=latest;}
    }else await API.loginAccount({nickname:data.get('nickname'),password:data.get('password')});
-   arena=await API.getArena();
+   arena=await API.getArena();await loadPublicRooms();
   }
   else save(M.change(read(),'create',{nickname:data.get('nickname')}));
   ui.rival='';foundPlayer=null;walletData=null;adminPanel?.reset();closeModal();if(online&&profile()?.needsOnboarding){render();return showCompleteSignup();}if(online&&profile()?.isAdmin)go('admin');else render();window.scrollTo({top:0});await continueIntent();return toast(kind==='login'?'Você entrou na arena.':'Seu ID Fifa GO está pronto.');
@@ -907,15 +928,15 @@ setInterval(()=>{
 },1000);
 setInterval(async()=>{
  if(roomPollRunning||!online||!profile()||busy||document.hidden)return;
- const owner=profile().id,revision=++arenaSyncRevision,previous=arenaFingerprint(arena),oldRooms=JSON.stringify(publicRooms),active=document.activeElement,action=active?.dataset.action,actionId=active?.dataset.id;
+ const owner=profile().id,revision=++arenaSyncRevision,previous=arenaFingerprint(arena),oldRooms=JSON.stringify(publicRooms),oldRoomsError=publicRoomsError,active=document.activeElement,action=active?.dataset.action,actionId=active?.dataset.id;
  roomPollRunning=true;
  try{
   const latest=await API.getArena();
   if(profile()?.id!==owner||latest.user?.id!==owner||revision!==arenaSyncRevision)return;
-  arena=latest;announceNotifications(latest);if($('roomSyncStatus'))$('roomSyncStatus').textContent='';if(ui.view==='arena')await loadPublicRooms(owner);
+  arena=latest;announceNotifications(latest);if($('roomSyncStatus'))$('roomSyncStatus').textContent='';if(['arena','salas'].includes(ui.view))await loadPublicRooms(owner);
   if(profile()?.id!==owner||revision!==arenaSyncRevision||busy||document.hidden||$('modal').open)return;
   const editing=$('screen').contains(document.activeElement)&&document.activeElement?.matches?.('input,select,textarea,[contenteditable]');
-  if((!editing||document.activeElement?.id==='chatText')&&['arena','sala'].includes(ui.view)&&(pendingRoomRender||previous!==arenaFingerprint(latest)||oldRooms!==JSON.stringify(publicRooms))){
+  if((!editing||document.activeElement?.id==='chatText')&&['arena','salas','sala'].includes(ui.view)&&(pendingRoomRender||previous!==arenaFingerprint(latest)||oldRooms!==JSON.stringify(publicRooms)||oldRoomsError!==publicRoomsError)){
    if(document.activeElement?.id==='chatText'&&ui.view==='sala'){updateRoomWhileTyping();}else render();if(action){const control=[...$('screen').querySelectorAll('[data-action]')].find(x=>x.dataset.action===action&&x.dataset.id===actionId);control?.focus({preventScroll:true});}
   }
   if(ui.view==='sala')await loadRoomChat();

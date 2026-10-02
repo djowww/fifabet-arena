@@ -295,7 +295,7 @@ test('activity shortcuts count actual incoming and active matches and focus the 
   await h.click('view-activity', 'active');
   assert.match(h.html(), /data-id='active-a'/); assert.doesNotMatch(h.html(), /data-id='incoming-a'|data-id='sent-a'|data-id='review-a'/);
   const filteredHTML = h.html(); await h.click('view-activity', 'settled'); assert.equal(h.html(), filteredHTML);
-  assert.deepEqual(shortcuts(), {incoming: '1 convite recebido', active: '1 partida em andamento'});
+  assert.deepEqual(shortcuts(), {});
   assert.deepEqual(h.calls, ['arena']); assert.equal(incoming.status, 'invited'); assert.equal(active.status, 'in_progress');
   await h.routeTo('perfil'); const profileHTML = h.html(); await h.click('view-activity', 'incoming'); assert.equal(h.html(), profileHTML);
   const anonymous = await harness({sessionUser: null, arena: {duels: [incoming, active]}});
@@ -323,8 +323,8 @@ test('production HTTP serves the new account assets with correct types and keeps
 
 test('the connected arena renders only current server rooms and escapes public nicknames', async()=>{
   const room={publicMatchId:'FG-0000000001',host:{nickname:'<img onerror=alert(1)>',clubId:null},stake:1000,mode:'1v1',platform:'playstation',creditMode:'coins',expiresAt:new Date(Date.now()+3600000).toISOString(),economics:{winnerPayout:1820}};
-  const h=await harness({api:{getRooms:async()=>({rooms:[room]})}});
-  assert.match(h.html(),/Salas da arena/);
+  const h=await harness({route:'salas',api:{getRooms:async()=>({rooms:[room]})}});
+  assert.match(h.html(),/Salas abertas/);
   assert.match(h.html(),/data-action='public-room' data-id='FG-0000000001'/);
   assert.match(h.html(),/&lt;img onerror=alert\(1\)&gt;/);
   assert.match(h.html(),/Conferir Coin exigidos/);
@@ -332,9 +332,9 @@ test('the connected arena renders only current server rooms and escapes public n
 });
 
 test('a public room load failure keeps the account and normal arena available', async()=>{
-  const h=await harness({api:{getRooms:async()=>{throw Error('private server detail');}}});
+  const h=await harness({route:'salas',api:{getRooms:async()=>{throw Error('private server detail');}}});
   assert.match(h.html(),/Não foi possível atualizar as salas/);
-  assert.match(h.html(),/data-action="create"/);
+  assert.match(h.html(),/data-action=['"]create['"]/);
   assert.doesNotMatch(h.html(),/temporariamente indisponível|private server detail/);
 });
 

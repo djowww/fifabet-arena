@@ -114,7 +114,7 @@ test('a divergence can be submitted through the UI with its photo and bilateral 
   await h.submit('dispute',{reason:'A foto mostra que o resultado foi diferente.',evidence:image},{id});
   let s=h.persisted();assert.equal(s.duels[id].status,'disputed');assert.equal(s.duels[id].disputes.length,1);
   assert.equal(s.duels[id].disputes[0].evidenceDataUrl,photo);assert.match(h.nodes.screen.innerHTML,/Enviar novo placar/);
-  h.route('#arena');
+  h.route('#salas');await h.click('arena-tab','mine');
   assert.match(h.nodes.screen.innerHTML,/data-action='cancel'/,'local disputed duel must offer agreement cancellation, since there is no connected reviewer');
   await h.click('cancel',id);assert.equal(h.persisted().duels[id].cancelRequestedBy,a);
   await h.click('login');await h.click('select-profile',b);assert.match(h.nodes.screen.innerHTML,/Confirmar cancelamento/);
@@ -155,7 +155,7 @@ test('server invite prompts authentication and becomes accepted only from the au
   await h.click('login');assert.match(h.nodes.modalContent.innerHTML,/Apelido ou ID Fifa GO/);await h.submit('login',{nickname:'Bruna',password:'a secure passphrase'});
   assert.equal(h.nodes.modal.open,true);assert.match(h.nodes.modalContent.innerHTML,/Alex te chamou/);assert.match(h.nodes.modalContent.innerHTML,/Aceitar e entrar na sala/);
   await h.click('accept-invite');assert.equal(accepted,true);assert.equal(h.location.href,'https://example.test/#arena');
-  assert.equal(h.nodes.modal.open,false);assert.match(h.nodes.screen.innerHTML,/Partida em andamento/);assert.deepEqual(calls.map(x=>x[0]),['login','invite','accept']);
+  assert.equal(h.nodes.modal.open,false);assert.match(h.nodes.screen.innerHTML,/1 partida em andamento/);assert.deepEqual(calls.map(x=>x[0]),['login','invite','accept']);
 });
 
 test('only a server reviewer gets review navigation and decisions carry the photo report revision to the API',async()=>{
@@ -177,7 +177,7 @@ test('a server cancellation request keeps a path to continue the match instead o
   const duel={id:'active-duel',hostId:'host-account',guestId:user.id,host:{id:'host-account',nickname:'Alex'},guest:user,stake:100,mode:'1v1',status:'in_progress',createdAt:'2026-09-30T12:00:00.000Z',result:null,cancellationRequestedBy:['host-account']};
   const withdrawals=[];
   const api={detectBackend:async()=>({available:true,apiVersion:1}),loadSession:async()=>({user}),getArena:async()=>({user,duels:[duel],history:[],stats:{reserved:100}}),withdrawCancellation:async id=>{withdrawals.push(id);duel.cancellationRequestedBy=[];return {};}};
-  const h=await harness({api});assert.match(h.nodes.screen.innerHTML,/Confirmar cancelamento/);
+  const h=await harness({api,url:'https://example.test/#partida/active-duel'});assert.match(h.nodes.screen.innerHTML,/Confirmar cancelamento/);
   assert.match(h.nodes.screen.innerHTML,/Enviar placar|Recusar cancelamento/,'an account must be able to continue when it does not agree to cancel');
   if(h.nodes.screen.innerHTML.includes("data-action='withdraw-cancel'")){await h.click('withdraw-cancel',duel.id);assert.deepEqual(withdrawals,[duel.id]);h.route(`#partida/${duel.id}`);assert.match(h.nodes.screen.innerHTML,/Partida encerrada/);}
 });
@@ -260,7 +260,7 @@ test('a valid inline invitation is retained through login and requires a separat
   assert.match(h.nodes.modalContent.innerHTML,/Confira o convite/);assert.match(h.nodes.modalContent.innerHTML,/Alex × Bruna/);
   assert.match(h.nodes.modalContent.innerHTML,/PlayStation/);assert.match(h.nodes.modalContent.innerHTML,/Jogo único, seis minutos/);
   assert.match(h.nodes.modalContent.innerHTML,/data-action='accept'/);assert.equal(h.persisted().duels[id].status,'invited');
-  assert.match(h.nodes.screen.innerHTML,/Confira o convite/);h.route('#arena');assert.match(h.nodes.screen.innerHTML,/Recebidos \(1\)/);
+  assert.match(h.nodes.screen.innerHTML,/Confira o convite/);h.route('#salas');await h.click('arena-tab','mine');assert.match(h.nodes.screen.innerHTML,/Recebidos \(1\)/);
   await h.click('accept',id);assert.equal(h.persisted().duels[id].status,'active');
   assert.equal(h.persisted().profiles[a].balance,750);assert.equal(h.persisted().profiles[b].balance,750);
   assert.match(h.nodes.screen.innerHTML,/Partida em andamento/);assert.match(h.nodes.toast.textContent,/atualizado|aceito/);
@@ -461,7 +461,53 @@ test('chat submit awaits a slow POST and handles blank validation in the existin
  // Use an open room for validation and ensure rejected text never escapes the listener.
  h.api.getChat().closed=false;form.fields.text='   ';await h.listeners.submit({preventDefault(){},target:{closest:()=>form}});assert.match(h.nodes.roomError.textContent,/Escreva uma mensagem/);
 });
-test('authenticated arena presents public rooms above the existing create hero',async()=>{
- const {h}=await preparationHarness();h.route('#arena');const html=h.nodes.screen.innerHTML;
- assert.ok(html.indexOf('id=\'openRoomsTitle\'')<html.indexOf('id="createTitle"'));assert.match(html,/Salas da arena/);assert.match(html,/valor por jogador/);
+function directoryFixture(){
+ const user={id:'host',nickname:'Alex',balance:500,publicPlayerId:'FBA-AAAAAAAAAA'};
+ const own={id:'own-open',publicMatchId:'FG-1111111111',hostId:user.id,host:user,guestId:null,recipientId:null,visibility:'public',stake:250,mode:'1v1',platform:'playstation',status:'invited',fundingVersion:2,lobbyVersion:1,createdAt:'2026-10-02T12:00:00Z',expiresAt:'2099-01-01T00:00:00Z'};
+ const secret={...own,id:'own-private',publicMatchId:'FG-2222222222',visibility:'private',rules:'Privada para meu amigo'};
+ const available={publicMatchId:'FG-3333333333',host:{nickname:'Rival público'},stake:100,mode:'1v1',platform:'pc',expiresAt:'2099-01-01T00:00:00Z'};
+ const api={detectBackend:async()=>({available:true,paymentMode:'unconfigured'}),loadSession:async()=>({user}),getArena:async()=>({user,duels:[own,secret],history:[],stats:{reserved:500}}),getRooms:async()=>({rooms:[available]})};
+ return {user,own,secret,available,api};
+}
+test('Arena brings available and own public waiting rooms into the same directory without the home hero',async()=>{
+ const {api}=directoryFixture(),h=await harness({api,url:'https://example.test/#salas'}),html=h.nodes.screen.innerHTML;
+ assert.equal(h.nodes.breadcrumb.textContent,'Arena');assert.match(html,/<h1[^>]*>Arena<\/h1>/);
+ assert.doesNotMatch(html,/taste-home-hero|lobby-footballer|FG-2222222222/);
+ assert.match(html,/FG-1111111111/);assert.match(html,/250/);assert.match(html,/Rival público/);assert.match(html,/Joga aí Coin por jogador/);
+ assert.match(html,/data-action='room' data-id='own-open'/);assert.match(html,/data-action='public-room' data-id='FG-3333333333'/);
+ assert.equal((html.match(/<h1\b/g)||[]).length,1);
+});
+test('Arena personal tab preserves private rooms and their actions while home offers a short directory link',async()=>{
+ const {api}=directoryFixture(),h=await harness({api});
+ assert.match(h.nodes.screen.innerHTML,/data-action='browse-arena'/);assert.doesNotMatch(h.nodes.screen.innerHTML,/data-action='cancel'|arena-room-grid/);
+ await h.click('browse-arena');assert.equal(h.location.hash,'#salas');await h.click('arena-tab','mine');
+ assert.match(h.nodes.screen.innerHTML,/FG-2222222222/);assert.match(h.nodes.screen.innerHTML,/data-action='cancel'/);assert.doesNotMatch(h.nodes.screen.innerHTML,/data-action='public-room'/);
+ await h.click('room','own-open');assert.equal(h.location.hash,'#partida/own-open');assert.match(h.nodes.screen.innerHTML,/href='#salas'/);
+});
+test('Arena updates available rooms on polling and keeps its selected personal tab',async()=>{
+ const {api,available}=directoryFixture();let rooms=[available];api.getRooms=async()=>({rooms});
+ const h=await harness({api,url:'https://example.test/#salas'});rooms=[];
+ await h.intervals.find(x=>x.delay===8000).callback();assert.doesNotMatch(h.nodes.screen.innerHTML,/Rival público/);assert.match(h.nodes.screen.innerHTML,/FG-1111111111/);
+ await h.click('arena-tab','mine');rooms=[available];await h.intervals.find(x=>x.delay===8000).callback();
+ assert.match(h.nodes.screen.innerHTML,/FG-2222222222/);assert.doesNotMatch(h.nodes.screen.innerHTML,/Rival público/);
+});
+test('Arena guest view asks for login without rendering member rooms or personal counts',async()=>{
+ const {api}=directoryFixture();api.loadSession=async()=>({user:null});api.getArena=async()=>{assert.fail('Guest must not load personal arena');};
+ const h=await harness({api,url:'https://example.test/#salas'});
+ assert.equal(h.nodes.breadcrumb.textContent,'Arena');assert.match(h.nodes.screen.innerHTML,/data-action='login'/);assert.doesNotMatch(h.nodes.screen.innerHTML,/FG-1111111111|FG-2222222222|Rival público|data-action='arena-tab'/);
+});
+test('Arena does not claim a Coin reservation for an own free room and omits expired own rooms',async()=>{
+ const {api,own,secret}=directoryFixture();own.stake=0;secret.visibility='public';secret.expiresAt='2000-01-01T00:00:00Z';
+ const h=await harness({api,url:'https://example.test/#salas'}),html=h.nodes.screen.innerHTML;
+ assert.match(html,/Nenhum Coin é reservado/);assert.doesNotMatch(html,/Sua parte já está reservada|FG-2222222222/);
+});
+test('Arena shows a polling room failure even if the last room and account data are unchanged',async()=>{
+ const {api,available}=directoryFixture();let failed=false;api.getRooms=async()=>{if(failed)throw Error('Private diagnostic');return {rooms:[available]};};
+ const h=await harness({api,url:'https://example.test/#salas'});failed=true;await h.intervals.find(x=>x.delay===8000).callback();
+ assert.match(h.nodes.screen.innerHTML,/Não foi possível atualizar as salas/);assert.match(h.nodes.screen.innerHTML,/Rival público/);assert.doesNotMatch(h.nodes.screen.innerHTML,/Private diagnostic/);
+});
+test('logging in from Arena loads available rooms immediately without waiting for a poll',async()=>{
+ const {api}=directoryFixture();api.loadSession=async()=>({user:null});api.loginAccount=async()=>({});
+ const h=await harness({api,url:'https://example.test/#salas'});await h.click('login');await h.submit('login',{nickname:'Alex',password:'fixture login password'});
+ assert.match(h.nodes.screen.innerHTML,/Rival público/);assert.match(h.nodes.screen.innerHTML,/FG-1111111111/);
 });

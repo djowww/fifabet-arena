@@ -167,7 +167,7 @@ test('a forged local admin profile cannot query the private panel without a serv
 });
 
 test('the inline More menu exposes only server-authorized role links and Escape restores focus', async () => {
-  for (const [sessionUser, expected] of [[ordinary, []], [{...ordinary, isReviewer: true}, ['#perfil', '#revisao']], [administrator, ['#perfil', '#admin']]]) {
+  for (const [sessionUser, expected] of [[ordinary, ['#ranking', '#perfil']], [{...ordinary, isReviewer: true}, ['#ranking', '#perfil', '#revisao']], [administrator, ['#ranking', '#perfil', '#admin']]]) {
     const h = await harness({sessionUser, url: 'https://example.test/#perfil'});
     const button = h.nodes.navigation.querySelector('.nav-more'), panel = h.nodes.mobileMoreNav;
     assert.equal(!!button, expected.length > 0); assert.equal(!!panel, expected.length > 0);
@@ -185,11 +185,12 @@ test('the inline More menu exposes only server-authorized role links and Escape 
   }
 });
 
-test('refresh removes the More menu when the server no longer authorizes the privileged role', async () => {
+test('refresh removes privileged links while retaining regular mobile navigation after role revocation', async () => {
   const role = {...administrator}, h = await harness({sessionUser: role, url: 'https://example.test/#perfil'});
   const panel = h.nodes.mobileMoreNav; await h.click('nav-more'); assert.equal(panel.hidden, false);
   role.isAdmin = false; role.isReviewer = false; await h.click('refresh');
-  assert.equal(panel.isConnected, false); assert.equal(h.nodes.mobileMoreNav, undefined); assert.equal(h.nodes.navigation.querySelector('.nav-more'), null);
+  assert.equal(panel.isConnected, false); assert.ok(h.nodes.mobileMoreNav); assert.ok(h.nodes.navigation.querySelector('.nav-more'));
   assert.doesNotMatch(h.nodes.navigation.innerHTML, /href='#admin'|href='#revisao'/); assert.deepEqual(privateCalls(h.calls), []);
-  await h.click('nav-more'); assert.equal(h.nodes.mobileMoreNav, undefined);
+  await h.click('nav-more'); assert.equal(h.nodes.mobileMoreNav.hidden, false);
+  assert.deepEqual(h.nodes.mobileMoreNav.querySelectorAll('a').map(link => link.getAttribute('href')), ['#ranking', '#perfil']);
 });

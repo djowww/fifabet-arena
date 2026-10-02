@@ -1,9 +1,10 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import {mkdtemp,readFile,rm} from 'node:fs/promises';
+import {mkdtemp,readFile,readdir,rm} from 'node:fs/promises';
 import {tmpdir} from 'node:os';
 import {join} from 'node:path';
 import {randomUUID} from 'node:crypto';
+import {DatabaseSync} from 'node:sqlite';
 import {createArenaServer} from './server.mjs';
 import {TERMS_VERSION} from '../account-policy.mjs';
 
@@ -476,6 +477,32 @@ test('demo Pix rejection and cancellation never credit; wallet reservations cont
   assert.equal((await owner.api(`/wallet/deposits/${card.id}/simulate`,{method:'POST',data:{mode:'demo',outcome:'approved',version:1}})).status,409);
   const after=(await owner.api('/wallet')).data;assert.equal(after.balance,900);assert.equal(after.reserved,100);assert.equal(after.transactions.some(tx=>[pix.id,card.id].some(id=>tx.reference===`deposit:${id}`)),false);
   assert.ok(after.deposits.some(deposit=>deposit.status==='rejected'));assert.ok(after.deposits.some(deposit=>deposit.status==='cancelled'));
+});
+
+test('failed evidence persistence removes uncommitted match and wallet proof files',async t=>{
+  const h=await harness(t),owner=h.client(),guest=h.client();
+  await owner.register('Owner');await guest.register('Guest');
+  const created=await owner.api('/duels',{method:'POST',data:{stake:0,mode:'1v1',platform:'pc'}});
+  assert.equal(created.status,200);await acceptAndFund(owner,guest,created.data.duel);
+  const orderResult=await owner.api('/wallet/deposits',{method:'POST',data:{amount:100,method:'transfer',idempotencyKey:'test-orphan-proof-operation-0001'}});
+  assert.equal(orderResult.status,200);
+
+  const database=new DatabaseSync(join(h.dataDir,'arena.sqlite'));
+  database.exec(`
+    CREATE TRIGGER fail_match_evidence_insert BEFORE INSERT ON evidence
+    BEGIN SELECT RAISE(ABORT, 'synthetic evidence persistence failure'); END;
+    CREATE TRIGGER fail_wallet_evidence_insert BEFORE INSERT ON wallet_evidence
+    BEGIN SELECT RAISE(ABORT, 'synthetic wallet evidence persistence failure'); END;
+  `);
+  database.close();
+
+  const matchUpload=await owner.api(`/evidence?duelId=${created.data.duel.id}`,{method:'POST',body:PNG,mime:'image/png'});
+  assert.equal(matchUpload.status,500);
+  assert.deepEqual(await readdir(join(h.dataDir,'evidence')),[]);
+
+  const walletUpload=await owner.api(`/wallet/deposits/${orderResult.data.deposit.id}/proof?version=1`,{method:'POST',body:PNG,mime:'image/png'});
+  assert.equal(walletUpload.status,500);
+  assert.deepEqual(await readdir(join(h.dataDir,'wallet-evidence')),[]);
 });
 
 test('transfer proof remains private and only a different authorized reviewer can approve demo credits exactly once',async t=>{

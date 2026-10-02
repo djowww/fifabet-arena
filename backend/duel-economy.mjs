@@ -2,7 +2,7 @@ import {comparePhotoScore} from './result-verification.mjs';
 
 export const HOUSE_FEE_BPS=900;
 export const RESULT_CONFIRMATION_MS=5*60*1000;
-export const OPEN_DUEL_STATUSES=['invited','awaiting_funds','in_progress','pending_review','disputed'];
+export const OPEN_DUEL_STATUSES=['invited','awaiting_funds','waiting_start','in_progress','pending_review','disputed'];
 
 /** Wallet credits are whole units; quote and retain the rounding rule with the room. */
 export function createDuelEconomics(stake,feeBps=HOUSE_FEE_BPS){

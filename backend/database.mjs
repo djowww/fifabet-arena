@@ -52,6 +52,20 @@ function validateState(draft){
     if([duel.hostId,duel.guestId,duel.recipientId].some(userId=>userId&&needsAccountOnboarding(draft.users[userId])))invalid('partida contém jogador com cadastro pendente.');
     if(duel.publicMatchId!=null&&!/^FG-[A-F0-9]{10}$/.test(duel.publicMatchId))invalid('código público de partida inválido.');
     if(duel.fundingVersion!==undefined&&![1,2].includes(duel.fundingVersion))invalid('versão de reserva da partida não suportada.');
+    if(duel.lobbyVersion!==undefined){
+      if(duel.lobbyVersion!==1||!Array.isArray(duel.readyBy)||new Set(duel.readyBy).size!==duel.readyBy.length||duel.readyBy.some(id=>![duel.hostId,duel.guestId].includes(id)))invalid('prontidão da sala inválida.');
+      if(duel.status==='waiting_start'&&(!duel.guestId||duel.startedAt||duel.readyBy.length>1))invalid('preparação da sala inválida.');
+      if(['in_progress','pending_review','disputed','completed'].includes(duel.status)&&(!duel.startedAt||![duel.hostId,duel.guestId].every(id=>duel.readyBy.includes(id))))invalid('partida iniciada sem confirmação dos participantes.');
+    }else if(duel.status==='waiting_start')invalid('preparação exige versão da sala.');
+    if(duel.chatMessages!==undefined){
+      if(!Array.isArray(duel.chatMessages)||duel.chatMessages.length>200)invalid('conversa da sala inválida.');
+      const operations=new Set(),ids=new Set();
+      for(const [index,message] of duel.chatMessages.entries()){
+        if(!plain(message)||message.sequence!==index+1||!duel.guestId||![duel.hostId,duel.guestId].includes(message.authorId)||typeof message.text!=='string'||!message.text.trim()||message.text.length>1000||/[\u0000-\u0008\u000B\u000C\u000E-\u001F\u007F-\u009F\u202A-\u202E\u2066-\u2069]/u.test(message.text))invalid('mensagem da sala inválida.');
+        required(message.id,'ID da mensagem');required(message.authorNickname,'autor da mensagem');required(message.createdAt,'data da mensagem');required(message.operationId,'operação da mensagem');
+        const operation=`${message.authorId}:${message.operationId}`;if(operations.has(operation)||ids.has(message.id))invalid('mensagem duplicada.');operations.add(operation);ids.add(message.id);
+      }
+    }
     if(duel.visibility!==undefined&&(!['public','private'].includes(duel.visibility)||duel.visibility==='public'&&duel.recipientId))invalid('visibilidade da sala inválida.');
     if([1,2].includes(duel.fundingVersion)||duel.economics!==undefined||duel.settlement!==undefined){
       const stake=integer(duel.stake,'valor combinado da partida');
@@ -61,13 +75,13 @@ function validateState(draft){
       if([1,2].includes(duel.fundingVersion)){
         if(!plain(duel.economics)||!Array.isArray(duel.fundedBy)||new Set(duel.fundedBy).size!==duel.fundedBy.length||duel.fundedBy.length>2)invalid('reservas da sala inválidas.');
         if(!['demo','pix_manual','friendly','coins'].includes(duel.creditMode)||duel.creditMode==='friendly'&&stake!==0)invalid('modo de crédito da sala inválido.');
-        if(!['invited','awaiting_funds','in_progress','pending_review','disputed','completed','cancelled','expired'].includes(duel.status))invalid('estado da sala inválido.');
+        if(!['invited','awaiting_funds','waiting_start','in_progress','pending_review','disputed','completed','cancelled','expired'].includes(duel.status))invalid('estado da sala inválido.');
         if(duel.guestId===duel.hostId)invalid('participantes da sala precisam ser diferentes.');
         if(duel.fundedBy.some(userId=>![duel.hostId,duel.guestId].includes(userId)||!draft.users[userId]))invalid('reserva pertence a quem não participa da sala.');
         if(stake===0&&duel.fundedBy.length||duel.fundingVersion===1&&duel.status==='invited'&&duel.fundedBy.length)invalid('sala sem reserva contém lançamento de participante.');
         if(duel.fundingVersion===2&&stake>0&&duel.status==='invited'&&(duel.fundedBy.length!==1||duel.fundedBy[0]!==duel.hostId))invalid('sala pública exige a reserva prévia do anfitrião.');
         if(duel.status==='awaiting_funds'&&(!duel.guestId||stake===0||duel.fundedBy.length===2))invalid('sala aguardando créditos em estado inconsistente.');
-        if(['in_progress','pending_review','disputed','completed'].includes(duel.status)&&(!duel.guestId||stake>0&&![duel.hostId,duel.guestId].every(userId=>duel.fundedBy.includes(userId))))invalid('partida iniciada sem os participantes e suas reservas.');
+        if(['waiting_start','in_progress','pending_review','disputed','completed'].includes(duel.status)&&(!duel.guestId||stake>0&&![duel.hostId,duel.guestId].every(userId=>duel.fundedBy.includes(userId))))invalid('partida iniciada sem os participantes e suas reservas.');
         for(const userId of duel.fundedBy){
           const transactions=draft.users[userId].transactions;
           if(!transactions.some(entry=>entry.reference===`reserve:${id}`&&entry.amount===-stake))invalid('lançamento da reserva não encontrado na carteira.');

@@ -20,5 +20,10 @@ export function notificationKey(notification) {
 }
 
 export function notificationLabel(notification) {
-  return ({waiting: 'Seu rival está esperando você na sala.', result_confirmation: 'Seu rival enviou o placar. Envie sua foto para confirmar.', joined: 'Seu rival entrou. A partida pode começar.'})[notification?.type] || 'Sua partida foi atualizada.';
+  return ({waiting: 'Seu rival está esperando você na sala.', result_confirmation: 'Seu rival enviou o placar. Envie sua foto para confirmar.', joined: 'Seu rival entrou. Abram a sala e confirmem o início da partida.'})[notification?.type] || 'Sua partida foi atualizada.';
+}
+
+export function preparationState(room, owner){
+ const ready = Array.isArray(room.readyBy) ? room.readyBy : [];
+ return {ownReady:ready.includes(owner),rivalReady:ready.includes(room.hostId===owner?room.guestId:room.hostId)};
 }

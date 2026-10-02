@@ -1,3 +1,5 @@
+import * as chatUI from './chat-ui.mjs';
+import {preparationState} from './room-ui.mjs';
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import fs from 'node:fs';
@@ -65,6 +67,7 @@ async function harness({sessionUser = null, arenaUser = sessionUser, loginUser =
     setTimeout() {return 1;}, clearTimeout() {}, setInterval() {return 2;}, clearInterval() {},
     FormData: class {constructor(form) {this.fields = form.fields;} get(key) {return this.fields[key] ?? null;}}
   };
+  Object.assign(context,chatUI,{preparationState});
   vm.createContext(context);
   const code = source.replace(/^import .*?;\r?\n/gm, '').replace(/\nstart\(\)\.catch\(/, '\nglobalThis.__boot=start().catch(');
   vm.runInContext(code, context);

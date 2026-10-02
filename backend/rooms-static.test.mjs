@@ -23,10 +23,11 @@ test('published app module graph includes room and photo helpers without exposin
   }
  }
  assert.ok([...seen].some(path=>path.startsWith('/room-ui.mjs')));
+ assert.ok([...seen].some(path=>path.startsWith('/chat-ui.mjs')));
  assert.ok([...seen].some(path=>path.startsWith('/image-preparation.mjs')));
  for(const privatePath of ['/backend/result-verification.mjs','/backend/rooms.test.mjs','/room-ui.test.mjs','/.env']){
   const response=await fetch(origin+privatePath);assert.equal(response.status,404);await response.arrayBuffer();
  }
  const index=await readFile(new URL('../index.html',import.meta.url),'utf8');
- assert.match(index,/data-app="play\.js\?v=32"/);
+ assert.match(index,/data-app="play\.js\?v=33"/);
 });

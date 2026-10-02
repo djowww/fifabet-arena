@@ -1,3 +1,5 @@
+import * as chatUI from './chat-ui.mjs';
+import {preparationState} from './room-ui.mjs';
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import fs from 'node:fs';
@@ -84,6 +86,7 @@ async function harness({sessionUser = {...user}, backendStatus = status, arena =
     history: {replaceState(_state, _title, value) {const next = new URL(value, location.href); Object.assign(location, {href: next.href, hash: next.hash, pathname: next.pathname});}},
     setTimeout() {return 1;}, clearTimeout() {}, setInterval() {return 2;}, clearInterval() {}
   };
+  Object.assign(context,chatUI,{preparationState});
   vm.createContext(context);
   vm.runInContext(source.replace(/^import .*?;\r?\n/gm, '').replace(/\nstart\(\)\.catch\(/, '\nglobalThis.__boot=start().catch('), context);
   await context.__boot;
@@ -321,7 +324,7 @@ test('production HTTP serves the new account assets with correct types and keeps
 test('the connected arena renders only current server rooms and escapes public nicknames', async()=>{
   const room={publicMatchId:'FG-0000000001',host:{nickname:'<img onerror=alert(1)>',clubId:null},stake:1000,mode:'1v1',platform:'playstation',creditMode:'coins',expiresAt:new Date(Date.now()+3600000).toISOString(),economics:{winnerPayout:1820}};
   const h=await harness({api:{getRooms:async()=>({rooms:[room]})}});
-  assert.match(h.html(),/Encontre uma partida/);
+  assert.match(h.html(),/Salas da arena/);
   assert.match(h.html(),/data-action='public-room' data-id='FG-0000000001'/);
   assert.match(h.html(),/&lt;img onerror=alert\(1\)&gt;/);
   assert.match(h.html(),/Conferir Coin exigidos/);

@@ -10,8 +10,9 @@ import {accountArt} from './account-art.mjs';
 import {uiIcon} from './ui-icons.mjs';
 import {renderLobbyView} from './lobby-view.mjs';
 import {renderWalletView,renderHistoryView,renderRankingView,renderProfileView} from './account-views.mjs';
-import {confirmationClock,safeRoomCards,notificationKey,notificationLabel} from './room-ui.mjs';
+import {confirmationClock,safeRoomCards,notificationKey,notificationLabel,preparationState} from './room-ui.mjs';
 
+import {createChatState,renderChatMessages,nearChatBottom} from './chat-ui.mjs';
 const source=fs.readFileSync(new URL('./play.js',import.meta.url),'utf8');
 const image={type:'image/jpeg',size:1000};
 const photo='data:image/jpeg;base64,cGxhY2Fy';
@@ -23,11 +24,11 @@ async function harness({initial=M.emptyState(),api={},url='https://example.test/
   const parsed=new URL(url),location={hash:parsed.hash,href:url,pathname:parsed.pathname,origin:parsed.origin};
   const localStorage={getItem:key=>stored.get(key)??null,setItem(key,value){if(failWrite){failWrite=false;throw Error('quota');}stored.set(key,String(value));},removeItem:key=>stored.delete(key)};
   const API={detectBackend:async()=>null,evidenceUrl:id=>`/api/v1/evidence/${id}`,getRooms:async()=>({rooms:[]}),...api};
-  const context={M,API,COUNTRY_CODES,TERMS_VERSION,createAdminPanel,accountArt,uiIcon,renderLobbyView,renderWalletView,renderHistoryView,renderRankingView,renderProfileView,confirmationClock,safeRoomCards,notificationKey,notificationLabel,document,localStorage,sessionStorage:localStorage,location,window:{addEventListener(name,callback){windowListeners[name]=callback;},scrollTo(){}},history:{replaceState(_state,_title,value){location.href=new URL(value,location.href).href;location.hash=new URL(location.href).hash;}},navigator:{clipboard:{async writeText(value){copies.push(value);}}},crypto,URL,Blob,console,clearTimeout(){},setTimeout(){return 1;},setInterval(callback,delay){intervals.push({callback,delay});return intervals.length;},createImageBitmap:bitmapFactory||(async()=>({width:1280,height:720,close(){}})),fetch:async()=>({async blob(){return new Blob(['photo'],{type:'image/jpeg'});}}),FileReader:class{readAsDataURL(){this.result=photo;this.onload();}},FormData:class{constructor(form){this.fields=form.fields;}get(key){return this.fields[key]??null;}}};
+  const context={M,API,COUNTRY_CODES,TERMS_VERSION,createAdminPanel,accountArt,uiIcon,renderLobbyView,renderWalletView,renderHistoryView,renderRankingView,renderProfileView,confirmationClock,safeRoomCards,notificationKey,notificationLabel,preparationState,createChatState,renderChatMessages,nearChatBottom,document,localStorage,sessionStorage:localStorage,location,window:{addEventListener(name,callback){windowListeners[name]=callback;},scrollTo(){}},history:{replaceState(_state,_title,value){location.href=new URL(value,location.href).href;location.hash=new URL(location.href).hash;}},navigator:{clipboard:{async writeText(value){copies.push(value);}}},crypto,URL,Blob,console,clearTimeout(){},setTimeout(){return 1;},setInterval(callback,delay){intervals.push({callback,delay});return intervals.length;},createImageBitmap:bitmapFactory||(async()=>({width:1280,height:720,close(){}})),fetch:async()=>({async blob(){return new Blob(['photo'],{type:'image/jpeg'});}}),FileReader:class{readAsDataURL(){this.result=photo;this.onload();}},FormData:class{constructor(form){this.fields=form.fields;}get(key){return this.fields[key]??null;}}};
   vm.createContext(context);
   context.prepareEvidencePhoto=vm.runInContext(`(()=>{${fs.readFileSync(new URL('./image-preparation.mjs',import.meta.url),'utf8').replace(/^export /gm,'')}return preparePhoto;})()`,context);
   const code=source.replace(/^import .*?;\r?\n/gm,'').replace(/\nstart\(\)\.catch\(/,'\nglobalThis.__boot=start().catch(');
-  vm.runInContext(code+`\nglobalThis.practical={getState:()=>state,getArena:()=>arena,isOnline:()=>online,duels,render};`,context);
+  vm.runInContext(code+`\nglobalThis.practical={getState:()=>state,getArena:()=>arena,isOnline:()=>online,duels,render,getChat:()=>privateChat.current(),loadRoomChat,sendRoomChat,updateRoomWhileTyping};`,context);
   await context.__boot;
   const click=async(action,id)=>{
     const button={dataset:{action,id},disabled:false,isConnected:true};
@@ -398,4 +399,69 @@ test('a polling response from the previous account cannot restore private rooms 
   const h=await harness({api}),poll=h.intervals.find(item=>item.delay===8000);assert.ok(poll);
   const polling=poll.callback();await h.click('logout');release();await polling;
   assert.equal(h.api.getArena(),null);assert.doesNotMatch(h.nodes.screen.innerHTML,/PrivatePlayer|PrivateRival|private-duel/);assert.doesNotMatch(h.nodes.toast?.textContent||'',/esperando|private-notification/);
+});
+function preparingFixture(){
+ const user={id:'guest',nickname:'Bruna',balance:200,publicPlayerId:'FBA-BBBBBBBBBB'};
+ const duel={id:'prep-room',hostId:'host',host:{id:'host',nickname:'Alex'},guestId:user.id,guest:user,stake:100,mode:'1v1',platform:'pc',status:'waiting_start',lobbyVersion:1,readyBy:[],fundedBy:['host',user.id],createdAt:'2026-10-02T12:00:00Z',result:null};
+ return {user,duel};
+}
+async function preparationHarness(extra={}){
+ const {user,duel}=preparingFixture();const calls=[];
+ const api={detectBackend:async()=>({available:true,paymentMode:'demo'}),loadSession:async()=>({user}),getArena:async()=>({user,duels:[{...duel,readyBy:[...duel.readyBy]}],history:[],stats:{reserved:100}}),getDuelChat:async()=>({messages:[],lastSequence:0,closed:false}),startDuel:async id=>{calls.push(id);duel.readyBy.push(user.id);if(duel.readyBy.includes(duel.hostId))duel.status='in_progress';},logoutAccount:async()=>{},...extra};
+ const h=await harness({api,url:'https://example.test/#partida/prep-room'});await new Promise(resolve=>setImmediate(resolve));return {h,user,duel,calls};
+}
+test('joined preparation shows both readiness states and starts the existing match view only with both confirmations',async()=>{
+ const {h,duel,calls}=await preparationHarness();
+ assert.equal(h.api.duels()[0].status,'preparing');assert.match(h.nodes.screen.innerHTML,/Conversa da sala/);assert.match(h.nodes.screen.innerHTML,/Iniciar partida/);
+ assert.ok(!h.nodes.screen.innerHTML.includes('Partida encerrada'));
+ await h.click('start-match',duel.id);assert.deepEqual(calls,[duel.id]);assert.match(h.nodes.screen.innerHTML,/Aguardando o rival/);assert.equal(duel.status,'waiting_start');
+ duel.readyBy.push(duel.hostId);duel.status='in_progress';await h.click('refresh');assert.match(h.nodes.screen.innerHTML,/Partida encerrada/);assert.match(h.nodes.screen.innerHTML,/Conversa da sala/);
+});
+test('late private chat responses cannot restore messages after logout',async()=>{
+ let resolve;const pending=new Promise(done=>{resolve=done;});const {h}=await preparationHarness({getDuelChat:()=>pending});
+ await h.click('logout');resolve({messages:[{id:'secret',sequence:1,text:'private conversation',authorNickname:'Alex'}],lastSequence:1,closed:false});await new Promise(done=>setImmediate(done));
+ assert.equal(h.api.getChat(),undefined);assert.ok(!h.nodes.screen.innerHTML.includes('private conversation'));
+});
+test('failed chat sends retain draft and retry with the same operation; successful sends clear only the sent draft',async()=>{
+ const operations=[];let attempt=0;const {h,user,duel}=await preparationHarness({sendDuelChat:async(id,payload)=>{operations.push({...payload});if(++attempt===1)throw Error('Conexão interrompida');return {messages:[{id:'sent',sequence:1,authorId:user.id,authorNickname:user.nickname,text:payload.text,createdAt:'2026-10-02T12:00:00Z'}],lastSequence:1,closed:false};}});
+ h.listeners.input({target:{id:'chatText',value:'Vamos jogar?'}});
+ const form={dataset:{owner:user.id,id:duel.id}},data={get:()=> 'Vamos jogar?'};
+ await h.api.sendRoomChat(form,data);assert.equal(h.api.getChat().draft,'Vamos jogar?');assert.match(h.api.getChat().error,/Conexão/);
+ await h.api.sendRoomChat(form,data);assert.equal(operations[0].operationId,operations[1].operationId);assert.equal(h.api.getChat().draft,'');assert.equal(h.api.getChat().messages.length,1);
+ assert.ok(![...Object.keys(h.persisted())].includes('messages'));
+});
+test('typing receives readiness updates without replacing the composer or moving its cursor',async()=>{
+ const {h,duel}=await preparationHarness();let replaced=0;
+ const main={innerHTML:''},composer={value:'Meu rascunho',selectionStart:3,selectionEnd:5,id:'chatText',dataset:{},matches:()=>true};
+ h.document.activeElement=composer;h.nodes.screen.contains=()=>true;
+ h.nodes.screen.querySelector=selector=>selector==='#roomMainState'?main:null;
+ Object.defineProperty(h.nodes.screen,'innerHTML',{get(){return 'original composer';},set(){replaced++;}});
+ duel.readyBy=[duel.hostId];await h.intervals.find(x=>x.delay===8000).callback();
+ assert.match(main.innerHTML,/Pronto para jogar/);assert.equal(replaced,0);assert.equal(h.document.activeElement,composer);assert.equal(composer.selectionStart,3);assert.equal(composer.selectionEnd,5);assert.equal(composer.value,'Meu rascunho');
+});
+test('chat access rejection clears private memory and removes the conversation without retry looping',async()=>{
+ let reads=0;const {h}=await preparationHarness({getDuelChat:async()=>{reads++;const error=Error('Forbidden');error.status=403;throw error;}});
+ assert.equal(h.api.getChat(),undefined);assert.ok(!h.nodes.screen.innerHTML.includes('Conversa da sala'));assert.equal(reads,1);
+});
+test('typing defers cancelled room details until the next poll after blur without detaching a pointer target',async()=>{
+ const {h,duel}=await preparationHarness();const main={innerHTML:''};
+ h.listeners.input({target:{id:'chatText',value:'Meu ID no jogo'}});
+ const field={id:'chatText',dataset:{},value:'Meu ID no jogo',matches:()=>true};h.document.activeElement=field;h.nodes.screen.contains=()=>true;h.nodes.screen.querySelector=selector=>selector==='#roomMainState'?main:null;
+ duel.status='cancelled';await h.intervals.find(x=>x.delay===8000).callback();assert.match(main.innerHTML,/Cancelado/);
+ const pointerTarget={dataset:{action:'cancel',id:duel.id},matches:()=>false};h.document.activeElement=pointerTarget;assert.equal(h.listeners.focusout,undefined);assert.equal(h.document.activeElement,pointerTarget);assert.ok(!h.nodes.screen.innerHTML.includes('Devolução dos Joga aí Coin'));
+ await h.intervals.find(x=>x.delay===8000).callback();assert.match(h.nodes.screen.innerHTML,/Devolução dos Joga aí Coin/);assert.match(h.nodes.screen.innerHTML,/Somente leitura/);assert.equal(h.api.getChat().draft,'Meu ID no jogo');
+});
+test('chat submit awaits a slow POST and handles blank validation in the existing error surface',async()=>{
+ let release;const pending=new Promise(done=>{release=done;});const {h,user,duel}=await preparationHarness({sendDuelChat:()=>pending});
+ const button={disabled:false,isConnected:true,textContent:'Enviar mensagem',removeAttribute(){}},field={value:'Vamos?',disabled:false};
+ const form={dataset:{form:'chat',owner:user.id,id:duel.id},fields:{text:'Vamos?'},querySelector:selector=>selector==='textarea'?field:button};
+ h.nodes.screen.querySelector=selector=>selector==='[data-form=chat]'?form:null;
+ const sending=h.listeners.submit({preventDefault(){},target:{closest:()=>form}});await Promise.resolve();assert.equal(h.api.getChat().sending,true);assert.equal(button.disabled,true);assert.equal(button.textContent,'Enviando…');
+ release({messages:[],lastSequence:0,closed:true});await sending;assert.equal(h.api.getChat().sending,false);assert.equal(button.disabled,true);
+ // Use an open room for validation and ensure rejected text never escapes the listener.
+ h.api.getChat().closed=false;form.fields.text='   ';await h.listeners.submit({preventDefault(){},target:{closest:()=>form}});assert.match(h.nodes.roomError.textContent,/Escreva uma mensagem/);
+});
+test('authenticated arena presents public rooms above the existing create hero',async()=>{
+ const {h}=await preparationHarness();h.route('#arena');const html=h.nodes.screen.innerHTML;
+ assert.ok(html.indexOf('id=\'openRoomsTitle\'')<html.indexOf('id="createTitle"'));assert.match(html,/Salas da arena/);assert.match(html,/valor por jogador/);
 });

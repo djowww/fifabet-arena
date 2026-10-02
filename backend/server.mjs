@@ -165,7 +165,7 @@ function needsMatchReview(duel){
 }
 function expireInvites(state){
   const time=Date.now();let changed=false;
-  for(const duel of Object.values(state.duels))if(['invited','awaiting_funds'].includes(duel.status)&&Date.parse(duel.expiresAt)<=time){
+  for(const duel of Object.values(state.duels))if(['invited','awaiting_funds','waiting_start'].includes(duel.status)&&Date.parse(duel.expiresAt)<=time){
     refundDuelReserves(state,duel,`expiry:${duel.id}`,'Sala expirada: reserva devolvida');
     duel.status='expired';duel.closedAt=now();changed=true;
   }
@@ -180,6 +180,7 @@ function duelView(state,duel,user){
   if(duel.hostId!==user.id||duel.status!=='invited')delete result.inviteToken;
   if(duel.hostId===user.id&&duel.creationOperationId)result.operationId=duel.creationOperationId;
   delete result.creationOperationId;delete result.creationOperationSignature;
+  delete result.chatMessages;
   return result;
 }
 function requirePendingInvite(duel){
@@ -357,7 +358,7 @@ export async function createArenaServer(options={}){
       duelBalanceChange(user,duel,`reserve:${duel.id}`,-duel.stake,'Joga aí Coin reservado ao entrar na sala');
       if(duel.fundingVersion===2&&duel.stake>0)duel.fundedBy.push(user.id);
     }
-    duel.guestId=user.id;duel.status=duel.fundingVersion===1&&duel.stake>0?'awaiting_funds':'in_progress';duel.acceptedAt=now();duel.waitingAt=null;duel.waitingBy=null;
+    duel.guestId=user.id;duel.status=duel.fundingVersion===1&&duel.stake>0?'awaiting_funds':duel.lobbyVersion===1?'waiting_start':'in_progress';duel.acceptedAt=now();duel.waitingAt=null;duel.waitingBy=null;
     if(duel.status==='in_progress')duel.startedAt=duel.acceptedAt;
     for(const [one,two]of [[user.id,duel.hostId],[duel.hostId,user.id]])if(!draft.users[one].friends.includes(two))draft.users[one].friends.push(two);
     return duelView(draft,duel,user);
@@ -387,16 +388,16 @@ export async function createArenaServer(options={}){
   function roomNotifications(duels,user){
     const result=[];
     for(const duel of duels){
-      if(duel.waitingBy&&duel.waitingBy!==user.id&&duel.waitingAt&&['invited','awaiting_funds','in_progress'].includes(duel.status))result.push({id:`waiting:${duel.id}:${duel.waitingAt}`,type:'waiting',duelId:duel.id,publicMatchId:duel.publicMatchId,message:'Seu adversário está esperando por você na sala.',createdAt:duel.waitingAt});
+      if(duel.waitingBy&&duel.waitingBy!==user.id&&duel.waitingAt&&['invited','awaiting_funds','waiting_start','in_progress'].includes(duel.status))result.push({id:`waiting:${duel.id}:${duel.waitingAt}`,type:'waiting',duelId:duel.id,publicMatchId:duel.publicMatchId,message:'Seu adversário está esperando por você na sala.',createdAt:duel.waitingAt});
       if(duel.result&&duel.result.reporterId!==user.id&&member(duel,user)&&!duel.result.confirmedBy&&duel.status==='pending_review')result.push({id:`result:${duel.result.id}`,type:'result_confirmation',duelId:duel.id,publicMatchId:duel.publicMatchId,message:duel.result.confirmationTimedOutAt?'O prazo de confirmação terminou. A equipe avaliará o resultado.':'Seu adversário enviou o placar. Envie sua foto e confirme em até cinco minutos.',createdAt:duel.result.submittedAt});
-      if(duel.hostId===user.id&&duel.guestId&&duel.status==='in_progress')result.push({id:`joined:${duel.id}`,type:'joined',duelId:duel.id,publicMatchId:duel.publicMatchId,message:'Seu adversário entrou. A partida pode começar.',createdAt:duel.acceptedAt});
+      if(duel.hostId===user.id&&duel.guestId&&['waiting_start','in_progress'].includes(duel.status))result.push({id:`joined:${duel.id}`,type:'joined',duelId:duel.id,publicMatchId:duel.publicMatchId,message:duel.lobbyVersion===1?'Seu adversário entrou. Preparem a partida.':'Seu adversário entrou. A partida pode começar.',createdAt:duel.acceptedAt});
     }
     return result.sort((a,b)=>b.createdAt.localeCompare(a.createdAt)).slice(0,30);
   }
   const mimeTypes={'.html':'text/html; charset=utf-8','.js':'text/javascript; charset=utf-8','.mjs':'text/javascript; charset=utf-8','.css':'text/css; charset=utf-8','.png':'image/png','.jpg':'image/jpeg','.webp':'image/webp','.svg':'image/svg+xml','.webmanifest':'application/manifest+json; charset=utf-8'};
   const publicFiles=new Set([
     'manifest.webmanifest','sw.js','pwa.mjs','pwa.css','offline.html',
-    'index.html','legal.html','colecao.html','bootstrap.js','app.js','play.js','backend-client.mjs','account-policy.mjs','model.mjs','clubs.mjs','football-trophies.mjs','rivalry-section.mjs','admin-panel.mjs','account-art.mjs','account-views.mjs','lobby-view.mjs','ui-icons.mjs','room-ui.mjs','image-preparation.mjs',
+    'index.html','legal.html','colecao.html','bootstrap.js','app.js','play.js','backend-client.mjs','account-policy.mjs','model.mjs','clubs.mjs','football-trophies.mjs','rivalry-section.mjs','admin-panel.mjs','account-art.mjs','account-views.mjs','lobby-view.mjs','ui-icons.mjs','room-ui.mjs','chat-ui.mjs','image-preparation.mjs',
     'styles.css','arena.css','shop.css','profile.css','achievements.css','rivalry.css','competitive-modes.css','practical.css','lobby.css','wizard.css','admin.css','account.css','account-pages.css','taste.css'
   ]);
   const serverStatus=()=>({available:true,mode:'shared',storage:'sqlite',schemaVersion:storage.schemaVersion,termsVersion:TERMS_VERSION,paymentMode,realMoney:paymentMode==='pix_manual',noRealMoney:paymentMode!=='pix_manual',paymentsAvailable:paymentMode==='demo'||paymentMode==='pix_manual',authProviders:oauth.status(),recognition:recognizer.status(),apiVersion:1,reviewerConfigured:reviewerIds.size>0||adminEmails.size>0});
@@ -459,7 +460,7 @@ export async function createArenaServer(options={}){
       if(!admin(draft,user))fail(403,'Esta área é exclusiva para administradores autorizados.','admin_required');
       if(method==='GET'&&path==='/api/v1/admin/overview'){
         const duels=Object.values(draft.duels),deposits=Object.values(draft.deposits);
-        return {stats:{users:Object.keys(draft.users).length,activeMatches:duels.filter(duel=>['awaiting_funds','in_progress','pending_review','disputed'].includes(duel.status)).length,pendingInvites:duels.filter(duel=>duel.status==='invited').length,pendingResults:duels.filter(duel=>['pending_review','disputed'].includes(duel.status)).length,pendingIssues:duels.filter(duel=>OPEN_DUEL_STATUSES.includes(duel.status)&&(duel.issueReports||[]).some(issue=>issue.status==='open')).length,pendingDeposits:deposits.filter(deposit=>deposit.status==='review'&&deposit.userId!==user.id&&(paymentMode==='pix_manual'&&deposit.paymentMode==='pix_manual'&&deposit.method==='pix'||paymentMode==='demo'&&(deposit.paymentMode||'demo')==='demo'&&deposit.method==='transfer')).length},paymentMode,paymentsAvailable:paymentMode==='demo'||paymentMode==='pix_manual',authProviders:oauth.status()};
+        return {stats:{users:Object.keys(draft.users).length,activeMatches:duels.filter(duel=>['awaiting_funds','waiting_start','in_progress','pending_review','disputed'].includes(duel.status)).length,pendingInvites:duels.filter(duel=>duel.status==='invited').length,pendingResults:duels.filter(duel=>['pending_review','disputed'].includes(duel.status)).length,pendingIssues:duels.filter(duel=>OPEN_DUEL_STATUSES.includes(duel.status)&&(duel.issueReports||[]).some(issue=>issue.status==='open')).length,pendingDeposits:deposits.filter(deposit=>deposit.status==='review'&&deposit.userId!==user.id&&(paymentMode==='pix_manual'&&deposit.paymentMode==='pix_manual'&&deposit.method==='pix'||paymentMode==='demo'&&(deposit.paymentMode||'demo')==='demo'&&deposit.method==='transfer')).length},paymentMode,paymentsAvailable:paymentMode==='demo'||paymentMode==='pix_manual',authProviders:oauth.status()};
       }
       if(method==='GET'&&path==='/api/v1/admin/users'){
         const search=(url.searchParams.get('search')||'').trim().toLocaleLowerCase('pt-BR');
@@ -649,7 +650,7 @@ export async function createArenaServer(options={}){
       }
       if(Object.values(draft.duels).filter(d=>d.hostId===user.id&&d.status==='invited').length>=20)fail(409,'Conclua ou cancele convites pendentes antes de criar mais.');
       if(Object.values(draft.duels).filter(d=>member(d,user)&&OPEN_DUEL_STATUSES.includes(d.status)).length>=50)fail(409,'Conclua desafios em andamento antes de criar mais.');
-      const duel={id:randomUUID(),publicMatchId:uniquePublicId(draft.duels,'FG','publicMatchId'),creditMode:stake===0?'friendly':paymentMode==='unconfigured'?'coins':paymentMode,hostId:user.id,guestId:null,recipientId:recipient?.id||null,visibility,stake,fundingVersion:2,fundedBy:[],economics:createDuelEconomics(stake),mode:data.mode,platform:data.platform,rules,status:'invited',inviteToken:token(),createdAt:now(),expiresAt:new Date(Date.now()+7*DAY).toISOString(),reports:[],disputes:[],issueReports:[],result:null,cancellationRequestedBy:[]};
+      const duel={id:randomUUID(),publicMatchId:uniquePublicId(draft.duels,'FG','publicMatchId'),creditMode:stake===0?'friendly':paymentMode==='unconfigured'?'coins':paymentMode,hostId:user.id,guestId:null,recipientId:recipient?.id||null,visibility,stake,fundingVersion:2,lobbyVersion:1,readyBy:[],chatMessages:[],fundedBy:[],economics:createDuelEconomics(stake),mode:data.mode,platform:data.platform,rules,status:'invited',inviteToken:token(),createdAt:now(),expiresAt:new Date(Date.now()+7*DAY).toISOString(),reports:[],disputes:[],issueReports:[],result:null,cancellationRequestedBy:[]};
       if(stake>0){duelBalanceChange(user,duel,`reserve:${duel.id}`,-stake,'Joga aí Coin reservado ao criar a sala');duel.fundedBy.push(user.id);}
       if(operationId){duel.creationOperationId=operationId;duel.creationOperationSignature=operationSignature;}
       draft.duels[duel.id]=duel;
@@ -665,11 +666,45 @@ export async function createArenaServer(options={}){
       if(method==='GET'&&!inviteMatch[2])return {invite:{publicMatchId:duel.publicMatchId,creditMode:duel.creditMode,host:{nickname:draft.users[duel.hostId].nickname},stake:duel.stake,fundingVersion:duel.fundingVersion||0,economics:duelEconomics(duel),mode:duel.mode,platform:duel.platform,rules:duel.rules,status:duel.status,expiresAt:duel.expiresAt}};
       if(method==='POST'&&inviteMatch[2])return {duel:accept(draft,duel,user)};
     }
-    const duelMatch=/^\/api\/v1\/duels\/([a-f0-9-]{36})\/(accept|fund|nudge|issue|cancel|cancel-withdraw|result|confirm|dispute)$/.exec(path);
+    const chatMatch=/^\/api\/v1\/duels\/([a-f0-9-]{36})\/chat$/.exec(path);
+    if(chatMatch&&['GET','POST'].includes(method)){
+      const duel=draft.duels[chatMatch[1]];
+      if(!duel?.guestId||!member(duel,user))fail(404,'Conversa não encontrada.','not_found');
+      const messages=duel.chatMessages??=[],closed=['completed','cancelled','expired'].includes(duel.status);
+      const publicMessage=({operationId,...message})=>message;
+      const envelope=selected=>({messages:selected.map(publicMessage),lastSequence:messages.at(-1)?.sequence||0,closed});
+      if(method==='GET'){
+        const cursor=url.searchParams.get('after')??'0';
+        if(!/^\d+$/.test(cursor)||!Number.isSafeInteger(Number(cursor)))fail(400,'Sequência da conversa inválida.','invalid_chat_cursor');
+        return envelope(messages.filter(message=>message.sequence>Number(cursor)));
+      }
+      const data=await jsonBody(request);fields(data,['operationId','text']);
+      if(typeof data.operationId!=='string'||!/^[a-f0-9]{8}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{12}$/i.test(data.operationId))fail(400,'Operação da conversa inválida.','invalid_operation_id');
+      if(typeof data.text!=='string'||!data.text.trim()||data.text.length>1000||/[\u0000-\u0008\u000B\u000C\u000E-\u001F\u007F-\u009F\u202A-\u202E\u2066-\u2069]/u.test(data.text))fail(400,'Escreva uma mensagem de até 1000 caracteres.','invalid_chat_text');
+      data.text=data.text.trim();
+      const operationId=data.operationId.toLowerCase(),previous=messages.find(message=>message.authorId===user.id&&message.operationId===operationId);
+      if(previous){if(previous.text!==data.text)fail(409,'Esta operação já enviou outra mensagem.','idempotency_conflict');return envelope([previous]);}
+      if(closed||!['waiting_start','in_progress','pending_review','disputed'].includes(duel.status))fail(409,'Esta conversa está encerrada.','chat_closed');
+      if(messages.length>=200)fail(409,'Esta conversa atingiu o limite de mensagens.','chat_full');
+      rateLimit(request,`chat:${duel.id}:${user.id}`,30,60*1000);
+      const message={id:randomUUID(),sequence:(messages.at(-1)?.sequence||0)+1,authorId:user.id,authorNickname:user.nickname,text:data.text,createdAt:now(),operationId};
+      messages.push(message);duel.chatMessages=messages;return envelope([message]);
+    }
+    const duelMatch=/^\/api\/v1\/duels\/([a-f0-9-]{36})\/(accept|start|fund|nudge|issue|cancel|cancel-withdraw|result|confirm|dispute)$/.exec(path);
     if(method==='POST'&&duelMatch){
       const duel=ownDuel(draft,user,duelMatch[1]);
       const action=duelMatch[2];
       if(action==='accept')return {duel:accept(draft,duel,user)};
+      if(action==='start'){
+        if(!duel.guestId||!member(duel,user))fail(404,'Sala não encontrada.','not_found');
+        const data=await jsonBody(request);fields(data,[]);
+        if(duel.status==='in_progress'&&duel.lobbyVersion===1)return {duel:duelView(draft,duel,user)};
+        if(duel.status!=='waiting_start'||duel.lobbyVersion!==1)fail(409,'Esta sala não está em preparação.','start_unavailable');
+        if(duel.stake>0&&![duel.hostId,duel.guestId].every(id=>duel.fundedBy.includes(id)))fail(409,'As reservas da partida estão incompletas.','funding_incomplete');
+        if(!duel.readyBy.includes(user.id))duel.readyBy.push(user.id);
+        if([duel.hostId,duel.guestId].every(id=>duel.readyBy.includes(id))){duel.status='in_progress';duel.startedAt=now();}
+        return {duel:duelView(draft,duel,user)};
+      }
       if(action==='fund'){
         if(!member(duel,user))fail(403,'Somente os participantes podem reservar Joga aí Coin na sala.');
         const data=await jsonBody(request);fields(data,['stake']);
@@ -689,7 +724,7 @@ export async function createArenaServer(options={}){
       }
       if(action==='nudge'){
         if(!member(duel,user))fail(403,'Somente os participantes podem avisar que estão esperando.');
-        if(!['invited','awaiting_funds','in_progress'].includes(duel.status))fail(409,'Esta partida não está aguardando jogadores.');
+        if(!['invited','awaiting_funds','waiting_start','in_progress'].includes(duel.status))fail(409,'Esta partida não está aguardando jogadores.');
         const data=await jsonBody(request);fields(data,[]);
         const previous=duel.nudgedAtBy?.[user.id];
         if(previous&&Date.now()-Date.parse(previous)<60_000)fail(429,'O aviso já foi enviado. Aguarde um minuto para avisar novamente.','nudge_limited');
@@ -719,7 +754,7 @@ export async function createArenaServer(options={}){
           refundDuelReserves(draft,duel,`cancel:${duel.id}`,declined?'Convite recusado: reserva devolvida':'Convite cancelado: reserva devolvida');
           duel.status='cancelled';duel.closedAt=now();duel.cancelledBy=user.id;duel.cancellationReason=declined?'declined':'withdrawn';
         }
-        else if(duel.status==='awaiting_funds'&&member(duel,user)){
+        else if(['awaiting_funds','waiting_start'].includes(duel.status)&&member(duel,user)){
           refundDuelReserves(draft,duel,`cancel:${duel.id}`,'Sala cancelada antes do início: reserva devolvida');
           duel.status='cancelled';duel.closedAt=now();duel.cancelledBy=user.id;duel.cancellationReason='before_start';
         }

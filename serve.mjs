@@ -33,6 +33,7 @@ const files = new Map([
   ["/account-views.mjs", ["account-views.mjs", "text/javascript; charset=utf-8"]],
   ["/lobby-view.mjs", ["lobby-view.mjs", "text/javascript; charset=utf-8"]],
   ["/room-ui.mjs", ["room-ui.mjs", "text/javascript; charset=utf-8"]],
+  ["/chat-ui.mjs", ["chat-ui.mjs", "text/javascript; charset=utf-8"]],
   ["/image-preparation.mjs", ["image-preparation.mjs", "text/javascript; charset=utf-8"]],
   ["/ui-icons.mjs", ["ui-icons.mjs", "text/javascript; charset=utf-8"]],
   ["/taste.css", ["taste.css", "text/css; charset=utf-8"]],

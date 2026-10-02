@@ -52,6 +52,10 @@ async function acceptAndFund(host,guest,duel,path=`/invites/${duel.inviteToken}/
     const guestFunding=await guest.api(`/duels/${duel.id}/fund`,{method:'POST',data:{stake:duel.stake}});assert.equal(guestFunding.status,200);
     return guestFunding.data.duel;
   }
+  if(accepted.data.duel.lobbyVersion===1){
+    assert.equal((await host.api(`/duels/${duel.id}/start`,{method:'POST',data:{}})).status,200);
+    const started=await guest.api(`/duels/${duel.id}/start`,{method:'POST',data:{}});assert.equal(started.status,200);return started.data.duel;
+  }
   return accepted.data.duel;
 }
 
@@ -88,10 +92,10 @@ test('only invited player accepts a direct challenge; point reserves cannot over
   assert.equal((await host.api('/me')).data.user.transactions.filter(tx=>tx.reference===`reserve:${duel.id}`).length,1);
   assert.equal((await other.api(`/invites/${created.data.inviteToken}/accept`,{method:'POST',data:{}})).status,403);
   const accepted=await guest.api(`/duels/${duel.id}/accept`,{method:'POST',data:{}});
-  assert.equal(accepted.status,200);assert.equal(accepted.data.duel.status,'in_progress');
+  assert.equal(accepted.status,200);assert.equal(accepted.data.duel.status,'waiting_start');
   await host.api(`/duels/${duel.id}/fund`,{method:'POST',data:{stake:200}});
   const funded=await guest.api(`/duels/${duel.id}/fund`,{method:'POST',data:{stake:200}});
-  assert.equal(funded.status,200);assert.equal(funded.data.duel.status,'in_progress');
+  assert.equal(funded.status,200);assert.equal(funded.data.duel.status,'waiting_start');
   assert.equal((await guest.api('/me')).data.user.balance,800);
   assert.equal((await guest.api(`/duels/${duel.id}/accept`,{method:'POST',data:{}})).status,409);
   assert.equal((await guest.api('/me')).data.user.balance,800);
@@ -100,7 +104,7 @@ test('only invited player accepts a direct challenge; point reserves cannot over
   assert.equal(results.filter(result=>result.status===409).length,2);
   const createdInvites=results.filter(result=>result.status===200);
   const acceptedInvites=await Promise.all(createdInvites.map(result=>guest.api(`/invites/${result.data.inviteToken}/accept`,{method:'POST',data:{}})));
-  assert.ok(acceptedInvites.every(result=>result.status===200&&result.data.duel.status==='in_progress'));
+  assert.ok(acceptedInvites.every(result=>result.status===200&&result.data.duel.status==='waiting_start'));
   // A legacy fund retry is idempotent for already reserved version-2 rooms.
   const hostReservations=await Promise.all(createdInvites.map(result=>host.api(`/duels/${result.data.duel.id}/fund`,{method:'POST',data:{stake:200}})));
   assert.ok(hostReservations.every(result=>result.status===200));
@@ -136,8 +140,9 @@ test('invite previews require authentication and expose only the authorized invi
   const own=await host.api(`${path}/accept`,{method:'POST',data:{}});
   assert.equal(own.status,409);assert.equal(own.data.code,'invite_own');
   const accepted=await guest.api(`${path}/accept`,{method:'POST',data:{}});
-  assert.equal(accepted.status,200);assert.equal(accepted.data.duel.status,'in_progress');
+  assert.equal(accepted.status,200);assert.equal(accepted.data.duel.status,'waiting_start');
   assert.equal((await host.api('/me')).data.user.balance,900);assert.equal((await guest.api('/me')).data.user.balance,900);
+  for(const player of [host,guest])assert.equal((await player.api(`/duels/${created.data.duel.id}/start`,{method:'POST',data:{}})).status,200);
   const photo=await host.upload(created.data.duel.id);
   assert.equal((await host.api(`/duels/${created.data.duel.id}/result`,{method:'POST',data:{homeScore:3,awayScore:1,evidenceId:photo.id,scoreSide:'host'}})).status,200);
   for(const client of [host,guest]){
@@ -214,10 +219,10 @@ test('a stable creation operation reserves credits once despite concurrent retri
   const invalid=await host.api('/duels',{method:'POST',data:{...payload,operationId:'not-a-uuid'}});
   assert.equal(invalid.status,400);assert.equal(invalid.data.code,'invalid_operation_id');
   const accepted=await guest.api(`/invites/${results[0].data.inviteToken}/accept`,{method:'POST',data:{}});
-  assert.equal(accepted.status,200);assert.equal(accepted.data.duel.status,'in_progress');assert.ok(!Object.hasOwn(accepted.data.duel,'operationId'));
+  assert.equal(accepted.status,200);assert.equal(accepted.data.duel.status,'waiting_start');assert.ok(!Object.hasOwn(accepted.data.duel,'operationId'));
   assert.equal((await guest.api('/me')).data.user.balance,750);
   const retryAfterAcceptance=await host.api('/duels',{method:'POST',data:payload});
-  assert.equal(retryAfterAcceptance.status,200);assert.equal(retryAfterAcceptance.data.duel.status,'in_progress');
+  assert.equal(retryAfterAcceptance.status,200);assert.equal(retryAfterAcceptance.data.duel.status,'waiting_start');
   assert.ok(!Object.hasOwn(retryAfterAcceptance.data,'inviteToken'));assert.equal((await host.api('/me')).data.user.balance,750);
 });
 

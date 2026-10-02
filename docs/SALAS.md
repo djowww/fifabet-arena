@@ -4,8 +4,8 @@
 
 1. O anfitrião escolhe sala aberta na arena ou privada por convite, define o mesmo valor para cada jogador e confirma o resumo. Uma sala com Joga aí Coin exige saldo e reserva a parte do anfitrião ao criar. Amistosas podem usar saldo ou ser gratuitas, com `stake:0`.
 2. O rival pode encontrar uma sala aberta na arena ou usar código/link. Ao aceitar uma sala com Joga aí Coin, sua parte é reservada atomicamente. Saldo insuficiente impede a entrada; a sala continua disponível.
-3. Novas salas usam `fundingVersion:2`: com os dois participantes e as duas reservas, o jogo pode começar. Salas antigas `fundingVersion:1` preservam a reserva individual no estado `awaiting_funds`, sem mudar os termos anteriores.
-4. A sala mostra “Partida em andamento...”, “Reportar um problema” e “Partida encerrada”. Uma amistosa inicia após o aceite e não exige reservas.
+3. Novas salas usam `fundingVersion:2` e `lobbyVersion:1`: ao entrar, os jogadores ficam em preparação (`waiting_start`) e abrem uma conversa privada para se adicionar no console e combinar os detalhes. A arena destaca o custo **por jogador**; uma amistosa gratuita usa `stake:0`. Salas anteriores preservam seu fluxo e condições, sem voltar jogos em andamento para preparação.
+4. Cada participante confirma “Iniciar partida”. A primeira confirmação mostra quem está pronto e aguarda o rival. Somente as duas confirmações iniciam o jogo; não há nova cobrança ou reserva nesse momento. A sala então mostra “Partida em andamento...”, “Reportar um problema” e “Partida encerrada”, preservando acesso à conversa.
 5. Pelo celular, o jogador fotografa a tela final do console ou seleciona uma imagem da galeria. A aplicação reduz a foto antes do envio privado.
 6. “Ler placar da foto” executa Tesseract.js no servidor. A sugestão exige identificar quem está à esquerda; nunca associa automaticamente posição da tela ao anfitrião. O jogador pode corrigir ou informar manualmente os gols.
 7. Enviar foto e placar inicia uma janela de cinco minutos. O rival deve enviar sua própria foto, indicar o lado do anfitrião/convidado e confirmar os mesmos gols. A janela é preservada após editar o placar e reiniciar o servidor. Ausência de resposta nunca atribui vitória.
@@ -32,12 +32,23 @@ Um relato pode ser enviado durante a partida sem existir um placar ou foto. Fica
 | Reservar a própria parte | `POST /api/v1/duels/:id/fund` | `{stake}` igual ao valor combinado |
 | Avisar o rival | `POST /api/v1/duels/:id/nudge` | `{}`; membro da sala, limitado a um aviso por minuto |
 | Encontrar salas abertas | `GET /api/v1/rooms` | Conta autenticada; lista limitada, sem IDs internos, tokens, evidências, regras privadas ou saldo |
+| Confirmar o início | `POST /api/v1/duels/:id/start` | `{}`; registra prontidão do participante; inicia somente com os dois prontos |
+| Ler a conversa | `GET /api/v1/duels/:id/chat?after=0` | Somente participantes após a entrada; cursor sequencial, conversa privada |
+| Enviar mensagem | `POST /api/v1/duels/:id/chat` | `{operationId,text}`; operação idempotente por autor, texto simples de 1 a 1.000 caracteres |
 | Confirmar com foto própria | `POST /api/v1/duels/:id/confirm` | `{reportId,evidenceId,homeScore,awayScore,scoreSide}`; `scoreSide:host` ou `guest` indica quem aparece à esquerda |
 | Reportar problema | `POST /api/v1/duels/:id/issue` | `{reason}` |
 | Sugerir placar | `POST /api/v1/duels/:id/recognize` | `{evidenceId}` de foto própria da sala |
 | Avaliar problema | `POST /api/v1/reviews/:id/issues/:issueId` | `{decision:'dismiss'|'cancel',reason,reportId}`; nulo sem resultado |
 
 Todos exigem sessão, origem e CSRF. Fotos continuam privadas. A prévia pública do convite contém os termos financeiros, sem IDs dos participantes, nomes privados, saldo ou evidências.
+
+## Preparação e conversa privada
+
+A conversa pertence apenas aos dois jogadores que efetivamente entraram na sala. Um destinatário que ainda não aceitou, outros jogadores e administradores/revisores não podem acessar as mensagens. As projeções gerais da arena, convites, notificações e painel de revisão não incluem o conteúdo da conversa. Mensagens e autoria são validadas no servidor, com proteção de origem, CSRF e limites de frequência e tamanho.
+
+Até 200 mensagens ficam persistidas por sala no banco do aplicativo. Após encerramento, os participantes podem consultar o histórico da conversa, mas não enviar novas mensagens. Rascunhos ficam apenas na memória da página, sem armazenar mensagens no navegador. A conversa e a prontidão atualizam enquanto a página está aberta; não há push com o aplicativo fechado. Uma mensagem não altera o modo, valor ou regras já confirmados no resumo da sala.
+
+Na preparação, qualquer participante pode cancelar e devolver as duas reservas. A expiração do convite também encerra uma preparação pendente, sem atribuir vitória. Antes da confirmação dos dois, fotos/placar e distribuição de prêmio ficam bloqueados. Depois do início, continuam valendo os controles bilaterais de resultado e cancelamento existentes.
 
 ## Leitura local e limites
 

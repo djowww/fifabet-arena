@@ -28,8 +28,8 @@ async function harness(t,{recognition=GOOD_READING}={}){
   function client(){
     let cookie='',csrfToken=null;
     return {
-      async api(path,{method='GET',data,body,mime}={}){
-        const headers={Origin:base};if(cookie)headers.Cookie=cookie;if(csrfToken)headers['X-CSRF-Token']=csrfToken;
+      async api(path,{method='GET',data,body,mime,csrf=true,origin=base}={}){
+        const headers={Origin:origin};if(cookie)headers.Cookie=cookie;if(csrf&&csrfToken)headers['X-CSRF-Token']=csrfToken;
         if(data!==undefined){headers['Content-Type']='application/json';body=JSON.stringify(data);}if(mime)headers['Content-Type']=mime;
         const response=await fetch(`${base}/api/v1${path}`,{method,headers,body});
         const payload=await response.json();const setCookie=response.headers.get('set-cookie');if(setCookie)cookie=setCookie.split(';')[0];if(Object.hasOwn(payload,'csrfToken'))csrfToken=payload.csrfToken;
@@ -55,13 +55,17 @@ async function harness(t,{recognition=GOOD_READING}={}){
   return {client,restart,reviewerIds,dataDir};
 }
 
-async function joinedRoom(h,{stake=100}={}){
+async function joinedRoom(h,{stake=100,start=true}={}){
   const host=h.client(),guest=h.client(),reviewer=h.client();
   const hostUser=await host.register('Host',1000),guestUser=await guest.register('Guest',1000),reviewerUser=await reviewer.register('Reviewer');h.reviewerIds.push(reviewerUser.id);
   await h.restart();
   const created=await host.create(stake);assert.equal(created.status,200);
   const joined=await guest.api(`/invites/code/${created.data.duel.publicMatchId}/accept`,{method:'POST',data:{}});
   assert.equal(joined.status,200);
+  if(start){
+    assert.equal((await host.api(`/duels/${joined.data.duel.id}/start`,{method:'POST',data:{}})).status,200);
+    const started=await guest.api(`/duels/${joined.data.duel.id}/start`,{method:'POST',data:{}});assert.equal(started.status,200);joined.data.duel=started.data.duel;
+  }
   return {host,guest,reviewer,hostUser,guestUser,duel:joined.data.duel};
 }
 
@@ -85,7 +89,7 @@ test('arena rooms expose bounded public data only and enforce both balances befo
   assert.ok(!JSON.stringify(listed.data).includes(room.id));assert.ok(!JSON.stringify(listed.data).includes(created.data.inviteToken));assert.ok(!JSON.stringify(listed.data).includes('Private rule'));
   const rejected=await poor.api(`/invites/code/${room.publicMatchId}/accept`,{method:'POST',data:{}});assert.equal(rejected.status,409);assert.equal(rejected.data.code,'insufficient_balance');
   assert.equal((await guest.api('/rooms')).data.rooms.length,1);
-  const joined=await guest.api(`/invites/code/${room.publicMatchId}/accept`,{method:'POST',data:{}});assert.equal(joined.status,200);assert.equal(joined.data.duel.status,'in_progress');
+  const joined=await guest.api(`/invites/code/${room.publicMatchId}/accept`,{method:'POST',data:{}});assert.equal(joined.status,200);assert.equal(joined.data.duel.status,'waiting_start');
   assert.equal((await guest.me()).user.balance,900);assert.equal((await guest.me()).stats.reserved,100);assert.equal((await poor.api('/rooms')).data.rooms.length,0);
   const status=await guest.api('/status');assert.equal(status.data.paymentsAvailable,false);assert.equal(status.data.paymentMode,'unconfigured');
 });
@@ -153,7 +157,7 @@ test('the five-minute timeout never awards a win and late matching evidence need
 test('old private invitations retain explicit two-step funding and never appear in arena discovery',async t=>{
   const h=await harness(t),host=h.client(),guest=h.client();await host.register('Host',1000);await guest.register('Guest',1000);
   const created=await host.create(100);await h.restart(state=>{
-    const duel=state.duels[created.data.duel.id],owner=state.users[duel.hostId];owner.balance+=100;owner.transactions=owner.transactions.filter(tx=>tx.reference!==`reserve:${duel.id}`);duel.fundingVersion=1;duel.fundedBy=[];delete duel.visibility;
+    const duel=state.duels[created.data.duel.id],owner=state.users[duel.hostId];owner.balance+=100;owner.transactions=owner.transactions.filter(tx=>tx.reference!==`reserve:${duel.id}`);duel.fundingVersion=1;duel.fundedBy=[];delete duel.lobbyVersion;delete duel.readyBy;delete duel.visibility;
   },'demo');
   assert.deepEqual((await guest.api('/rooms')).data.rooms,[]);
   const accepted=await guest.api(`/invites/${created.data.inviteToken}/accept`,{method:'POST',data:{}});assert.equal(accepted.status,200);assert.equal(accepted.data.duel.status,'awaiting_funds');
@@ -176,6 +180,93 @@ test('revised reports keep the original deadline and invalidate the prior confir
   const evidenceId=await room.host.upload(room.duel.id,'revised'),revised=await room.host.api(`/duels/${room.duel.id}/result`,{method:'POST',data:{evidenceId,homeScore:4,awayScore:1,scoreSide:'host'}});
   assert.equal(revised.status,200);assert.equal(revised.data.duel.result.confirmationDeadline,pair.result.confirmationDeadline);assert.equal(revised.data.duel.result.confirmedBy,null);
   assert.equal((await room.guest.api(`/duels/${room.duel.id}/confirm`,{method:'POST',data:confirmation})).data.code,'stale_result');
+});
+
+test('preparation requires two idempotent confirmations and never charges at start',async t=>{
+  const h=await harness(t),room=await joinedRoom(h,{start:false}),{host,guest,duel}=room;
+  assert.equal(duel.status,'waiting_start');assert.equal(duel.lobbyVersion,1);assert.deepEqual(duel.readyBy,[]);assert.equal(duel.startedAt,undefined);assert.equal(duel.chatMessages,undefined);
+  assert.equal((await host.me()).notifications.find(item=>item.type==='joined').message,'Seu adversário entrou. Preparem a partida.');
+  assert.equal((await host.api(`/duels/${duel.id}/nudge`,{method:'POST',data:{}})).status,200);
+  assert.equal((await host.api(`/duels/${duel.id}/nudge`,{method:'POST',data:{}})).status,429);
+  assert.equal((await guest.me()).notifications.some(item=>item.type==='waiting'),true);
+  assert.equal((await host.api(`/duels/${duel.id}/result`,{method:'POST',data:{}})).status,409);
+  const first=await host.api(`/duels/${duel.id}/start`,{method:'POST',data:{}});assert.equal(first.status,200);assert.equal(first.data.duel.status,'waiting_start');assert.deepEqual(first.data.duel.readyBy,[duel.hostId]);
+  const replies=await Promise.all([guest.api(`/duels/${duel.id}/start`,{method:'POST',data:{}}),guest.api(`/duels/${duel.id}/start`,{method:'POST',data:{}})]);
+  assert.deepEqual(replies.map(r=>r.status),[200,200]);assert.equal(replies[0].data.duel.status,'in_progress');assert.equal(replies[0].data.duel.startedAt,replies[1].data.duel.startedAt);
+  assert.equal((await host.me()).user.balance,900);assert.equal((await guest.me()).user.balance,900);
+});
+
+test('preparation cancellation and expiry return both reserves once',async t=>{
+  for(const expiry of [false,true])await t.test(String(expiry),async sub=>{
+    const h=await harness(sub),{host,guest,duel}=await joinedRoom(h,{start:false});
+    if(expiry)await h.restart(s=>{s.duels[duel.id].expiresAt=new Date(Date.now()-1).toISOString();});
+    else {const replies=await Promise.all([host.api(`/duels/${duel.id}/cancel`,{method:'POST',data:{}}),guest.api(`/duels/${duel.id}/cancel`,{method:'POST',data:{}})]);assert.deepEqual(replies.map(r=>r.status).sort(),[200,409]);}
+    assert.equal((await host.me()).user.balance,1000);assert.equal((await guest.me()).user.balance,1000);assert.equal((await host.me()).stats.reserved,0);
+  });
+});
+
+test('private chat is joined-member only, bounded, idempotent, durable and absent from snapshots',async t=>{
+  const h=await harness(t),{host,guest,reviewer,duel}=await joinedRoom(h,{start:false}),outsider=h.client();await outsider.register('Outside');const path=`/duels/${duel.id}/chat`;
+  assert.deepEqual((await host.api(path)).data,{messages:[],lastSequence:0,closed:false});
+  for(const client of [reviewer,outsider])assert.equal((await client.api(path)).status,404);
+  const operationId=randomUUID(),data={operationId,text:'<b>Vamos jogar?</b>'};
+  const sent=await host.api(path,{method:'POST',data});assert.equal(sent.status,200);assert.equal(sent.data.messages[0].authorId,duel.hostId);assert.equal(sent.data.messages[0].sequence,1);assert.equal(sent.data.messages[0].text,data.text);
+  assert.deepEqual((await host.api(path,{method:'POST',data})).data,sent.data);
+  assert.equal((await host.api(path,{method:'POST',data:{...data,text:'Outro texto'}})).status,409);
+  for(const text of ['', ' ', 'x'.repeat(1001),'a\u0000b'])assert.equal((await guest.api(path,{method:'POST',data:{operationId:randomUUID(),text}})).status,400);
+  assert.equal((await guest.api(path+'?after=no')).status,400);
+  assert.equal((await host.api(path,{method:'POST',data:{...data,authorId:duel.guestId}})).status,400);
+  assert.deepEqual((await guest.api(path+'?after=1')).data,{messages:[],lastSequence:1,closed:false});
+  assert.ok(!JSON.stringify(await host.me()).includes(data.text));assert.ok(!JSON.stringify(await guest.me()).includes('chatMessages'));
+  await h.restart();assert.equal((await guest.api(path)).data.messages[0].text,data.text);
+  await guest.api(`/duels/${duel.id}/cancel`,{method:'POST',data:{}});assert.equal((await host.api(path)).data.closed,true);
+  assert.equal((await host.api(path,{method:'POST',data:{operationId:randomUUID(),text:'Depois'}})).status,409);
+});
+
+test('an invitation recipient cannot access chat before joining',async t=>{
+  const h=await harness(t),host=h.client(),guest=h.client();await host.register('Host');const u=await guest.register('Guest');
+  const created=await host.create(0,{opponentPlayerId:u.publicPlayerId});assert.equal((await guest.api(`/duels/${created.data.duel.id}/chat`)).status,404);assert.equal((await host.api(`/duels/${created.data.duel.id}/chat`)).status,404);
+});
+
+test('chat canonicalizes surrounding whitespace before idempotency comparison',async t=>{
+  const h=await harness(t),{host,duel}=await joinedRoom(h,{stake:0,start:false}),path=`/duels/${duel.id}/chat`,operationId=randomUUID();
+  const first=await host.api(path,{method:'POST',data:{operationId,text:'  Vamos jogar? \n'}});assert.equal(first.status,200);assert.equal(first.data.messages[0].text,'Vamos jogar?');
+  assert.deepEqual((await host.api(path,{method:'POST',data:{operationId,text:'Vamos jogar?'}})).data,first.data);
+});
+
+test('chat stays private throughout result review and writes become closed after settlement',async t=>{
+  const h=await harness(t),room=await joinedRoom(h),{host,guest,reviewer,duel}=room,path=`/duels/${duel.id}/chat`,text='Conversa privada durante a análise';
+  const sent=await host.api(path,{method:'POST',data:{operationId:randomUUID(),text}});assert.equal(sent.status,200);
+  const pair=await reportPair(room);assert.equal((await guest.api(path,{method:'POST',data:{operationId:randomUUID(),text:'Foto enviada'}})).status,200);
+  assert.equal((await reviewer.api(path)).status,404);assert.ok(!JSON.stringify((await reviewer.api('/reviews')).data).includes(text));assert.ok(!JSON.stringify((await reviewer.api('/reviews')).data).includes('chatMessages'));
+  await guest.api(`/duels/${duel.id}/confirm`,{method:'POST',data:{reportId:pair.result.id,evidenceId:pair.confirmationEvidenceId,homeScore:3,awayScore:1,scoreSide:'host'}});
+  assert.equal((await guest.api(path)).data.closed,true);assert.equal((await guest.api(path,{method:'POST',data:{operationId:randomUUID(),text:'Encerrada'}})).data.code,'chat_closed');
+});
+
+test('chat enforces origin, CSRF, per-author rate and the 200-message room bound',async t=>{
+  const h=await harness(t),{host,guest,duel}=await joinedRoom(h,{stake:0,start:false}),path=`/duels/${duel.id}/chat`;
+  for(const guard of [{csrf:false},{origin:'https://attacker.example'}])assert.equal((await host.api(path,{method:'POST',data:{operationId:randomUUID(),text:'Olá'},...guard})).status,403);
+  for(let i=0;i<30;i++)assert.equal((await host.api(path,{method:'POST',data:{operationId:randomUUID(),text:`Mensagem ${i}`}})).status,200);
+  assert.equal((await host.api(path,{method:'POST',data:{operationId:randomUUID(),text:'Limitada'}})).status,429);
+  await h.restart(state=>{const messages=state.duels[duel.id].chatMessages;for(let i=messages.length;i<199;i++)messages.push({id:randomUUID(),sequence:i+1,authorId:duel.hostId,authorNickname:'Host',text:`Histórico ${i}`,createdAt:new Date().toISOString(),operationId:randomUUID()});});
+  const data={operationId:randomUUID(),text:'x'.repeat(1000)},last=await guest.api(path,{method:'POST',data});assert.equal(last.status,200);assert.equal(last.data.lastSequence,200);
+  assert.equal((await guest.api(path,{method:'POST',data:{operationId:randomUUID(),text:'Excedente'}})).data.code,'chat_full');
+  assert.deepEqual((await guest.api(path,{method:'POST',data})).data,last.data);assert.equal((await host.api(path)).data.messages.length,200);
+});
+
+test('legacy v2 rooms still begin on entry and started rooms survive restart',async t=>{
+  const h=await harness(t),host=h.client(),guest=h.client();await host.register('Host',1000);await guest.register('Guest',1000);const created=await host.create(100);
+  await h.restart(state=>{const duel=state.duels[created.data.duel.id];delete duel.lobbyVersion;delete duel.readyBy;delete duel.chatMessages;},'demo');
+  const joined=await guest.api(`/invites/${created.data.inviteToken}/accept`,{method:'POST',data:{}});assert.equal(joined.status,200);assert.equal(joined.data.duel.status,'in_progress');
+  await h.restart();const duel=(await host.me()).duels[0];assert.equal(duel.startedAt,joined.data.duel.startedAt);assert.equal(duel.status,'in_progress');assert.equal((await host.api(`/duels/${duel.id}/start`,{method:'POST',data:{}})).status,409);
+});
+
+test('simultaneous start and cancel never strand reserves or create duplicate ledger entries',async t=>{
+  const h=await harness(t),{host,guest,duel}=await joinedRoom(h,{start:false});
+  await host.api(`/duels/${duel.id}/start`,{method:'POST',data:{}});
+  const replies=await Promise.all([guest.api(`/duels/${duel.id}/start`,{method:'POST',data:{}}),host.api(`/duels/${duel.id}/cancel`,{method:'POST',data:{}})]);assert.ok(replies.every(r=>[200,409].includes(r.status)));
+  let snapshot=await host.me();if(snapshot.duels.length)await guest.api(`/duels/${duel.id}/cancel`,{method:'POST',data:{}});
+  for(const player of [host,guest]){snapshot=await player.me();assert.equal(snapshot.user.balance,1000);assert.equal(snapshot.user.transactions.filter(tx=>tx.reference===`reserve:${duel.id}`).length,1);assert.equal(snapshot.user.transactions.filter(tx=>tx.reference===`cancel:${duel.id}`).length,1);}
 });
 
 test('automatic settlement fails closed for stale, missing or weak recognition metadata',()=>{

@@ -1,3 +1,5 @@
+import * as chatUI from './chat-ui.mjs';
+import {preparationState} from './room-ui.mjs';
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import vm from 'node:vm';
@@ -48,7 +50,8 @@ async function harness({initial=M.emptyState(),api={}}={}){
   return liveForm;
  }
  const context={M,confirmationClock,safeRoomCards,notificationKey,notificationLabel,COUNTRY_CODES,TERMS_VERSION,createAdminPanel,accountArt,uiIcon,renderLobbyView,renderWalletView,renderHistoryView,renderRankingView,renderProfileView,API:{detectBackend:async()=>null,...api},document,localStorage,location,window:{addEventListener(name,callback){windowListeners[name]=callback;},scrollTo(){}},history:{replaceState(_state,_title,value){location.href=new URL(value,location.href).href;location.hash=new URL(location.href).hash;}},navigator:{clipboard:{async writeText(){}}},crypto,URL,console,setTimeout(){return 1;},clearTimeout(){},setInterval(){return 2;},clearInterval(){},FormData:class{constructor(form){this.fields=form.fields;}get(key){return this.fields[key]??null;}}};
- vm.createContext(context);
+ Object.assign(context,chatUI,{preparationState});
+  vm.createContext(context);
  vm.runInContext(source.replace(/^import .*?;\r?\n/gm,'').replace(/\nstart\(\)\.catch\(/,'\nglobalThis.__boot=start().catch(')+`\nglobalThis.wizard={getUI:()=>ui,getState:()=>state,render};`,context);
  await context.__boot;
  const click=async(action,id)=>listeners.click({preventDefault(){},target:{closest(selector){return selector==='[data-action]'?{dataset:{action,id},disabled:false,isConnected:true}:null;}}});

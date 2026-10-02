@@ -54,6 +54,9 @@ export const acceptInvite=token=>request(`/invites/${encodeURIComponent(token)}/
 export const getInviteCode=code=>request(`/invites/code/${encodeURIComponent(String(code).trim().toUpperCase())}`);
 export const acceptInviteCode=code=>request(`/invites/code/${encodeURIComponent(String(code).trim().toUpperCase())}/accept`,{method:'POST',data:{}});
 export const acceptDuel=id=>request(`/duels/${encodeURIComponent(id)}/accept`,{method:'POST',data:{}});
+export const startDuel=id=>request(`/duels/${encodeURIComponent(id)}/start`,{method:'POST',data:{}});
+export const getDuelChat=(id,after=0)=>request(`/duels/${encodeURIComponent(id)}/chat?after=${encodeURIComponent(after)}`);
+export const sendDuelChat=(id,data)=>request(`/duels/${encodeURIComponent(id)}/chat`,{method:'POST',data});
 export const fundDuel=(id,stake)=>request(`/duels/${encodeURIComponent(id)}/fund`,{method:'POST',data:{stake}});
 export const reportDuelIssue=(id,reason)=>request(`/duels/${encodeURIComponent(id)}/issue`,{method:'POST',data:{reason}});
 export const nudgeDuel=id=>request(`/duels/${encodeURIComponent(id)}/nudge`,{method:'POST',data:{}});

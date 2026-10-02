@@ -105,6 +105,7 @@ test('admins can review existing matches but cannot settle their own result',asy
   const created=await h.api('admin','/duels',{method:'POST',data:{stake:0,mode:'1v1',platform:'pc',opponentPlayerId:h.accounts.ordinary.user.publicPlayerId}});assert.equal(created.status,200);
   const duelId=created.data.duel.id;
   assert.equal((await h.api('ordinary',`/duels/${duelId}/accept`,{method:'POST',data:{}})).status,200);
+  for(const player of ['admin','ordinary'])assert.equal((await h.api(player,`/duels/${duelId}/start`,{method:'POST',data:{}})).status,200);
   const uploaded=await h.api('admin',`/evidence?duelId=${duelId}`,{method:'POST',body:PNG,mime:'image/png'});assert.equal(uploaded.status,200);
   const result=await h.api('admin',`/duels/${duelId}/result`,{method:'POST',data:{homeScore:2,awayScore:1,evidenceId:uploaded.data.evidence.id,scoreSide:'host'}});assert.equal(result.status,200);
   const reviews=await h.api('admin','/reviews');assert.equal(reviews.status,200);assert.equal(reviews.data.duels.length,1);

@@ -400,7 +400,7 @@ export async function createArenaServer(options={}){
     'styles.css','arena.css','shop.css','profile.css','achievements.css','rivalry.css','competitive-modes.css','practical.css','lobby.css','wizard.css','admin.css','account.css','account-pages.css','taste.css'
   ]);
   const serverStatus=()=>({available:true,mode:'shared',storage:'sqlite',schemaVersion:storage.schemaVersion,termsVersion:TERMS_VERSION,paymentMode,realMoney:paymentMode==='pix_manual',noRealMoney:paymentMode!=='pix_manual',paymentsAvailable:paymentMode==='demo'||paymentMode==='pix_manual',authProviders:oauth.status(),recognition:recognizer.status(),apiVersion:1,reviewerConfigured:reviewerIds.size>0||adminEmails.size>0});
-  async function route(draft,request,response,url){
+  async function route(draft,request,response,url,stagedEvidencePaths){
     const path=url.pathname,method=request.method;
     if(method==='GET'&&path==='/api/v1/status')return serverStatus();
     if(method==='GET'&&path==='/api/v1/session'){
@@ -568,7 +568,8 @@ export async function createArenaServer(options={}){
         const body=await readBody(request,MAX_IMAGE),size=dimensions(body,mime),id=randomUUID();
         if(evidenceTotal(draft)+body.length>maxEvidenceBytes)fail(507,'O armazenamento de fotos está cheio. Avise a equipe.','storage_full');
         const item={id,depositId:deposit.id,authorId:user.id,mime,bytes:body.length,...size,sha256:sha(body),createdAt:now()};
-        await writeFile(join(dataDir,'wallet-evidence',id),body,{mode:0o600,flag:'wx'});draft.walletEvidence[id]=item;
+        const evidencePath=join(dataDir,'wallet-evidence',id);
+        await writeFile(evidencePath,body,{mode:0o600,flag:'wx'});stagedEvidencePaths.push(evidencePath);draft.walletEvidence[id]=item;
         deposit.evidenceId=id;deposit.evidenceIds.push(id);deposit.status='review';deposit.version++;deposit.updatedAt=now();
         return {deposit:depositView(draft,deposit),evidence:{id,mime,bytes:body.length,...size,url:`/api/v1/wallet/evidence/${id}`}};
       }
@@ -789,7 +790,8 @@ export async function createArenaServer(options={}){
       if(evidenceTotal(draft)+body.length>maxEvidenceBytes)fail(507,'O armazenamento de fotos está cheio. Avise a equipe.','storage_full');
       const hash=sha(body),duplicateEvidence=Object.values(draft.evidence).some(item=>item.sha256===hash&&(item.duelId!==duel.id||item.authorId!==user.id));
       const item={id,duelId:duel.id,authorId:user.id,mime,bytes:body.length,...size,sha256:hash,duplicateEvidence,createdAt:now()};
-      await writeFile(join(dataDir,'evidence',id),body,{mode:0o600,flag:'wx'});draft.evidence[id]=item;
+      const evidencePath=join(dataDir,'evidence',id);
+      await writeFile(evidencePath,body,{mode:0o600,flag:'wx'});stagedEvidencePaths.push(evidencePath);draft.evidence[id]=item;
       return {evidence:{id,mime,bytes:item.bytes,width:item.width,height:item.height,createdAt:item.createdAt,url:`/api/v1/evidence/${id}`}};
     }
     const evidenceMatch=/^\/api\/v1\/evidence\/([a-f0-9-]{36})$/.exec(path);
@@ -838,6 +840,7 @@ export async function createArenaServer(options={}){
     fail(404,'Endpoint não encontrado.','not_found');
   }
   const server=createServer(async(request,response)=>{
+    const stagedEvidencePaths=[];
     setSecurityHeaders(response,secureCookie);
     try{
       let url;
@@ -916,9 +919,10 @@ export async function createArenaServer(options={}){
       if(url.pathname.startsWith('/api/')){
         await serial(async()=>{
           const draft=structuredClone(state),expired=expireInvites(draft);
-          const result=await route(draft,request,response,url);
+          const result=await route(draft,request,response,url,stagedEvidencePaths);
           if(request.method!=='GET'||expired)await persist(draft);
           state=draft;
+          stagedEvidencePaths.length=0;
           if(result!==null){response.writeHead(200,{'Content-Type':'application/json; charset=utf-8'});response.end(JSON.stringify(result));}
         });
         return;
@@ -930,6 +934,10 @@ export async function createArenaServer(options={}){
       const body=await readFile(join(ROOT,path));
       response.writeHead(200,{'Content-Type':mimeTypes[extname(path)],'Content-Length':body.length});response.end(request.method==='HEAD'?undefined:body);
     }catch(error){
+      await Promise.all(stagedEvidencePaths.map(async path=>{
+        try{await unlink(path);}
+        catch(cleanupError){if(cleanupError.code!=='ENOENT')console.error('Fifa GO evidence cleanup failed:',cleanupError.message);}
+      }));
       if(response.headersSent){response.destroy();return;}
       // Failed persistence must not install an authenticated cookie for an uncommitted session.
       response.removeHeader('Set-Cookie');

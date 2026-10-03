@@ -211,3 +211,20 @@
  .account-page .profile-id-value .btn{font-size:13px;padding-inline:12px}
 }
 @media(prefers-reduced-motion:reduce){.account-page *{scroll-behavior:auto;transition:none}}
+.compatibility-fields{border:1px solid var(--border,#244337);border-radius:14px;padding:16px;margin:18px 0;display:grid;gap:12px;min-width:0}
+.compatibility-fields legend{font-weight:650;padding:0 6px;font-size:.9rem}
+.compatibility-fields label{display:grid;gap:6px;font-size:.88rem}
+.compatibility-fields label:has(input[type=checkbox]){display:flex;align-items:flex-start;gap:10px}
+.compatibility-fields input[type=checkbox],.arena-filter-balance input{min-width:20px;min-height:20px;accent-color:#07f468}
+.arena-filters{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));align-items:end;gap:12px;margin:18px 0 12px}
+.arena-filters label{display:grid;gap:6px;font-size:.85rem}
+.arena-filters .arena-filter-balance{display:flex;align-items:center;min-height:44px;gap:8px}
+.transaction-reference{display:block;font-family:monospace;margin-top:5px}
+.account-table td small{display:block;max-width:32ch;overflow-wrap:anywhere}
+.ranking-personal{padding:20px;margin:16px 0}
+.ranking-personal h2{font-size:1rem;margin:0 0 10px}
+.ranking-personal p{margin:8px 0}
+.room-compatibility{padding:14px 0;border-top:1px solid var(--border,#244337);margin-top:12px}
+.room-compatibility h3{font-size:.9rem;margin:0 0 8px}
+.room-compatibility p{font-size:.85rem;overflow-wrap:anywhere}
+@media(max-width:640px){.arena-filters{grid-template-columns:1fr 1fr}.arena-filters label:nth-child(3){grid-column:1/-1}.compatibility-fields{padding:12px}.ranking-personal{padding:16px}}

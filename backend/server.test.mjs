@@ -394,7 +394,7 @@ test('a participant can withdraw or decline cancellation without releasing reser
   assert.equal((await host.api('/me')).data.user.balance,900);assert.equal((await guest.api('/me')).data.user.balance,900);
 });
 
-test('shared leaderboard counts only reviewed settlements, orders victories/draws/nickname, and exposes no private account data',async t=>{
+test('shared leaderboard counts only reviewed settlements, orders skill ratings and exposes no private account data',async t=>{
   const h=await harness(t),alice=h.client(),bob=h.client(),carol=h.client(),dan=h.client(),team=h.client(),visitor=h.client();
   const aliceUser=await alice.register('Alice',{credits:1000}),bobUser=await bob.register('Bob',{credits:1000}),carolUser=await carol.register('Carol',{credits:1000}),danUser=await dan.register('Dan',{credits:1000}),reviewer=await team.register('ReviewTeam');
   h.arena.reviewerIds.add(reviewer.id);
@@ -425,16 +425,16 @@ test('shared leaderboard counts only reviewed settlements, orders victories/draw
   await approve(await report(alice,dan,3,0),'host');
   const response=await carol.api('/leaderboard');assert.equal(response.status,200);
   const entries=response.data.entries;
-  assert.deepEqual(entries.map(entry=>entry.player.nickname),['Alice','Bob','Carol','Dan']);
+  assert.deepEqual(entries.map(entry=>entry.player.nickname),['Alice','Carol','Bob','Dan']);
   assert.deepEqual(entries.map(({player,...counts})=>({publicPlayerId:player.publicPlayerId,...counts})),[
-    {publicPlayerId:aliceUser.publicPlayerId,played:2,wins:2,draws:0,losses:0},
-    {publicPlayerId:bobUser.publicPlayerId,played:2,wins:0,draws:1,losses:1},
-    {publicPlayerId:carolUser.publicPlayerId,played:1,wins:0,draws:1,losses:0},
-    {publicPlayerId:danUser.publicPlayerId,played:1,wins:0,draws:0,losses:1}
+    {publicPlayerId:aliceUser.publicPlayerId,played:2,wins:2,draws:0,losses:0,points:6,rating:1024,rank:1,position:1},
+    {publicPlayerId:carolUser.publicPlayerId,played:1,wins:0,draws:1,losses:0,points:1,rating:1000,rank:2,position:2},
+    {publicPlayerId:bobUser.publicPlayerId,played:2,wins:0,draws:1,losses:1,points:1,rating:988,rank:3,position:3},
+    {publicPlayerId:danUser.publicPlayerId,played:1,wins:0,draws:0,losses:1,points:0,rating:988,rank:4,position:4}
   ]);
   assert.ok(!entries.some(entry=>entry.player.publicPlayerId===reviewer.publicPlayerId)); // An account with no completed games does not appear.
   for(const entry of entries){
-    assert.deepEqual(Object.keys(entry).sort(),['draws','losses','played','player','wins']);
+    assert.deepEqual(Object.keys(entry).sort(),['draws','losses','played','player','points','position','rank','rating','wins']);
     assert.deepEqual(Object.keys(entry.player).sort(),['clubId','nickname','publicPlayerId']);
     assert.ok(!JSON.stringify(entry.player).includes(aliceUser.id));
   }

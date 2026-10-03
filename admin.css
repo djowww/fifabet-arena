@@ -128,3 +128,5 @@
   .admin-audit-main { gap: .4rem; }
   .admin-service-status > a { margin-left: 0; width: 100%; }
 }
+.admin-reliability{margin:20px 0;border:1px solid var(--border,#244337);border-radius:14px;padding:18px;background:rgba(255,255,255,.02)}
+.admin-reliability h2{font-size:1rem;margin:0 0 12px}.admin-reliability p{margin:8px 0;line-height:1.55;overflow-wrap:anywhere}

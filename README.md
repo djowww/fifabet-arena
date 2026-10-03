@@ -25,9 +25,12 @@ Contas, convites, histórico e carteira da versão conectada ficam em SQLite pri
 1. Crie um perfil e receba um ID permanente.
 2. Escolha sala aberta na arena ou privada por convite, modo, plataforma e regras. Defina zero para jogar gratuitamente ou um valor em Joga aí Coin; a parte do anfitrião é reservada ao criar.
 3. O rival encontra a sala aberta na arena ou usa código/link. Entrar em uma sala com aposta exige saldo e reserva a parte do rival.
-4. Envie o placar com uma foto. O rival tem até cinco minutos para confirmar com sua própria foto e os mesmos gols, ou sinalizar divergência. Avisos de espera aparecem enquanto a página estiver aberta.
-5. Duas confirmações dentro do prazo, com leituras consistentes de telas finais e sem problemas ou fotos duplicadas, permitem validação automática. Casos inconclusivos, contestações e prazo vencido seguem para a equipe independente; não há vitória por ausência de resposta.
-6. Consulte rival, placar, situação e decisão no histórico dos dois jogadores.
+4. Na preparação, conversem em privado e confirmem compatibilidade e início. A prontidão vale dois minutos e pode ser retirada; o jogo só começa com ambos prontos, sem nova cobrança. Edição, geração/plataforma, crossplay e regras ficam no resumo da sala.
+5. Envie placar e foto própria. O rival tem cinco minutos para confirmar com outra foto e os mesmos gols, ou sinalizar divergência. Ausência não concede vitória; avisos aparecem enquanto a página estiver aberta.
+6. Leituras consistentes, fotos distintas e ausência de riscos podem permitir validação automática. Na política nova, entrada de 500 Coin ou mais por jogador, fotos visualmente semelhantes/fingerprint indisponível, contestações e prazo vencido exigem equipe independente. A taxa continua 9%; empate devolve reservas sem taxa.
+7. Consulte rival, placar, situação, decisão e lançamentos pelo histórico e carteira paginados.
+
+Os padrões operacionais são 24 horas para sala aberta, dez minutos de preparação após entrada, dois minutos de prontidão, 60 minutos de jogo e 24 horas para atendimento. Convite/preparação vencidos devolvem reservas; jogo vencido abre atendimento, sem vitória ou devolução automática. Prazo de atendimento sinaliza atraso, sem garantir disponibilidade humana. Prazos e limite de revisão por valor ficam guardados na sala; consulte [salas e regras](docs/SALAS.md).
 
 A página inicial destaca **Criar minha partida**, com uma ilustração original de futebol, e o campo de código ou link para entrar. As fotos de atletas foram retiradas da entrada; os itens e as atribuições da coleção continuam preservados. A criação tem três etapas: rival/visibilidade/modo/plataforma, regras/Joga aí Coin e resumo. A confirmação final cria a sala e reserva a parte do anfitrião quando há Coin. Voltar para editar preserva o rascunho. Salas públicas são listadas apenas para contas conectadas, com apelido, clube, modo, plataforma e valores; salas privadas exigem convite.
 
@@ -35,7 +38,7 @@ Os convites recebidos aparecem primeiro na lista de partidas. Antes de aceitar, 
 
 Contas conectadas novas começam com saldo zero, sem bônus financeiro. O saldo disponível e o reservado são separados; o próximo passo enquanto os pagamentos estão pendentes é jogar uma amistosa. Créditos anteriores da demonstração conectada ficam separados em `demoBalance`/`demoTransactions`, sem conversão para dinheiro real. A referência ao EA SPORTS FC identifica compatibilidade, mantendo claro o caráter independente do Fifa GO.
 
-A classificação usa resultados validados; não há adversários nem resultados inventados no fluxo principal. O ID e o histórico são internos do Fifa GO; não há consulta automática ao histórico da EA.
+A classificação usa resultados atuais validados, rating Elo, pontuação e posição pessoal. Somente três confrontos do mesmo par por dia UTC contam para ranking; os demais mantêm histórico e premiação normal. Não há adversários ou resultados inventados. IDs EA/PSN/Xbox declarados são opcionais e ajudam a adicionar o rival; não há integração automática com essas contas. A Arena permite filtros de plataforma, modo e faixa de entrada/saldo sem publicar o saldo dos jogadores.
 
 ## Carteira e pagamentos pendentes
 
@@ -45,6 +48,9 @@ A classificação usa resultados validados; não há adversários nem resultados
 - Cartão, Pix e transferência dependem da conexão futura do provedor comercial e sua confirmação no servidor.
 - A simulação anterior de cartão/Pix/transferência permanece restrita ao ambiente `demo` de desenvolvimento local, sem valor financeiro.
 - Pedidos e comprovantes existentes são preservados, privados e separados por jogador; não podem liberar saldo pela simulação no ambiente público.
+- Saldo principal reconcilia abertura registrada uma única vez mais extrato. Depósito aprovado exige crédito correspondente; histórico demonstrativo migrado permanece no livro separado.
+- Se Pix manual for configurado, aprovação humana exige referência bancária única, valor exato e data válida. Esses controles não ativam pagamentos nem substituem a conferência no banco.
+- Extrato, depósitos e histórico oferecem páginas por cursor, com referência pública da partida. Carteira acompanha alterações remotas; atualizações durante modal/edição são aplicadas ao terminar, preservando formulários e foco.
 
 Não há integração com processador de pagamentos, saques ou consulta automática aos resultados da EA. A organização do caixa é própria; não há vínculo com PokerStars nem sandbox oficial de outro provedor. Consulte [armazenamento e migração da carteira](docs/BANCO.md).
 
@@ -61,15 +67,18 @@ O padrão do servidor é `FIFABET_PAYMENT_MODE=unconfigured`. Amistosas gratuita
 
 ## Executar
 
-Node.js **24 ou superior**. O SQLite usa o módulo nativo `node:sqlite`; a leitura local opcional do placar usa Tesseract.js e os recursos privados de OCR configurados no servidor.
+Node.js **24 ou superior**. SQLite usa `node:sqlite`; OCR local usa Tesseract.js e fingerprint visual usa Sharp 0.35.5. Instale dependências pelo lockfile antes de iniciar. O fingerprint indica semelhança, sem autenticar o jogo; falha de análise não libera prêmio automático em salas com política nova.
 
 ```powershell
 # Contas e partidas compartilhadas
+npm ci --ignore-scripts
 node backend/server.mjs
 # Abra http://127.0.0.1:4174
 ```
 
-Os dados privados ficam fora da pasta publicada, em `%USERPROFILE%\.fifabet-arena` no Windows. A estrutura do VPS usa `/var/lib/fifago`. `arena.sqlite` contém os registros; imagens e backups permanecem privados. Consulte [configuração do servidor e revisão](docs/SERVIDOR.md) e [banco e migração](docs/BANCO.md).
+Alternativa reproduzível: `pnpm install --frozen-lockfile --ignore-scripts`. Antes de ativar uma versão no servidor, confirmar o carregamento nativo do Sharp com o runtime isolado, conforme [SERVIDOR.md](docs/SERVIDOR.md). Instalação de dependências ou push não confirma a publicação.
+
+Os dados privados ficam fora da pasta publicada, em `%USERPROFILE%\.fifabet-arena` no Windows; o VPS usa `/var/lib/fifago`. SQLite grava mudanças incrementais com transação/rollback e instância única. Fotos de salas/depósitos encerrados há 30 dias podem ir ao arquivo privado, mantendo leitura autorizada; disputas abertas permanecem ativas e não há exclusão automática. O padrão de capacidade é 200 MiB ativos, configurável; a administração mostra também arquivo e total. Backups devem incluir todas essas áreas. Consulte [servidor e revisão](docs/SERVIDOR.md) e [banco e migração](docs/BANCO.md).
 
 Para a demonstração estática:
 
@@ -86,7 +95,7 @@ Para verificar regras, integração da interface e API:
 node --test *.test.mjs backend/*.test.mjs
 ```
 
-A suíte cobre contas, convites, salas públicas, reservas atômicas, saldo insuficiente, confirmação em cinco minutos, leitura de tela final, divergências, distribuição única, revisão independente e carteira demonstrativa. Dados e fotos de testes ficam fora do projeto publicado. A leitura do placar compara números; não certifica a autenticidade de uma fotografia.
+A suíte cobre contas, compatibilidade, prazos/prontidão, reservas, concorrência, confirmação com duas fotos, revisão por risco/valor, reconciliação de saldo, referência Pix repetida, histórico/páginas, arquivo privado, ranking e atualização com formulários. Dados e fotos de teste ficam fora do projeto publicado. OCR/fingerprint não certificam a autenticidade de uma fotografia.
 
 ## Perfil e coleção preservados
 
@@ -103,6 +112,8 @@ Fontes: [uniformes](docs/UNIFORMES_FONTES.md), [clubes](docs/CLUBES_FONTES.md), 
 - `backend-client.mjs`: comunicação autenticada com a API na mesma origem.
 - `backend/server.mjs`, `backend/accounts.mjs`: servidor, contas, fotos, decisões e consulta administrativa dos IDs.
 - `backend/database.mjs`: SQLite privado, restrições, gravação atômica e migração do JSON legado.
+- `backend/game-policy.mjs`, `backend/ranking-policy.mjs`: prazos, compatibilidade e ranking de resultados validados.
+- `backend/evidence-storage.mjs`, `backend/visual-fingerprint.mjs`: arquivo privado e análise visual limitada em processo separado.
 - `backend/oauth.mjs`: login Google/Apple verificado no servidor; ativação depende de credenciais externas.
 - `deploy/fifago.service`, `deploy/nginx-fifago.conf`: modelos do serviço isolado e do novo host Nginx, sem substituição da configuração dos demais sites.
 - `colecao.html`, `app.js`: coleção e personalização da demonstração anterior.

@@ -9,7 +9,7 @@ import {openArenaDatabase} from './database.mjs';
 
 const storage=await openArenaDatabase(dataDir);
 let state=storage.load();
-// A fila do servidor prepara um draft com structuredClone(state).
+// O escritor prepara um draft; GET usa projeções sem clonar o estado global.
 storage.save(draft);
 state=draft; // Somente após a gravação concluir.
 storage.close();
@@ -17,7 +17,7 @@ storage.close();
 
 Após a abertura assíncrona, `load`, `save` e `close` são síncronos. O retorno inclui `path` e `schemaVersion:1`. Os exports `DATABASE_FILENAME`, `SCHEMA_VERSION` e `normalizeNickname` permitem ao servidor e à ferramenta de contas usar o mesmo contrato.
 
-O estado mantém `version:1` e os mapas `users`, `duels`, `sessions`, `deposits`, `evidence`, `walletEvidence` e `authIdentities`. Transações continuam acessíveis em `user.transactions`, com sua ordem preservada. Campos adicionais no estado e nos registros são preservados em JSON privado; a camada de armazenamento não atribui significados financeiros a eles.
+O estado mantém `version:1` e os mapas `users`, `duels`, `sessions`, `deposits`, `evidence`, `walletEvidence` e `authIdentities`. Transações continuam acessíveis em `user.transactions`, com sua ordem preservada. Campos adicionais permanecem em JSON privado; invariantes de saldo, reservas, depósitos aprovados e liquidações são validadas antes da gravação.
 
 As tabelas explícitas são `users`, `duels`, `sessions`, `deposits`, `transactions`, `evidence`, `wallet_evidence`, `auth_identities` e `metadata`. Chaves estrangeiras vinculam partidas, sessões, transações, depósitos, identidades e evidências às respectivas contas. O esquema utiliza `STRICT`, validação de JSON, WAL, `synchronous=FULL` e espera de bloqueio de 5 segundos.
 
@@ -26,7 +26,13 @@ As tabelas explícitas são `users`, `duels`, `sessions`, `deposits`, `transacti
 - Transações são únicas por `(userId, reference)`, preservando a proteção contra crédito duplicado. Depósitos com chave de idempotência são únicos por `(userId, idempotencyKey)`.
 - `authIdentities` é um mapa com chave `${provider}:${subject}` e registro `{provider, subject, userId, ...}`. Provedores aceitos: `google` e `apple`. `(provider, subject)` é único; e-mail não é usado pela camada de banco para vincular contas.
 
-Uma gravação substitui o estado dentro de uma única transação `BEGIN IMMEDIATE`. Se a validação, uma chave estrangeira ou uma restrição de unicidade falhar, a transação inteira é revertida. A fila e o bloqueio de instância do servidor continuam necessários: este adaptador preserva o modelo de um único escritor em memória, não implementa sincronização entre múltiplos servidores.
+Uma gravação aplica mudanças incrementais dentro de uma única transação `BEGIN IMMEDIATE`: insere registros novos, atualiza os alterados e remove somente os ausentes do draft. Registros iguais não são regravados; não há exclusão e reinserção de todas as tabelas. IDs de transação duplicados são rejeitados antes de materializar as linhas. Se a validação, uma chave estrangeira ou uma restrição de unicidade falhar, a transação inteira é revertida. A fila e o bloqueio de instância continuam necessários: o adaptador preserva um único escritor em memória, sem sincronização entre múltiplos servidores. A validação e a comparação ainda percorrem o estado; a escrita incremental reduz alterações no disco, sem prometer custo constante.
+
+### Reconciliação da carteira
+
+`walletReliabilityVersion:1` registra a migração única de `walletOpeningBalance`: saldo atual menos a soma do extrato, sem modificar o saldo. A abertura de uma carteira existente fica imutável; toda gravação exige saldo inteiro seguro, não negativo e igual à abertura mais os lançamentos. Contas novas começam com abertura e saldo zero. Depósitos aprovados exigem crédito com referência `deposit:<id>` e valor correspondente. Ajustes administrativos preservam autor, motivo e saldos anterior/posterior.
+
+A migração de demonstração descrita abaixo move o extrato antigo integralmente. Depósitos demonstrativos já aprovados recebem `legacyDepositLedger:'demo'` e são reconciliados com `demoTransactions`; esse marcador só é criado pela migração validada ou pela atualização de um banco histórico. Não autoriza novas aprovações nem pagamentos reais. Aprovações Pix antigas podem manter `legacyBankApproval:true`, atribuído exclusivamente na migração; aprovações Pix novas exigem referência bancária única, valor em centavos igual ao pedido e data válida. Esses controles não ativam pagamentos.
 
 ## Migração do JSON anterior
 
@@ -40,7 +46,15 @@ Após carregar o SQLite, o servidor aplica uma migração de carteira única ide
 
 Os registros anteriores continuam privados no JSON de cada usuário. A tabela `transactions` contém o extrato da carteira principal; o extrato demonstrativo arquivado continua em `demoTransactions`. As partidas anteriores recebem `creditMode:'legacy_demo'`. Aceite, cancelamento, expiração e distribuição de um resultado dessas partidas movimentam exclusivamente o saldo demonstrativo separado. Contas, apelidos, hash/salt de senha, identidades externas, sessões, amizades, evidências e histórico das partidas permanecem preservados.
 
-Na produção, `FIFABET_PAYMENT_MODE=unconfigured` mantém compras e recargas indisponíveis até conectar o provedor comercial. Novas contas começam com saldo principal zero, sem bônus financeiro ou recarga simulada. Novas partidas usam `creditMode:'friendly'` e `stake:0`, permitindo jogar com amigos e registrar resultados enquanto a integração de pagamento está pendente. O ambiente não recebe dinheiro real nessa configuração. A opção `demo` continua restrita ao desenvolvimento local; seus créditos não representam dinheiro.
+Na produção, `FIFABET_PAYMENT_MODE=unconfigured` mantém compras e recargas indisponíveis. Novas contas começam com saldo principal zero, sem bônus financeiro ou recarga simulada. Partidas gratuitas usam `creditMode:'friendly'` e `stake:0`; salas com saldo principal já disponível usam `coins` e exigem reserva ao criar/entrar. Essa configuração não recebe pagamentos nem converte a demonstração antiga. `demo` continua restrito ao desenvolvimento local; seus créditos não representam dinheiro.
+
+## Projeções, páginas e evidências
+
+GET consulta projeções da conta/sala sem clonar o banco global. `cursorPage(items,{cursor,limit})` retorna `{items,nextCursor}`, preservando a ordem recente primeiro. O cursor opaco usa o último ID imutável; cursor inválido ou cujo registro deixou de existir retorna erro, sem saltar silenciosamente o histórico. O padrão é 20 itens e o máximo é 50. Carteira, depósitos e histórico oferecem páginas, com códigos públicos das partidas nos lançamentos; APIs antigas continuam compatíveis.
+
+Fotos de salas/depósitos inteiramente encerrados há 30 dias podem ser movidas para `archive/evidence/` e `archive/wallet-evidence/`, dentro da mesma pasta privada. Disputas e relatos abertos são preservados no armazenamento ativo. Não há exclusão automática. A leitura verifica autorização antes de consultar arquivo ativo ou arquivado; caminhos alternativos preservam acesso mesmo se o movimento do arquivo acontecer e a gravação dos metadados falhar.
+
+`FIFABET_MAX_EVIDENCE_BYTES` limita o armazenamento ativo a 200 MiB por padrão; o arquivo privado continua contabilizado no total apresentado à administração. `FIFABET_ARCHIVE_AFTER_MS` configura o prazo de arquivamento, padrão de 30 dias. Backup deve incluir ambas as áreas e os metadados do SQLite.
 
 ## Operação e privacidade
 

@@ -22,17 +22,27 @@ Referências: [domínio personalizado no GitHub Pages](https://docs.github.com/e
 
 ## Executar no computador
 
-Requisito: **Node.js 24 ou superior**, com `node:sqlite` nativo. Não é necessário instalar pacotes.
+Requisito: **Node.js 24 ou superior**, com `node:sqlite` nativo. Instale as dependências locais pelo lockfile antes de iniciar; OCR usa Tesseract.js e fingerprint usa Sharp.
 
 ```powershell
+npm ci --ignore-scripts
 node backend/server.mjs
 ```
+
+Alternativa: `pnpm install --frozen-lockfile --ignore-scripts`, usando `pnpm-lock.yaml` atualizado. Não instalar pacotes globais nem alterar o runtime dos outros serviços. Antes de ativar uma versão no VPS, instalar suas dependências na pasta do release e confirmar o módulo nativo do Sharp com o runtime isolado:
+
+```sh
+PATH=/opt/fifago/runtime/bin:$PATH /opt/fifago/runtime/bin/node /opt/fifago/runtime/lib/node_modules/npm/bin/npm-cli.js ci --ignore-scripts
+/opt/fifago/runtime/bin/node --input-type=module -e "import sharp from 'sharp'; console.log(sharp.versions.sharp); await sharp({create:{width:16,height:16,channels:3,background:'#fff'}}).png().toBuffer();"
+```
+
+O caminho do CLI npm deve corresponder à instalação do runtime; se ele estiver em outro local, usar o executável npm desse mesmo runtime. Este roteiro não afirma que o novo release já foi instalado ou validado no servidor.
 
 Abra `http://127.0.0.1:4174`. Crie duas contas pela interface, cada uma com senha de pelo menos 10 caracteres. Use outro navegador ou uma janela anônima para a segunda pessoa. Novas contas começam com saldo zero, sem bônus financeiro. Para entrar em outro dispositivo ou navegador, use o mesmo apelido/ID e senha. O protótipo não tem recuperação de senha por e-mail. Login social exige domínio HTTPS e configuração dos provedores; sem as credenciais, fica indisponível e não simula autenticação.
 
 Cada conta tem um ID público permanente como `FBA-A012BC34DE`; trocar o apelido não troca esse ID. Partidas têm código próprio `FG-` seguido de 10 dígitos hexadecimais maiúsculos, como `FG-1A2B3C4D5E`. O histórico contém os desafios registrados no servidor, não uma lista inventada nem o histórico da conta EA.
 
-O ranking compartilhado considera exclusivamente desafios encerrados com decisão da equipe sobre o relatório atual. Convites, partidas em andamento, placares aguardando revisão e disputas não contam. Somente jogadores com ao menos uma partida assim aparecem; cada partida registra vitória e derrota, ou empate para ambos. A classificação contém no máximo 100 jogadores e ordena vitórias em ordem decrescente, depois empates em ordem decrescente e, para desempate, apelido em ordem alfabética portuguesa. Pontos disponíveis não entram no critério e não são expostos pelo ranking.
+O ranking compartilhado considera resultados atuais validados, por revisão independente ou validação automática elegível. Convites, partidas em andamento e disputas não contam. A classificação ordena rating Elo, pontuação, vitórias e ID estável; fornece posição pessoal mesmo fora das primeiras 100 posições. Rating inicial é 1.000, K é 24; vitória soma três pontos e empate um. No máximo três confrontos do mesmo par por dia UTC entram no ranking; os demais mantêm histórico e premiação normal. Saldo não entra no critério nem é publicado. IDs EA/PSN/Xbox opcionais são declarados pelo jogador, sem integração automática; edição, geração/plataforma e crossplay ficam no resumo de compatibilidade da sala.
 
 Por padrão, os dados privados ficam em `%USERPROFILE%\.fifabet-arena` no Windows, ou `~/.fifabet-arena` em outros sistemas. `arena.sqlite` contém os registros; `evidence/` contém fotos das partidas; `wallet-evidence/` contém comprovantes demonstrativos anteriores. O JSON legado é importado uma única vez, com original e backup preservados. A configuração `FIFABET_DATA_DIR` pode apontar para outra pasta privada, mas o servidor recusa uma pasta dentro da árvore publicada do projeto. Banco, arquivos WAL/SHM, imagens e backups nunca devem ser enviados ao GitHub. Consulte [contrato e migração do banco](BANCO.md).
 
@@ -51,7 +61,7 @@ Contas externas novas recebem apelido genérico e ID próprio, sem publicar auto
 
 O padrão é `FIFABET_PAYMENT_MODE=unconfigured`. `GET /status` e `GET /wallet` informam `paymentMode:'unconfigured'`, `paymentsAvailable:false`, `realMoney:false` e `noRealMoney:true`; catálogo e métodos de recarga retornam vazios. Criar ou aprovar recargas retorna `503 payments_unavailable`. Nenhum gateway ou cobrança automática foi integrado. Para usar Pix manual, o operador precisa ativar explicitamente `pix_manual`, informar uma chave e preços privados e configurar uma conta de equipe independente para revisão; até lá, a produção continua sem cobranças.
 
-Na migração inicial do servidor, `balance`/`transactions` anteriores ficam preservados em `demoBalance`/`demoTransactions`; a carteira principal começa zerada. `walletLedgerVersion:1` impede repetir a migração. Partidas anteriores recebem `creditMode:'legacy_demo'` e movimentam exclusivamente essa carteira fictícia. As reservas antigas são expostas separadamente, sem conversão para dinheiro real. Novas partidas usam `creditMode:'friendly'`, com `stake:0`.
+Na migração inicial, `balance`/`transactions` anteriores ficam em `demoBalance`/`demoTransactions`; a carteira principal começa zerada. `walletLedgerVersion:1` impede repetir a transferência. Depósitos demonstrativos históricos aprovados usam `legacyDepositLedger:'demo'` e continuam associados ao crédito preservado. Partidas anteriores recebem `creditMode:'legacy_demo'`. A abertura da carteira principal é migrada uma única vez e cada saldo deve reconciliar abertura mais extrato. Partidas gratuitas usam `friendly`/`stake:0`; salas com saldo principal existente usam `coins`, sem ativar compras nem converter créditos demonstrativos.
 
 ### Pix manual e análise humana
 
@@ -67,6 +77,8 @@ FIFABET_REVIEWER_IDS=<UUID interno de uma conta independente da equipe>
 ```
 
 A ativação exige HTTPS, uma chave de e-mail válida, os quatro pacotes e pelo menos um revisor. Pix manual não é gateway: não confirma transferências automaticamente, não cobra cartão e não possui chargeback integrado. O comprador pode anexar uma imagem privada como apoio; a equipe precisa localizar a transferência no próprio extrato bancário e só então aprovar. O comprador não pode aprovar o próprio pedido. A chave aparece somente nos detalhes do pedido pendente do próprio comprador. Créditos comprados não podem ser sacados; configure limites e regras do produto antes de permitir que partidas usem saldo comprado. Manter `unconfigured` até concluir essa revisão operacional.
+
+Uma aprovação nova exige `bankReference` de 8–128 caracteres (letras, números, hífen, ponto ou `_`, normalizada para maiúsculas), única entre recargas, `bankAmountCents` inteiro igual ao preço e `paidAt` válido. Data futura além da tolerância de cinco minutos ou anterior à criação do pedido em mais de um dia é rejeitada. A decisão, crédito `deposit:<id>` e saldo são gravados juntos. `legacyBankApproval:true` preserva apenas aprovações existentes migradas; o marcador não libera aprovações novas. Documentar esses campos não habilita Pix no ambiente `unconfigured`.
 
 Os preços iniciais escolhidos são 100 créditos por R$ 10, 250 por R$ 25, 500 por R$ 50 e 1.000 por R$ 100. Os créditos são saldo interno não sacável. Esta configuração não substitui verificação jurídica, fiscal ou bancária do modelo de negócio.
 
@@ -89,13 +101,26 @@ Estados de pedido: `pending`, `review`, `approved`, `rejected`, `cancelled`. Dec
 
 ## Revisão de resultados
 
-1. O criador define o modo, a plataforma e as regras. Enquanto pagamentos estão pendentes, a nova partida é amistosa sem créditos; o convite expira em sete dias. Reservas de demonstrações antigas continuam no ledger separado.
+1. O criador define modo, plataforma, edição/geração, crossplay e regras estruturadas. Nova sala aberta expira em 24 horas. Pode ser gratuita ou usar Coin principal existente; demonstrações antigas continuam separadas.
 2. O amigo aceita pelo código público da partida, por convite destinado ao seu ID ou pelo link. Aceitar exige conta e autorização. Um convite destinado a um ID específico não pode ser aceito por outra conta.
-3. Um participante envia uma foto e informa o placar, sempre na ordem anfitrião × convidado. O adversário pode concordar ou sinalizar divergência com sua própria foto.
-4. A confirmação do adversário registra concordância, mas não distribui pontos. Uma conta da equipe autorizada confere as fotos e decide vitória do anfitrião, do convidado ou empate. Um participante, mesmo que faça parte da equipe, não pode julgar o próprio desafio.
+3. Após aceitar, a preparação dura até dez minutos. Ambos confirmam início/compatibilidade; cada prontidão dura dois minutos e pode ser retirada. Iniciar não cobra novamente. Partida iniciada tem prazo operacional de 60 minutos; vencimento abre atendimento, sem vitória ou devolução automática.
+4. Cada participante envia sua própria foto e placar. A confirmação dura cinco minutos, sem vitória por ausência. Leituras consistentes, fotos distintas e ausência de riscos podem permitir conclusão automática nas salas elegíveis. Entrada de 500 Coin ou mais por jogador, falha/semelhança de fingerprint, problemas, disputas e prazos vencidos exigem equipe independente. Atendimento sinaliza atraso após 24 horas; esse prazo não garante disponibilidade humana. Um participante não pode revisar o próprio desafio.
 5. A decisão conclui a amistosa e aparece no histórico de ambos. Nas partidas demonstrativas antigas, vitória entrega as duas reservas ao vencedor e empate devolve uma reserva a cada jogador, sempre na carteira `legacy_demo`. O servidor impede distribuição duplicada.
 
-As versões anteriores de placares e as divergências são preservadas. Alterar um placar invalida a confirmação anterior. Confirmar, sinalizar ou revisar uma versão antiga retorna erro para a interface recarregar o resultado atual. Após o aceite, um cancelamento exige concordância dos dois jogadores. O solicitante pode retirar o pedido e o rival pode recusá-lo: ambas as ações mantêm o desafio em andamento e os pontos reservados. Registrar um resultado limpa o pedido de cancelamento; a partir daí, a revisão deve resolver o desafio.
+As versões anteriores de placares e divergências são preservadas. Alterar o placar invalida a confirmação anterior; decisões sobre versões antigas são rejeitadas. Na preparação, qualquer participante pode cancelar com devolução das duas reservas. Após iniciar, cancelamento exige concordância bilateral ou decisão independente. Retirar/recusar o pedido mantém reservas; enviar resultado limpa o pedido e encaminha à confirmação/revisão. Relatos são permitidos durante jogo, confirmação e revisão. Fechar um relato reavalia elegibilidade, mas prazo vencido continua exigindo decisão humana.
+
+Configuração operacional (valores em milissegundos, exceto entrada em Coin):
+
+| Variável | Padrão |
+|---|---|
+| `FIFABET_INVITE_MS` | 86400000 — 24 horas |
+| `FIFABET_PREPARATION_MS` | 600000 — 10 minutos |
+| `FIFABET_READY_MS` | 120000 — 2 minutos |
+| `FIFABET_MATCH_MS` | 3600000 — 60 minutos |
+| `FIFABET_REVIEW_MS` | 86400000 — 24 horas |
+| `FIFABET_HIGH_STAKE` | 500 Coin por jogador |
+
+A política fica registrada em cada sala; mudar o ambiente não revisa acordos já registrados nem resultados concluídos. Valores devem ser inteiros positivos; prazos aceitam até 30 dias e a entrada até 5.000 Coin.
 
 Para habilitar uma conta da equipe:
 
@@ -166,7 +191,7 @@ O healthcheck `GET /api/v1/status` é somente leitura: retorna disponibilidade, 
 
 O serviço usa `CPUQuota=20%`, `MemoryHigh=384M`, `MemoryMax=512M`, `TasksMax=32`, `IOWeight=10` e `Nice=10`. Código e runtime são somente leitura para o processo; a escrita fica limitada à pasta privada de dados. A unidade configura redução de privilégios, pasta temporária privada e limite de frequência dos logs. Esses limites reduzem o consumo da aplicação; CPU, disco e rede do VPS continuam compartilhados e precisam de acompanhamento.
 
-**A revisão exige configuração de uma conta independente da equipe.** Cadastro público não concede esse papel. Sem `FIFABET_REVIEWER_IDS`, resultados permanecem em análise; comprovação de placar não conclui automaticamente a partida. Compras e recargas ficam bloqueadas em `unconfigured`, inclusive aprovações demonstrativas de pedidos antigos. Para habilitar a equipe no VPS, obter o UUID interno da conta com `backend/accounts.mjs` usando a pasta `/var/lib/fifago`, atualizar o arquivo privado de ambiente e reiniciar somente `fifago.service`.
+**Revisão humana exige uma conta independente da equipe.** Cadastro público não concede esse papel. Sem equipe configurada, casos que exigem atendimento continuam em análise; a foto não garante conclusão automática. Compras e recargas ficam bloqueadas em `unconfigured`, inclusive aprovações demonstrativas antigas. Para habilitar a equipe, obter o UUID com `backend/accounts.mjs`, atualizar somente o ambiente privado do Fifa GO e reiniciar `fifago.service`.
 
 ### Atualizações e dados
 
@@ -178,7 +203,15 @@ Na publicação, as configurações anteriores do Nginx, a unidade do Tibia e as
 
 O SQLite grava transações atômicas, com chaves estrangeiras e restrições de unicidade, enquanto o servidor serializa o estado em memória. Ele só pode ter uma instância escritora por pasta de dados: `instance.lock` impede processos concorrentes. Se houver encerramento inesperado, confirme que o processo parou antes de remover o lock. A migração inicial preserva JSON, contas, sessões e evidências; a carteira antiga fica separada como demonstração. Para múltiplas instâncias e escala maior, a estratégia de escrita precisa evoluir. Backup automatizado, monitoramento, retenção de imagens e recuperação de conta ainda exigem configuração operacional.
 
-Faça backup da pasta de dados completa com apenas `fifago.service` parado e o banco fechado, preservando SQLite, eventuais arquivos WAL/SHM, fotos e JSON/backup anteriores; depois inicie esse mesmo serviço. As imagens não são removidas automaticamente neste protótipo. Nunca publique backups, logs com credenciais ou arquivos de dados como arquivos estáticos. Perfis da demonstração no navegador não migram automaticamente para contas dessa instalação.
+Faça backup da pasta completa com apenas `fifago.service` parado e o banco fechado, preservando SQLite, WAL/SHM, fotos ativas, `archive/` e backups anteriores. Fotos de salas/depósitos inteiramente encerrados há 30 dias podem ir ao arquivo privado e continuam legíveis por contas autorizadas; disputas/relatos abertos não são arquivados. Não há exclusão automática. `FIFABET_ARCHIVE_AFTER_MS` configura o prazo; `FIFABET_MAX_EVIDENCE_BYTES` limita arquivos ativos (padrão 200 MiB). Administração acompanha uso ativo, arquivado e total; o arquivo não dispensa planejar espaço/backups. Nunca publicar dados privados. Perfis da demonstração no navegador continuam separados.
+
+### Leitura, atualização e capacidade
+
+SQLite usa gravação incremental, mantendo `BEGIN IMMEDIATE`, rollback, unicidade, WAL e instância única. GET usa projeções da conta/sala; expiração é periódica, com conferência rápida nas ações críticas. Recebimento de corpo, imagem e senha ocorre fora da seção de escrita; sessão, origem, CSRF, permissões, versão e saldo são revalidados antes da efetivação.
+
+`GET /api/v1/me?compact=1` oferece consulta resumida; `GET /api/v1/history?limit=20&cursor=...` retorna `{items,nextCursor}`. `GET /api/v1/wallet?limit=20&cursor=...&depositCursor=...` pagina extrato e depósitos separadamente, com `transactionsNextCursor` e `depositsNextCursor`; até 50 itens por página. As APIs antigas continuam compatíveis. Os lançamentos apresentam referências públicas das partidas e detalhes de reserva/devolução/prêmio/taxa. Atualizações aguardam o fim de modal/edição; a carteira acompanha alterações remotas sem substituir formulários em uso.
+
+Fingerprint é dHash de 64 bits com Sharp 0.35.5, processo de baixa prioridade, entrada até 24 megapixels, timeout de cinco segundos e guardas de memória de 128 MiB. É indicador de semelhança, sem autenticar o jogo; indisponibilidade bloqueia conclusão automática na política nova. OCR permanece sugestão local e não guarda texto bruto. Consultar [SALAS.md](SALAS.md) para os critérios de resultado e as limitações das imagens.
 
 ### Retorno ao GitHub Pages sem API
 

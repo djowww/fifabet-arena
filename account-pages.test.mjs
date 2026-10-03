@@ -1,3 +1,4 @@
+import {createRenderGate,filterRooms,mergeRecords} from './room-ui.mjs';
 import * as chatUI from './chat-ui.mjs';
 import {preparationState} from './room-ui.mjs';
 import test from 'node:test';
@@ -79,7 +80,7 @@ async function harness({sessionUser = {...user}, backendStatus = status, arena =
     ...api
   };
   const sessionStorage = storage(session);
-  const context = {M, API, confirmationClock,safeRoomCards,notificationKey,notificationLabel, COUNTRY_CODES, TERMS_VERSION, accountArt, uiIcon, renderLobbyView, renderWalletView, renderHistoryView, renderRankingView, renderProfileView, adminIcon, createAdminPanel: options => createAdminPanel({...options, storage: sessionStorage}),
+  const context={createRenderGate,filterRooms,mergeRecords,M, API, confirmationClock,safeRoomCards,notificationKey,notificationLabel, COUNTRY_CODES, TERMS_VERSION, accountArt, uiIcon, renderLobbyView, renderWalletView, renderHistoryView, renderRankingView, renderProfileView, adminIcon, createAdminPanel: options => createAdminPanel({...options, storage: sessionStorage}),
     document, location, URL, crypto, Intl, console, localStorage: storage(stored), sessionStorage,
     navigator: {clipboard: {async writeText(value) {copies.push(value);}}},
     window: {addEventListener(event, callback) {windowListeners[event] = callback;}, scrollTo() {}},
@@ -123,6 +124,16 @@ test('anonymous account pages never request a private wallet or ranking', async 
     assert.equal(h.nodes.breadcrumb.textContent, {carteira: 'Carteira', historico: 'Histórico', ranking: 'Ranking', perfil: 'Meu perfil'}[page]);
   }
   assert.deepEqual(h.calls, []);
+});
+
+test('history cursor pages merge once and global search finds a match outside the recent compact summary',async()=>{
+ const records=Array.from({length:25},(_,i)=>duel({id:`old-match-${i}`,publicMatchId:`FG-${String(i).padStart(10,'0')}`,createdAt:`2026-10-01T12:${String(i).padStart(2,'0')}:00.000Z`}));const requests=[];
+ const h=await harness({arena:{history:[records[0]]},route:'historico',api:{getHistory:async options=>{requests.push(options);return options.search?{items:[records[24]],nextCursor:null}:options.cursor?{items:records.slice(20),nextCursor:null}:{items:records.slice(0,20),nextCursor:'older'};}}});
+ assert.match(h.html(),/FG-0000000019/);assert.doesNotMatch(h.html(),/FG-0000000024/);await h.click('history-more');assert.match(h.html(),/FG-0000000000/);assert.match(h.html(),/FG-0000000024/);assert.equal((h.html().match(/class='match-history-row'/g)||[]).length,25);await h.search('FG-0000000024');assert.equal(requests.at(-1).search,'FG-0000000024');assert.match(h.html(),/FG-0000000024/);assert.doesNotMatch(h.html(),/FG-0000000019/);
+});
+
+test('an older private room deeplink loads the member duel rather than inventing a room from the public code',async()=>{
+ const requested=[];const old=duel({id:'old-room',publicMatchId:'FG-AAAAAAAAAA'});const h=await harness({route:'partida/old-room',api:{getDuel:async id=>{requested.push(id);return {duel:old};}}});assert.deepEqual(requested,['old-room']);assert.match(h.html(),/FG-AAAAAAAAAA/);assert.match(h.html(),/Você venceu/);
 });
 
 test('wallet presents server balances and keeps purchased, reserved and pending amounts distinct', async () => {

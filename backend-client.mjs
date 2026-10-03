@@ -31,10 +31,13 @@ export const completeAccountSignup=data=>request('/auth/onboarding',{method:'POS
 export const loginAccount=data=>request('/auth/login',{method:'POST',data});
 export const socialLoginUrl=provider=>{if(!['google','apple'].includes(provider))throw Error('Provedor de login inválido.');return `${prefix}/auth/oauth/${provider}/start`;};
 export const logoutAccount=async()=>{const result=await request('/auth/logout',{method:'POST',data:{}});csrfToken=null;return result;};
-export const getArena=()=>request('/me');
+const pageQuery=options=>{const query=new URLSearchParams();for(const key of ['cursor','depositCursor','limit','search','status'])if(options?.[key]!==undefined&&options[key]!==null)query.set(key,String(options[key]));return query.size?'?'+query.toString():'';};
+export const getArena=(options={})=>request('/me'+(options.compact?'?compact=1':''));
 export const getRooms=()=>request('/rooms');
 export const getLeaderboard=()=>request('/leaderboard');
-export const getWallet=()=>request('/wallet');
+export const getWallet=(options={})=>request('/wallet'+pageQuery(options));
+export const getHistory=(options={})=>request('/history'+pageQuery(options));
+export const getDuel=id=>request(`/duels/${encodeURIComponent(id)}`);
 export const getAdminOverview=()=>request('/admin/overview');
 export const getAdminUsers=search=>request(`/admin/users?search=${encodeURIComponent(search||'')}`);
 export const getAdminAudit=()=>request('/admin/audit');
@@ -55,6 +58,7 @@ export const getInviteCode=code=>request(`/invites/code/${encodeURIComponent(Str
 export const acceptInviteCode=code=>request(`/invites/code/${encodeURIComponent(String(code).trim().toUpperCase())}/accept`,{method:'POST',data:{}});
 export const acceptDuel=id=>request(`/duels/${encodeURIComponent(id)}/accept`,{method:'POST',data:{}});
 export const startDuel=id=>request(`/duels/${encodeURIComponent(id)}/start`,{method:'POST',data:{}});
+export const unreadyDuel=id=>request(`/duels/${encodeURIComponent(id)}/unready`,{method:'POST',data:{}});
 export const getDuelChat=(id,after=0)=>request(`/duels/${encodeURIComponent(id)}/chat?after=${encodeURIComponent(after)}`);
 export const sendDuelChat=(id,data)=>request(`/duels/${encodeURIComponent(id)}/chat`,{method:'POST',data});
 export const fundDuel=(id,stake)=>request(`/duels/${encodeURIComponent(id)}/fund`,{method:'POST',data:{stake}});
@@ -70,4 +74,5 @@ export const disputeResult=(id,data)=>request(`/duels/${encodeURIComponent(id)}/
 export const listReviews=()=>request('/reviews');
 export const reviewDuel=(id,data)=>request(`/reviews/${encodeURIComponent(id)}`,{method:'POST',data});
 export const reviewIssue=(id,issueId,data)=>request(`/reviews/${encodeURIComponent(id)}/issues/${encodeURIComponent(issueId)}`,{method:'POST',data});
+export const resolveAbandonment=(id,data)=>request(`/reviews/${encodeURIComponent(id)}/abandon`,{method:'POST',data});
 export const evidenceUrl=id=>`${prefix}/evidence/${encodeURIComponent(id)}`;

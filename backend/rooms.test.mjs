@@ -3,7 +3,7 @@ import assert from 'node:assert/strict';
 import {mkdtemp,rm} from 'node:fs/promises';
 import {tmpdir} from 'node:os';
 import {join} from 'node:path';
-import {randomUUID} from 'node:crypto';
+import {randomUUID,createHash} from 'node:crypto';
 import {createArenaServer} from './server.mjs';
 import {openArenaDatabase} from './database.mjs';
 import {TERMS_VERSION} from '../account-policy.mjs';
@@ -15,14 +15,15 @@ const GOOD_READING={status:'suggested',provider:'local-ocr',scores:{left:3,right
 async function harness(t,{recognition=GOOD_READING}={}){
   const dataDir=await mkdtemp(join(tmpdir(),'fifago-rooms-test-')),reviewerIds=[];
   const recognizer={status:()=>({available:true,provider:'local-ocr',requiresReview:true}),recognize:async()=>structuredClone(recognition),close(){}};
-  let arena=await createArenaServer({dataDir,paymentMode:'demo',reviewerIds,recognizer});
+  const visualInspector={inspect:async body=>({status:'checked',hash:createHash('sha256').update(body).digest('hex').slice(0,16)}),close(){}};
+  let arena=await createArenaServer({dataDir,paymentMode:'demo',reviewerIds,recognizer,visualInspector});
   await new Promise(resolve=>arena.server.listen(0,'127.0.0.1',resolve));
   const port=arena.server.address().port,base=`http://127.0.0.1:${port}`;
   t.after(async()=>{await arena.close();await rm(dataDir,{recursive:true,force:true});});
   async function restart(update=()=>{},paymentMode='unconfigured'){
     await arena.close();
     const storage=await openArenaDatabase(dataDir),state=storage.load();update(state);storage.save(state);storage.close();
-    arena=await createArenaServer({dataDir,paymentMode,reviewerIds,recognizer});
+    arena=await createArenaServer({dataDir,paymentMode,reviewerIds,recognizer,visualInspector});
     await new Promise(resolve=>arena.server.listen(port,'127.0.0.1',resolve));
   }
   function client(){

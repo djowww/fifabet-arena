@@ -137,6 +137,7 @@ test('overview counts only the deposits eligible for the current administrator p
   const customize=(state,accounts)=>{
     for(const [owner,status,method,paymentMode]of [['ordinary','review','transfer','demo'],['unverified','review','transfer',undefined],['admin','review','transfer','demo'],['ordinary','pending','transfer','demo'],['ordinary','review','pix','demo'],['ordinary','review','pix','pix_manual'],['ordinary','approved','transfer','demo']]){
       const id=randomUUID();state.deposits[id]={id,userId:accounts[owner].user.id,status,method,...(paymentMode?{paymentMode}:{}),amount:100,version:1,createdAt:new Date().toISOString()};
+      if(status==='approved'){const account=state.users[accounts[owner].user.id];account.balance+=100;account.transactions.unshift({id:randomUUID(),reference:`deposit:${id}`,amount:100,label:'Recarga aprovada de teste',date:new Date().toISOString()});}
     }
   };
   const demo=await harness(t,{paymentMode:'demo',customize});

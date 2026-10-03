@@ -5,15 +5,27 @@
 1. O anfitrião escolhe sala aberta na arena ou privada por convite, define o mesmo valor para cada jogador e confirma o resumo. Uma sala com Joga aí Coin exige saldo e reserva a parte do anfitrião ao criar. Amistosas podem usar saldo ou ser gratuitas, com `stake:0`.
 2. O rival pode encontrar uma sala aberta na arena ou usar código/link. Ao aceitar uma sala com Joga aí Coin, sua parte é reservada atomicamente. Saldo insuficiente impede a entrada; a sala continua disponível.
 3. Novas salas usam `fundingVersion:2` e `lobbyVersion:1`: ao entrar, os jogadores ficam em preparação (`waiting_start`) e abrem uma conversa privada para se adicionar no console e combinar os detalhes. A arena destaca o custo **por jogador**; uma amistosa gratuita usa `stake:0`. Salas anteriores preservam seu fluxo e condições, sem voltar jogos em andamento para preparação.
-4. Cada participante confirma “Iniciar partida”. A primeira confirmação mostra quem está pronto e aguarda o rival. Somente as duas confirmações iniciam o jogo; não há nova cobrança ou reserva nesse momento. A sala então mostra “Partida em andamento...”, “Reportar um problema” e “Partida encerrada”, preservando acesso à conversa.
+4. Cada participante confirma início e compatibilidade. A prontidão vale dois minutos e pode ser retirada antes do início; a primeira confirmação aguarda o rival. Somente duas confirmações válidas iniciam o jogo, sem nova cobrança ou reserva. Edição do jogo, geração/plataforma, crossplay e regras de empate, pênaltis, prorrogação e desconexão ficam no resumo acordado; salas anteriores não recebem acordos inventados.
 5. Pelo celular, o jogador fotografa a tela final do console ou seleciona uma imagem da galeria. A aplicação reduz a foto antes do envio privado.
 6. “Ler placar da foto” executa Tesseract.js no servidor. A sugestão exige identificar quem está à esquerda; nunca associa automaticamente posição da tela ao anfitrião. O jogador pode corrigir ou informar manualmente os gols.
 7. Enviar foto e placar inicia uma janela de cinco minutos. O rival deve enviar sua própria foto, indicar o lado do anfitrião/convidado e confirmar os mesmos gols. A janela é preservada após editar o placar e reiniciar o servidor. Ausência de resposta nunca atribui vitória.
-8. Quando os dois confirmam dentro do prazo, as fotos são distintas, as duas leituras locais correspondem ao relato com confiança suficiente e não há problemas/contestações, o servidor conclui atomicamente e entrega o total menos 9% ao vencedor. Divergências, duplicidades, baixa confiança ou prazo vencido exigem revisão independente. Empate devolve as duas reservas sem taxa.
+8. Quando os dois confirmam dentro do prazo, as fotos são distintas, as duas leituras locais correspondem ao relato e não há risco pendente, o servidor pode concluir atomicamente e entregar o total menos 9% ao vencedor. Na política nova, entrada de 500 Coin ou mais por jogador exige revisão humana; fotos visualmente semelhantes, falha de fingerprint, baixa confiança, problemas, contestações ou prazo vencido também encaminham para revisão independente. Empate devolve as duas reservas sem taxa. Partidas já concluídas preservam sua validação.
+
+## Prazos operacionais
+
+| Etapa | Padrão | Ao vencer |
+|---|---|---|
+| Convite/sala aberta | 24 horas | Encerra e devolve reservas efetivas |
+| Preparação após entrada | 10 minutos | Encerra e devolve ambas as reservas |
+| Confirmação de prontidão | 2 minutos | Exige nova confirmação; pode ser retirada antes do início |
+| Partida iniciada | 60 minutos | Abre atendimento/revisão; não dá vitória nem devolução automática |
+| Atendimento/revisão | 24 horas | Sinaliza atraso à equipe, preservando reservas |
+
+Esses padrões são configuráveis e guardados na sala. O prazo de atendimento é uma referência operacional, sem garantia de disponibilidade humana. A janela de confirmação do resultado continua sendo cinco minutos; ausência nunca concede vitória. Consulte as variáveis em [SERVIDOR.md](SERVIDOR.md).
 
 ## Taxa e devoluções
 
-Novas salas guardam a cotação imutável: `economics.pot`, `feeBps:900`, `houseFee`, `winnerPayout`, `rounding:'nearest_credit'`. Os Joga aí Coin são unidades inteiras; a taxa de 9% é arredondada ao crédito mais próximo e esse valor aparece antes da reserva. Exemplo: 100 + 100 = 200; taxa 18; prêmio 182.
+Novas salas guardam a cotação imutável: `economics.pot`, `feeBps:900`, `houseFee`, `winnerPayout`, `rounding:'nearest_credit'`. Os Joga aí Coin são inteiros; a taxa de 9% é arredondada ao crédito mais próximo e aparece antes da reserva. Exemplo: 100 + 100 = 200; taxa 18; prêmio 182; ganho líquido de 82 em relação à entrada própria de 100.
 
 Empates aprovados, cancelamentos e expiração devolvem as reservas efetivamente realizadas, sem taxa. Antes do início, qualquer participante pode cancelar; após o início, os dois precisam concordar ou a equipe precisa avaliar um problema. Salas aguardando reservas expiram no prazo do convite. Partidas antigas mantêm as condições originais, sem aplicar retroativamente a taxa.
 
@@ -23,7 +35,7 @@ As reservas usam referências únicas por usuário/partida; o pagamento e a taxa
 
 ## Problemas
 
-Um relato pode ser enviado durante a partida sem existir um placar ou foto. Fica visível aos participantes e à equipe, sem concluir o jogo nem movimentar Joga aí Coin. A equipe pode encerrar o relato com justificativa ou cancelar e devolver as reservas. O revisor não pode participar da sala; uma revisão com placar desatualizado é rejeitada.
+Um relato pode ser enviado durante jogo, confirmação e revisão, mesmo sem placar ou foto. Fica visível aos participantes e à equipe, sem concluir o jogo nem movimentar Coin. A equipe pode encerrar o relato com justificativa e reavaliar a elegibilidade ou cancelar e devolver as reservas. Prazo de jogo vencido continua exigindo revisão humana. O revisor não pode participar da sala; uma revisão com placar desatualizado é rejeitada.
 
 ## API adicionada
 
@@ -33,6 +45,8 @@ Um relato pode ser enviado durante a partida sem existir um placar ou foto. Fica
 | Avisar o rival | `POST /api/v1/duels/:id/nudge` | `{}`; membro da sala, limitado a um aviso por minuto |
 | Encontrar salas abertas | `GET /api/v1/rooms` | Conta autenticada; lista limitada, sem IDs internos, tokens, evidências, regras privadas ou saldo |
 | Confirmar o início | `POST /api/v1/duels/:id/start` | `{}`; registra prontidão do participante; inicia somente com os dois prontos |
+| Retirar prontidão | `POST /api/v1/duels/:id/unready` | `{}`; antes do início |
+| Consultar histórico paginado | `GET /api/v1/history?limit=20&cursor=...` | Conta autenticada; `{items,nextCursor}`, até 50 por página |
 | Ler a conversa | `GET /api/v1/duels/:id/chat?after=0` | Somente participantes após a entrada; cursor sequencial, conversa privada |
 | Enviar mensagem | `POST /api/v1/duels/:id/chat` | `{operationId,text}`; operação idempotente por autor, texto simples de 1 a 1.000 caracteres |
 | Confirmar com foto própria | `POST /api/v1/duels/:id/confirm` | `{reportId,evidenceId,homeScore,awayScore,scoreSide}`; `scoreSide:host` ou `guest` indica quem aparece à esquerda |
@@ -40,7 +54,7 @@ Um relato pode ser enviado durante a partida sem existir um placar ou foto. Fica
 | Sugerir placar | `POST /api/v1/duels/:id/recognize` | `{evidenceId}` de foto própria da sala |
 | Avaliar problema | `POST /api/v1/reviews/:id/issues/:issueId` | `{decision:'dismiss'|'cancel',reason,reportId}`; nulo sem resultado |
 
-Todos exigem sessão, origem e CSRF. Fotos continuam privadas. A prévia pública do convite contém os termos financeiros, sem IDs dos participantes, nomes privados, saldo ou evidências.
+Todos exigem sessão; mudanças também exigem origem e CSRF. Fotos continuam privadas. A prévia pública do convite contém os termos financeiros, sem IDs dos participantes, nomes privados, saldo ou evidências.
 
 ## Preparação e conversa privada
 
@@ -48,7 +62,7 @@ A conversa pertence apenas aos dois jogadores que efetivamente entraram na sala.
 
 Até 200 mensagens ficam persistidas por sala no banco do aplicativo. Após encerramento, os participantes podem consultar o histórico da conversa, mas não enviar novas mensagens. Rascunhos ficam apenas na memória da página, sem armazenar mensagens no navegador. A conversa e a prontidão atualizam enquanto a página está aberta; não há push com o aplicativo fechado. Uma mensagem não altera o modo, valor ou regras já confirmados no resumo da sala.
 
-Na preparação, qualquer participante pode cancelar e devolver as duas reservas. A expiração do convite também encerra uma preparação pendente, sem atribuir vitória. Antes da confirmação dos dois, fotos/placar e distribuição de prêmio ficam bloqueados. Depois do início, continuam valendo os controles bilaterais de resultado e cancelamento existentes.
+Na preparação, qualquer participante pode cancelar e devolver as duas reservas. Seu prazo próprio começa no aceite; expirar encerra a preparação sem vitória. Antes da confirmação dos dois, fotos/placar e distribuição ficam bloqueados. Depois do início, valem os controles bilaterais de resultado/cancelamento e atendimento independente.
 
 ## Leitura local e limites
 
@@ -56,7 +70,19 @@ O mecanismo e o modelo ficam no servidor; nenhuma foto é enviada a terceiros. O
 
 A leitura exige um único par de gols com separador e contexto sem estatísticas, relógios, datas ou outros valores ambíguos. A confiança global e a confiança dos números precisam atingir 80 antes de considerar liquidação automática. Os números são comparados com os gols informados e com a orientação da foto. Fotos com o mesmo SHA-256 reutilizadas em partidas ou entre jogadores bloqueiam liquidação automática; essa verificação não detecta toda edição, corte ou recompressão. Imagens desfocadas, reflexos, placares sem separador ou múltiplos pares podem não ser lidos; existe preenchimento manual. A leitura não comprova uma partida real nem detecta montagens. Não existe integração de histórico do EA SPORTS FC nesta entrega.
 
-Instalação de dependências: `pnpm install --frozen-lockfile --ignore-scripts`. O modelo versionado vem de `tesseract-ocr/tessdata_fast`, com licença e hash em `backend/ocr/NOTICE.md`. `FIFABET_OCR_ENABLED=0` desativa a leitura, preservando envio manual e revisão.
+O fingerprint visual usa `sharp@0.35.5` e dHash de 64 bits, em processo separado de baixa prioridade, até 24 megapixels, prazo de cinco segundos e guardas de memória de 128 MiB. Identifica semelhança visual e complementa o SHA-256; não autentica o jogo, não comprova autoria nem detecta toda montagem. Análise indisponível nunca libera prêmio automaticamente em salas com política nova. Nenhum texto bruto de OCR é guardado por esse recurso.
+
+Instalação reproduzível: `npm ci --ignore-scripts` com `package-lock.json`, ou `pnpm install --frozen-lockfile --ignore-scripts` com o lock correspondente. Verificar o carregamento nativo do Sharp antes de ativar o release; consulte [SERVIDOR.md](SERVIDOR.md). O modelo OCR versionado vem de `tesseract-ocr/tessdata_fast`, com licença e hash em `backend/ocr/NOTICE.md`. `FIFABET_OCR_ENABLED=0` desativa a leitura, preservando envio manual e revisão.
+
+Fotos de partidas/depósitos encerrados há 30 dias podem ir ao arquivo privado e continuam acessíveis às contas autorizadas. Disputas e problemas abertos permanecem ativos. Não há exclusão automática; o limite padrão de 200 MiB considera arquivos ativos e a administração mostra a capacidade total.
+
+## Perfil, Arena e ranking
+
+IDs EA/PSN/Xbox declarados são opcionais, até 64 caracteres, sem consulta automática ao provedor. Edição do jogo (até 40 caracteres), geração e crossplay ajudam a conferir compatibilidade. A Arena filtra plataforma, modo e faixa de entrada/saldo, sem publicar o saldo das contas. Extrato, depósitos e histórico têm paginação por cursor e referências públicas das partidas.
+
+O ranking usa apenas resultados atuais validados: rating Elo, pontuação e posição pessoal. Vitória vale três pontos e empate um; no máximo três confrontos do mesmo par por dia UTC contam para classificação. Os demais continuam no histórico e recebem a premiação normal. A classificação não inventa partidas nem altera o caixa.
+
+Atualizações recebidas durante um modal ou edição ficam pendentes e são aplicadas ao fechar o modal ou sair do campo. A carteira acompanha alterações remotas sem perder formulários/foco. Avisos existentes continuam no navegador; não há entrega externa com a aplicação fechada.
 
 ## Produção e demonstração
 
@@ -70,7 +96,7 @@ A sala usa o modo Operate do Impeccable: identifica os participantes, mostra res
 - Tipografia: família sans existente; título 32 px no desktop, 27 px no celular, informações secundárias relevantes de pelo menos 14 px.
 - Composição: duas colunas acima de 820 px, participantes e ação à esquerda, resumo financeiro à direita; uma coluna no celular.
 - Controles: ação de encerramento com altura mínima de 56–58 px; relatos discretos com alvo mínimo de 44 px; câmera e galeria com 48 px.
-- Estados: espera de reservas, saldo insuficiente, leitura, sugestão, falha de leitura, revisão, contestação e encerramento. Atualização da sala a cada oito segundos, somente visível e fora de formulários modais, com descarte de respostas antigas.
+- Estados: preparação/prontidão, espera de reservas, saldo insuficiente, leitura, revisão, contestação e encerramento. Atualização a cada oito segundos enquanto visível, com descarte de respostas antigas e aplicação pendente ao terminar modal/edição.
 
 Skills aplicáveis: redesign-existing-projects (fluxo e hierarquia), Impeccable Operate/harden/audit (estados, revisão técnica), mobile-native (campos, toque, câmera/galeria) e emil-design-eng (feedback e contenção de movimento). Skills de documentos, Swift, instalação e geração de imagens não se aplicam a esta alteração.
 

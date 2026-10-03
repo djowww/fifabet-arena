@@ -1,4 +1,5 @@
 import {comparePhotoScore} from './result-verification.mjs';
+import {visualHashesSimilar} from './game-policy.mjs';
 
 export const HOUSE_FEE_BPS=900;
 export const RESULT_CONFIRMATION_MS=5*60*1000;
@@ -32,11 +33,20 @@ export function automaticSettlementCheck(state,duel,time=Date.now()){
   const report=duel.result;
   if(!report?.confirmedBy||!report.confirmationEvidenceId)return {eligible:false,reason:'awaiting_confirmation'};
   if(duel.status!=='pending_review'||(duel.issueReports||[]).some(issue=>issue.status==='open')||(duel.disputes||[]).length)return {eligible:false,reason:'open_problem'};
+  // Database validation projects completed settlements into pending_review; preserve those historical records.
+  if(duel.matchTimedOutAt&&!duel.settlement)return {eligible:false,reason:'match_timeout'};
   const confirmedAt=Date.parse(report.confirmedAt),deadline=Date.parse(report.confirmationDeadline),submittedAt=Date.parse(report.submittedAt);
   if(report.confirmationTimedOutAt||![time,confirmedAt,deadline,submittedAt].every(Number.isFinite)||deadline<submittedAt||deadline-submittedAt>RESULT_CONFIRMATION_MS||confirmedAt<submittedAt||confirmedAt>=deadline||time>=deadline)return {eligible:false,reason:'confirmation_expired'};
   const first=state.evidence[report.evidenceId],second=state.evidence[report.confirmationEvidenceId];
   if(!first||!second||first.id===second.id||first.duelId!==duel.id||second.duelId!==duel.id||first.authorId!==report.reporterId||second.authorId!==report.confirmedBy||![duel.hostId,duel.guestId].includes(first.authorId)||![duel.hostId,duel.guestId].includes(second.authorId)||first.authorId===second.authorId)return {eligible:false,reason:'independent_evidence_required'};
   if(!first.sha256||!second.sha256||first.sha256===second.sha256||first.duplicateEvidence||second.duplicateEvidence)return {eligible:false,reason:'duplicate_evidence'};
+  if(duel.riskPolicyVersion===1){
+    const threshold=duel.lifecyclePolicy?.highStake??duel.highStakeThreshold??500;
+    if(duel.stake>=threshold)return {eligible:false,reason:'high_stake'};
+    if(duel.matchRisk||duel.manualReviewReason)return {eligible:false,reason:'match_risk_review'};
+    if(first.visualCheck?.status!=='checked'||second.visualCheck?.status!=='checked'||!/^[a-f0-9]{16}$/i.test(first.visualHash||'')||!/^[a-f0-9]{16}$/i.test(second.visualHash||''))return {eligible:false,reason:'visual_check_unavailable'};
+    if(first.visualCheck.requiresReview||second.visualCheck.requiresReview||first.visualCheck.similarEvidence||second.visualCheck.similarEvidence||visualHashesSimilar(first.visualHash,second.visualHash))return {eligible:false,reason:'visual_similarity'};
+  }
   if(!recognitionMatchesReport(first,report)||!recognitionMatchesReport(second,{homeScore:report.homeScore,awayScore:report.awayScore,scoreSide:report.confirmationScoreSide}))return {eligible:false,reason:'recognition_review_required'};
   return {eligible:true,winner:report.homeScore===report.awayScore?'draw':report.homeScore>report.awayScore?'host':'guest'};
 }

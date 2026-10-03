@@ -1,3 +1,4 @@
+import {createRenderGate,filterRooms,mergeRecords} from './room-ui.mjs';
 import * as chatUI from './chat-ui.mjs';
 import {preparationState} from './room-ui.mjs';
 import test from 'node:test';
@@ -59,7 +60,7 @@ async function harness({sessionUser = null, arenaUser = sessionUser, loginUser =
     async getAdminAudit() {calls.push('admin-audit'); return {entries: []};}
   };
   const sessionStorage = storage(session);
-  const context = {
+  const context = {createRenderGate,filterRooms,mergeRecords,
     M, API, COUNTRY_CODES, TERMS_VERSION, adminIcon, accountArt, uiIcon, renderLobbyView, renderWalletView, renderHistoryView, renderRankingView, renderProfileView, createAdminPanel: options => createAdminPanel({...options, storage: sessionStorage}),
     document, location, localStorage: storage(stored), sessionStorage, URL, crypto, console,
     window: {addEventListener(name, callback) {windowListeners[name] = callback;}, scrollTo() {}},

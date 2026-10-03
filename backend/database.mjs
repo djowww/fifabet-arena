@@ -17,12 +17,26 @@ const required=(value,label)=>{if(typeof value!=='string'||!value)invalid(`${lab
 const integer=(value,label)=>{if(!Number.isSafeInteger(value))invalid(`${label} deve ser inteiro seguro.`);return value;};
 const encoded=value=>JSON.stringify(value);
 
+export function cursorPage(items,{cursor,limit=20,max=50,key=item=>item.id}={}){
+  const reject=()=>{const error=Error('Cursor de página inválido.');error.status=400;error.code='invalid_cursor';throw error;};
+  if(!Number.isSafeInteger(limit)||limit<1||limit>max)reject();
+  let start=0;
+  if(cursor){
+    if(typeof cursor!=='string'||cursor.length>1024||!/^[A-Za-z0-9_-]+$/.test(cursor))reject();
+    let anchor;try{const decoded=JSON.parse(Buffer.from(cursor,'base64url').toString('utf8'));if(decoded.v!==1||typeof decoded.id!=='string'||Buffer.from(JSON.stringify(decoded)).toString('base64url')!==cursor)reject();anchor=decoded.id;}catch{reject();}
+    const index=items.findIndex(item=>key(item)===anchor);if(index<0)reject();start=index+1;
+  }
+  const selected=items.slice(start,start+limit),last=selected.at(-1);
+  return {items:selected,nextCursor:start+limit<items.length&&last?Buffer.from(JSON.stringify({v:1,id:key(last)})).toString('base64url'):null};
+}
+
 function validateState(draft){
   if(!plain(draft)||draft.version!==1)invalid('versão de estado não suportada.');
   for(const name of ['users','duels','sessions','evidence'])if(!plain(draft[name]))invalid(`${name} deve ser um mapa.`);
   for(const name of ['deposits','walletEvidence','authIdentities'])if(draft[name]!==undefined&&!plain(draft[name]))invalid(`${name} deve ser um mapa.`);
   if(draft.adminOperations!==undefined&&!plain(draft.adminOperations))invalid('operações administrativas devem ser um mapa.');
   if(draft.houseTransactions!==undefined&&!plain(draft.houseTransactions))invalid('lançamentos da casa devem ser um mapa.');
+  const transactionIds=new Set();
   for(const [id,user] of Object.entries(draft.users)){
     if(!plain(user)||user.id!==id)invalid('ID de usuário inconsistente.');
     required(id,'ID do usuário');required(user.publicPlayerId,'ID público do usuário');required(user.nickname,'apelido');
@@ -40,10 +54,16 @@ function validateState(draft){
     }
     if(user.passwordHash!=null&&typeof user.passwordHash!=='string')invalid('hash de senha inválido.');
     if(user.passwordSalt!=null&&typeof user.passwordSalt!=='string')invalid('salt de senha inválido.');
-    if(user.balance!==undefined)integer(user.balance,'saldo');
+    if(user.balance!==undefined){
+      integer(user.balance,'saldo');if(user.balance<0)invalid('saldo negativo.');
+      integer(user.walletOpeningBalance,'saldo de abertura');
+      let reconciled=user.walletOpeningBalance;for(const tx of user.transactions){integer(tx.amount,'lançamento');reconciled+=tx.amount;if(!Number.isSafeInteger(reconciled))invalid('extrato excede inteiro seguro.');}
+      if(reconciled!==user.balance)invalid('saldo não corresponde à abertura e ao extrato.');
+    }
     for(const transaction of user.transactions){
       if(!plain(transaction))invalid('transação inválida.');
       required(transaction.id,'ID da transação');required(transaction.reference,'referência da transação');integer(transaction.amount,'valor da transação');
+      if(transactionIds.has(transaction.id))invalid('ID de transação duplicado.');transactionIds.add(transaction.id);
     }
   }
   for(const [id,duel] of Object.entries(draft.duels)){
@@ -132,10 +152,22 @@ function validateState(draft){
     required(id,'hash da sessão');if(!plain(session))invalid('sessão inválida.');
     required(session.userId,'usuário da sessão');integer(session.expiresAt,'prazo da sessão');
   }
+  const bankReferences=new Set();
   for(const [id,deposit] of Object.entries(draft.deposits||{})){
     if(!plain(deposit)||deposit.id!==id)invalid('ID de depósito inconsistente.');
     required(id,'ID do depósito');required(deposit.userId,'usuário do depósito');
     if(deposit.idempotencyKey!=null)required(deposit.idempotencyKey,'chave do depósito');
+    if(deposit.status==='approved'){
+      const ledger=deposit.legacyDepositLedger==='demo'?draft.users[deposit.userId]?.demoTransactions:draft.users[deposit.userId]?.transactions;
+      if(deposit.legacyDepositLedger!==undefined&&(deposit.legacyDepositLedger!=='demo'||(deposit.paymentMode||'demo')!=='demo'))invalid('livro do depósito histórico inválido.');
+      const credit=ledger?.find(tx=>tx.reference===`deposit:${id}`);
+      if(!credit||credit.amount!==deposit.amount||!Number.isSafeInteger(deposit.amount)||deposit.amount<=0)invalid('depósito aprovado sem lançamento correspondente.');
+      if(deposit.paymentMode==='pix_manual'&&!deposit.legacyBankApproval){
+        const decision=deposit.decision;
+        if(!plain(decision)||typeof decision.bankReference!=='string'||!decision.bankReference.trim()||decision.bankReference.length>128||/[\u0000-\u001F\u007F]/u.test(decision.bankReference)||!Number.isSafeInteger(deposit.priceCents)||deposit.priceCents<1||decision.bankAmountCents!==deposit.priceCents||typeof decision.paidAt!=='string'||!Number.isFinite(Date.parse(decision.paidAt))||Date.parse(decision.paidAt)>Date.now()+300000)invalid('aprovação Pix exige referência bancária, valor e data válidos.');
+        const reference=decision.bankReference.trim().toUpperCase();if(bankReferences.has(reference))invalid('referência bancária repetida.');bankReferences.add(reference);
+      }
+    }
   }
   for(const name of ['evidence','walletEvidence'])for(const [id,item] of Object.entries(draft[name]||{})){
     if(!plain(item)||item.id!==id)invalid('ID de evidência inconsistente.');
@@ -252,18 +284,49 @@ export async function openArenaDatabase(dataDir){
     db.exec(`BEGIN IMMEDIATE; ${SCHEMA} PRAGMA user_version=${SCHEMA_VERSION}; COMMIT;`);
     const readMetadata=key=>{const row=db.prepare('SELECT value_json FROM metadata WHERE key=?').get(key);return row?JSON.parse(row.value_json):undefined;};
     const setMetadata=db.prepare('INSERT INTO metadata(key,value_json) VALUES(?,?) ON CONFLICT(key) DO UPDATE SET value_json=excluded.value_json');
-    const inserts={
-      user:db.prepare('INSERT INTO users(id,public_player_id,nickname,nickname_normalized,password_hash,password_salt,data_json) VALUES(?,?,?,?,?,?,?)'),
-      duel:db.prepare('INSERT INTO duels(id,public_match_id,invite_token,host_id,guest_id,recipient_id,data_json) VALUES(?,?,?,?,?,?,?)'),
-      session:db.prepare('INSERT INTO sessions(token_hash,user_id,expires_at,data_json) VALUES(?,?,?,?)'),
-      deposit:db.prepare('INSERT INTO deposits(id,user_id,idempotency_key,data_json) VALUES(?,?,?,?)'),
-      transaction:db.prepare('INSERT INTO transactions(id,user_id,reference,amount,position,data_json) VALUES(?,?,?,?,?,?)'),
-      evidence:db.prepare('INSERT INTO evidence(id,duel_id,author_id,bytes,data_json) VALUES(?,?,?,?,?)'),
-      walletEvidence:db.prepare('INSERT INTO wallet_evidence(id,deposit_id,author_id,bytes,data_json) VALUES(?,?,?,?,?)'),
-      identity:db.prepare('INSERT INTO auth_identities(provider,subject,user_id,data_json) VALUES(?,?,?,?)')
-    };
+    const tables=[
+      ['users',['id'],['id','public_player_id','nickname','nickname_normalized','password_hash','password_salt','data_json']],
+      ['duels',['id'],['id','public_match_id','invite_token','host_id','guest_id','recipient_id','data_json']],
+      ['sessions',['token_hash'],['token_hash','user_id','expires_at','data_json']],
+      ['deposits',['id'],['id','user_id','idempotency_key','data_json']],
+      ['transactions',['id'],['id','user_id','reference','amount','position','data_json']],
+      ['evidence',['id'],['id','duel_id','author_id','bytes','data_json']],
+      ['wallet_evidence',['id'],['id','deposit_id','author_id','bytes','data_json']],
+      ['auth_identities',['provider','subject'],['provider','subject','user_id','data_json']]
+    ].map(([name,keys,columns])=>({name,keys,columns,
+      read:db.prepare(`SELECT ${columns.join(',')} FROM ${name}`),
+      remove:db.prepare(`DELETE FROM ${name} WHERE ${keys.map(key=>`${key}=?`).join(' AND ')}`),
+      upsert:db.prepare(`INSERT INTO ${name}(${columns.join(',')}) VALUES(${columns.map(()=>'?').join(',')}) ON CONFLICT(${keys.join(',')}) DO UPDATE SET ${columns.filter(key=>!keys.includes(key)).map(key=>`${key}=excluded.${key}`).join(',')}`)
+    }));
+    let reliabilityMigration=false;
+    function migrateReliability(draft){
+      for(const user of Object.values(draft.users))if(user.walletOpeningBalance===undefined)user.walletOpeningBalance=(user.balance||0)-user.transactions.reduce((sum,tx)=>sum+tx.amount,0);
+      for(const deposit of Object.values(draft.deposits||{}))if(deposit.status==='approved'&&deposit.paymentMode==='pix_manual')deposit.legacyBankApproval=true;
+      for(const deposit of Object.values(draft.deposits||{}))if(draft.walletLedgerVersion===1&&deposit.status==='approved'&&(deposit.paymentMode||'demo')==='demo'){
+        const user=draft.users[deposit.userId],reference=`deposit:${deposit.id}`;
+        if(!user?.transactions.some(tx=>tx.reference===reference)&&user?.demoTransactions?.some(tx=>tx.reference===reference&&tx.amount===deposit.amount))deposit.legacyDepositLedger='demo';
+      }
+      draft.walletReliabilityVersion=1;
+    }
     function save(draft,migration){
       if(closed)throw Error('O banco da arena está fechado.');
+      const previousUsers=new Map(db.prepare('SELECT id,data_json FROM users').all().map(row=>[row.id,JSON.parse(row.data_json)]));
+      const ledgerTransition=draft.walletLedgerVersion===1&&!readMetadata('state_extra')?.walletLedgerVersion;
+      const previousLedger=ledgerTransition?load():null,demoMigratedUsers=new Set();
+      for(const user of Object.values(draft.users)){
+        const previous=previousUsers.get(user.id);
+        if(user.walletOpeningBalance===undefined&&!previous)user.walletOpeningBalance=(user.balance||0)-user.transactions.reduce((sum,tx)=>sum+tx.amount,0);
+        const demoMigration=ledgerTransition&&previous&&user.balance===0&&user.transactions.length===0&&user.walletOpeningBalance===0&&user.demoBalance===previous.balance&&encoded(user.demoTransactions)===encoded(previousLedger.users[user.id].transactions);
+        if(demoMigration)demoMigratedUsers.add(user.id);
+        if(previous?.walletOpeningBalance!==undefined&&user.walletOpeningBalance!==previous.walletOpeningBalance&&!demoMigration)invalid('saldo de abertura imutável.');
+      }
+      const previousDeposits=new Map(db.prepare('SELECT id,data_json FROM deposits').all().map(row=>[row.id,JSON.parse(row.data_json)]));
+      for(const deposit of Object.values(draft.deposits||{})){
+        const previous=previousDeposits.get(deposit.id),unchanged=previous&&previous.userId===deposit.userId&&previous.amount===deposit.amount&&previous.status===deposit.status&&(previous.paymentMode||'demo')===(deposit.paymentMode||'demo');
+        if(unchanged&&demoMigratedUsers.has(deposit.userId)&&deposit.status==='approved'&&(deposit.paymentMode||'demo')==='demo')deposit.legacyDepositLedger='demo';
+        if(deposit.legacyDepositLedger!==undefined&&!reliabilityMigration&&(!unchanged||previous.legacyDepositLedger!==deposit.legacyDepositLedger&&!demoMigratedUsers.has(deposit.userId)))invalid('livro do depósito histórico exige migração explícita.');
+        if(deposit.legacyBankApproval&&!reliabilityMigration&&!previous?.legacyBankApproval)invalid('aprovação legada exige migração explícita.');
+      }
       validateState(draft);
       const legacyDuels=new Set(db.prepare('SELECT id FROM duels WHERE public_match_id IS NULL').all().map(row=>row.id));
       for(const duel of Object.values(draft.duels))if(duel.publicMatchId==null&&!migration&&!legacyDuels.has(duel.id))invalid('nova partida exige código público FG com 10 dígitos hexadecimais.');
@@ -271,18 +334,25 @@ export async function openArenaDatabase(dataDir){
       const extraJson=encoded(extra);
       db.exec('BEGIN IMMEDIATE;');
       try{
-        db.exec('DELETE FROM auth_identities; DELETE FROM wallet_evidence; DELETE FROM evidence; DELETE FROM transactions; DELETE FROM sessions; DELETE FROM deposits; DELETE FROM duels; DELETE FROM users;');
+        const rows=Object.fromEntries(tables.map(table=>[table.name,[]]));
         for(const user of Object.values(draft.users)){
           const {transactions,passwordHash,passwordSalt,...data}=user;
-          inserts.user.run(user.id,user.publicPlayerId,user.nickname,normalizeNickname(user.nickname),passwordHash??null,passwordSalt??null,encoded(data));
-          transactions.forEach((transaction,position)=>inserts.transaction.run(transaction.id,user.id,transaction.reference,transaction.amount,position,encoded(transaction)));
+          rows.users.push([user.id,user.publicPlayerId,user.nickname,normalizeNickname(user.nickname),passwordHash??null,passwordSalt??null,encoded(data)]);
+          transactions.forEach((transaction,position)=>rows.transactions.push([transaction.id,user.id,transaction.reference,transaction.amount,position,encoded(transaction)]));
         }
-        for(const duel of Object.values(draft.duels))inserts.duel.run(duel.id,duel.publicMatchId??null,duel.inviteToken,duel.hostId,duel.guestId??null,duel.recipientId??null,encoded(duel));
-        for(const [hash,session] of Object.entries(draft.sessions))inserts.session.run(hash,session.userId,session.expiresAt,encoded(session));
-        for(const deposit of Object.values(draft.deposits||{}))inserts.deposit.run(deposit.id,deposit.userId,deposit.idempotencyKey??null,encoded(deposit));
-        for(const item of Object.values(draft.evidence))inserts.evidence.run(item.id,item.duelId,item.authorId,item.bytes,encoded(item));
-        for(const item of Object.values(draft.walletEvidence||{}))inserts.walletEvidence.run(item.id,item.depositId,item.authorId,item.bytes,encoded(item));
-        for(const identity of Object.values(draft.authIdentities||{}))inserts.identity.run(identity.provider,identity.subject,identity.userId,encoded(identity));
+        for(const duel of Object.values(draft.duels))rows.duels.push([duel.id,duel.publicMatchId??null,duel.inviteToken,duel.hostId,duel.guestId??null,duel.recipientId??null,encoded(duel)]);
+        for(const [hash,session] of Object.entries(draft.sessions))rows.sessions.push([hash,session.userId,session.expiresAt,encoded(session)]);
+        for(const deposit of Object.values(draft.deposits||{}))rows.deposits.push([deposit.id,deposit.userId,deposit.idempotencyKey??null,encoded(deposit)]);
+        for(const item of Object.values(draft.evidence))rows.evidence.push([item.id,item.duelId,item.authorId,item.bytes,encoded(item)]);
+        for(const item of Object.values(draft.walletEvidence||{}))rows.wallet_evidence.push([item.id,item.depositId,item.authorId,item.bytes,encoded(item)]);
+        for(const identity of Object.values(draft.authIdentities||{}))rows.auth_identities.push([identity.provider,identity.subject,identity.userId,encoded(identity)]);
+        const changes=tables.map(table=>{
+          const key=row=>encoded(table.keys.map(column=>row[table.columns.indexOf(column)]));
+          const previous=new Map(table.read.all().map(record=>{const row=table.columns.map(column=>record[column]);return [key(row),row];}));
+          const next=new Map(rows[table.name].map(row=>[key(row),row]));if(next.size!==rows[table.name].length)invalid('chave primária duplicada.');return {table,previous,next,key};
+        });
+        for(const {table,previous,next} of [...changes].reverse())for(const [key,row] of previous)if(!next.has(key))table.remove.run(...table.keys.map(column=>row[table.columns.indexOf(column)]));
+        for(const {table,previous,next} of changes)for(const [key,row] of next)if(!previous.has(key)||row.some((value,index)=>value!==previous.get(key)[index]))table.upsert.run(...row);
         setMetadata.run('state_extra',extraJson);setMetadata.run('initialized','true');
         if(migration)setMetadata.run('json_migration',encoded(migration));
         db.exec('COMMIT;');
@@ -313,12 +383,16 @@ export async function openArenaDatabase(dataDir){
       try{legacy=JSON.parse(await readFile(source,'utf8'));hasLegacy=true;}
       catch(error){if(error.code!=='ENOENT')throw error;}
       if(hasLegacy){
+        migrateReliability(legacy);reliabilityMigration=true;
         validateState(legacy);
         const backup=join(directory,`state.json.pre-sqlite-${Date.now()}-${randomUUID()}.bak`);
         await copyFile(source,backup,constants.COPYFILE_EXCL);await chmod(backup,0o600);
         save(legacy,{source:'state.json',backup:basename(backup),date:new Date().toISOString()});
+        reliabilityMigration=false;
       }else save({version:1,...Object.fromEntries(MAPS.map(key=>[key,{}]))});
     }
+    const existing=load();
+    if(existing.walletReliabilityVersion!==1){migrateReliability(existing);reliabilityMigration=true;save(existing);reliabilityMigration=false;}
     return {path,schemaVersion:SCHEMA_VERSION,load,save,close(){if(!closed){db.close();closed=true;}}};
   }catch(error){
     if(db.isTransaction)try{db.exec('ROLLBACK;');}catch{}

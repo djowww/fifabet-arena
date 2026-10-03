@@ -29,5 +29,5 @@ test('published app module graph includes room and photo helpers without exposin
   const response=await fetch(origin+privatePath);assert.equal(response.status,404);await response.arrayBuffer();
  }
  const index=await readFile(new URL('../index.html',import.meta.url),'utf8');
- assert.match(index,/data-app="play\.js\?v=34"/);
+ assert.match(index,/data-app="play\.js\?v=35"/);
 });

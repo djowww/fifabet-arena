@@ -32,3 +32,27 @@ test('personal rank is explicit and inactive complete accounts are marked unrank
  assert.equal(ranked.personal.rating,1000);
  assert.equal(rankingFor({users,duels:{x:match('x')}},'a').personal.unranked,false);
 });
+
+test('personal Elo evolution shows the rounded change of each approved match in reverse order',()=>{
+ const first={...match('first'),publicMatchId:'FG-0000000001'},second={...match('second','host','2026-10-02T01:00:00Z'),publicMatchId:'FG-0000000002'};
+ const duels={first,second,stale:{...match('stale'),review:{resultId:'obsolete',approvedAt:'2026-10-02'}}};
+ assert.deepEqual(rankingFor({users,duels},'a').personal.recent,[
+  {publicMatchId:'FG-0000000002',approvedAt:'2026-10-02T01:00:00Z',rating:1023,change:11,outcome:'win'},
+  {publicMatchId:'FG-0000000001',approvedAt:'2026-10-02T00:00:00Z',rating:1012,change:12,outcome:'win'}
+ ]);
+ assert.deepEqual(rankingFor({users,duels},'b').personal.recent,[
+  {publicMatchId:'FG-0000000002',approvedAt:'2026-10-02T01:00:00Z',rating:977,change:-11,outcome:'loss'},
+  {publicMatchId:'FG-0000000001',approvedAt:'2026-10-02T00:00:00Z',rating:988,change:-12,outcome:'loss'}
+ ]);
+ assert.deepEqual(rankingFor({users,duels},'c').personal.recent,[]);
+ assert.equal(Object.hasOwn(rankingFor({users,duels},'a').entries[0],'recent'),false);
+});
+
+test('personal evolution excludes the pair daily cap and retains only twenty recent qualifying results',()=>{
+ const duels=Object.fromEntries(Array.from({length:24},(_,i)=>['m'+i,{...match('m'+i,'draw',new Date(Date.UTC(2026,9,i+1)).toISOString()),publicMatchId:'FG-'+String(i).padStart(10,'0')}]));
+ duels.capped1=match('cap1','draw','2026-10-24T01:00:00Z');duels.capped2=match('cap2','draw','2026-10-24T02:00:00Z');duels.capped3={...match('cap3','draw','2026-10-24T03:00:00Z'),publicMatchId:'FG-CCCCCCCCCC'};
+ const recent=rankingFor({users,duels},'a').personal.recent;
+ assert.equal(recent?.length,20);assert.equal(recent[0].approvedAt,'2026-10-24T02:00:00Z');assert.equal(recent[0].change,0);assert.equal(recent[0].outcome,'draw');assert.equal(recent[0].publicMatchId,null);
+ assert.equal(recent.some(item=>item.publicMatchId==='FG-CCCCCCCCCC'),false);
+ assert.equal(recent.at(-1).publicMatchId,'FG-0000000006');
+});

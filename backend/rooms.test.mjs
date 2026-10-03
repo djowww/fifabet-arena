@@ -8,23 +8,27 @@ import {createArenaServer} from './server.mjs';
 import {openArenaDatabase} from './database.mjs';
 import {TERMS_VERSION} from '../account-policy.mjs';
 import {automaticSettlementCheck} from './duel-economy.mjs';
+import {seedFixtureAdministrator,grantFixtureCredits} from './test-fixtures.mjs';
 
 const PNG=Buffer.from('iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mP8/x8AAusB9Y9Zl1sAAAAASUVORK5CYII=','base64');
 const GOOD_READING={status:'suggested',provider:'local-ocr',scores:{left:3,right:1},confidence:94,requiresReview:false,finalScreen:true};
 
-async function harness(t,{recognition=GOOD_READING}={}){
+async function harness(t,{recognition=GOOD_READING,paymentMode='unconfigured'}={}){
   const dataDir=await mkdtemp(join(tmpdir(),'fifago-rooms-test-')),reviewerIds=[];
+  const administrator=await seedFixtureAdministrator(dataDir),adminEmails=[administrator.email];
   const recognizer={status:()=>({available:true,provider:'local-ocr',requiresReview:true}),recognize:async()=>structuredClone(recognition),close(){}};
   const visualInspector={inspect:async body=>({status:'checked',hash:createHash('sha256').update(body).digest('hex').slice(0,16)}),close(){}};
-  let arena=await createArenaServer({dataDir,paymentMode:'demo',reviewerIds,recognizer,visualInspector});
+  let currentMode=paymentMode,arena=await createArenaServer({dataDir,paymentMode,adminEmails,reviewerIds,recognizer,visualInspector});
   await new Promise(resolve=>arena.server.listen(0,'127.0.0.1',resolve));
   const port=arena.server.address().port,base=`http://127.0.0.1:${port}`;
-  t.after(async()=>{await arena.close();await rm(dataDir,{recursive:true,force:true});});
-  async function restart(update=()=>{},paymentMode='unconfigured'){
-    await arena.close();
-    const storage=await openArenaDatabase(dataDir),state=storage.load();update(state);storage.save(state);storage.close();
-    arena=await createArenaServer({dataDir,paymentMode,reviewerIds,recognizer,visualInspector});
+  t.after(async()=>{if(arena)await arena.close();await rm(dataDir,{recursive:true,force:true});});
+  async function restart(update=()=>{},nextMode=currentMode){
+    if(arena)await arena.close();arena=null;
+    const storage=await openArenaDatabase(dataDir);
+    try{const state=storage.load();update(state);storage.save(state);}finally{storage.close();}
+    arena=await createArenaServer({dataDir,paymentMode:nextMode,adminEmails,reviewerIds,recognizer,visualInspector});
     await new Promise(resolve=>arena.server.listen(port,'127.0.0.1',resolve));
+    currentMode=nextMode;
   }
   function client(){
     let cookie='',csrfToken=null;
@@ -38,10 +42,10 @@ async function harness(t,{recognition=GOOD_READING}={}){
       },
       async register(name,credits=0){
         const response=await this.api('/auth/register',{method:'POST',data:{nickname:name,password:'rooms testing password',countryCode:'BR',acceptedTerms:true,termsVersion:TERMS_VERSION}});assert.equal(response.status,200);
-        if(credits){
+        if(credits&&currentMode==='demo'){
           const order=await this.api('/wallet/deposits',{method:'POST',data:{amount:credits,method:'card',installments:1,idempotencyKey:randomUUID()}});assert.equal(order.status,200);
           const approved=await this.api(`/wallet/deposits/${order.data.deposit.id}/simulate`,{method:'POST',data:{mode:'demo',outcome:'approved',version:order.data.deposit.version}});assert.equal(approved.status,200);
-        }
+        }else if(credits)await grantFixtureCredits(base,administrator,response.data.user.id,credits);
         return response.data.user;
       },
       async create(stake=100,extra={}){return this.api('/duels',{method:'POST',data:{stake,mode:'1v1',platform:'playstation',...extra}});},
@@ -53,7 +57,7 @@ async function harness(t,{recognition=GOOD_READING}={}){
       async me(){return (await this.api('/me')).data;}
     };
   }
-  return {client,restart,reviewerIds,dataDir};
+  return {client,restart,reviewerIds,dataDir,base};
 }
 
 async function joinedRoom(h,{stake=100,start=true}={}){
@@ -156,7 +160,7 @@ test('the five-minute timeout never awards a win and late matching evidence need
 });
 
 test('old private invitations retain explicit two-step funding and never appear in arena discovery',async t=>{
-  const h=await harness(t),host=h.client(),guest=h.client();await host.register('Host',1000);await guest.register('Guest',1000);
+  const h=await harness(t,{paymentMode:'demo'}),host=h.client(),guest=h.client();await host.register('Host',1000);await guest.register('Guest',1000);
   const created=await host.create(100);await h.restart(state=>{
     const duel=state.duels[created.data.duel.id],owner=state.users[duel.hostId];owner.balance+=100;owner.transactions=owner.transactions.filter(tx=>tx.reference!==`reserve:${duel.id}`);duel.fundingVersion=1;duel.fundedBy=[];delete duel.lobbyVersion;delete duel.readyBy;delete duel.visibility;
   },'demo');
@@ -256,7 +260,7 @@ test('chat enforces origin, CSRF, per-author rate and the 200-message room bound
 });
 
 test('legacy v2 rooms still begin on entry and started rooms survive restart',async t=>{
-  const h=await harness(t),host=h.client(),guest=h.client();await host.register('Host',1000);await guest.register('Guest',1000);const created=await host.create(100);
+  const h=await harness(t,{paymentMode:'demo'}),host=h.client(),guest=h.client();await host.register('Host',1000);await guest.register('Guest',1000);const created=await host.create(100);
   await h.restart(state=>{const duel=state.duels[created.data.duel.id];delete duel.lobbyVersion;delete duel.readyBy;delete duel.chatMessages;},'demo');
   const joined=await guest.api(`/invites/${created.data.inviteToken}/accept`,{method:'POST',data:{}});assert.equal(joined.status,200);assert.equal(joined.data.duel.status,'in_progress');
   await h.restart();const duel=(await host.me()).duels[0];assert.equal(duel.startedAt,joined.data.duel.startedAt);assert.equal(duel.status,'in_progress');assert.equal((await host.api(`/duels/${duel.id}/start`,{method:'POST',data:{}})).status,409);
@@ -276,4 +280,32 @@ test('automatic settlement fails closed for stale, missing or weak recognition m
   assert.equal(automaticSettlementCheck(state,duel,now).eligible,true);
   for(const patch of [{confirmationTimedOutAt:new Date(now).toISOString()},{confirmationScoreSide:undefined},{confirmationEvidenceId:'a'},{confirmationDeadline:new Date(now-1).toISOString()},{confirmationDeadline:'not-a-date'},{confirmedAt:'not-a-date'},{submittedAt:'not-a-date'}])assert.equal(automaticSettlementCheck(state,{...duel,result:{...duel.result,...patch}},now).eligible,false);
   second.recognition={...GOOD_READING,requiresReview:true};assert.equal(automaticSettlementCheck(state,duel,now).eligible,false);
+});
+
+// This verifies the room fixture funding contract without changing the financial guard.
+test('connected room fixtures use authorized ledger grants rather than converting demo deposits',async t=>{
+ const h=await harness(t),player=h.client();await player.register('FundedPlayer',1000);
+ const account=(await player.me()).user;
+ assert.equal(account.balance,1000);
+ assert.equal(account.transactions.length,1);
+ assert.equal(account.transactions[0].source,'admin_adjustment');
+ assert.equal(account.transactions[0].demo,undefined);
+ assert.equal((await player.api('/status')).data.paymentMode,'unconfigured');
+ await h.restart();assert.equal((await player.me()).user.balance,1000);
+ const storage=await openArenaDatabase(h.dataDir);
+ try{const state=storage.load(),user=state.users[account.id];assert.equal(state.walletEnvironment,'online');assert.equal(user.walletOpeningBalance,0);assert.equal(user.balance,user.transactions.reduce((total,entry)=>total+entry.amount,0));assert.equal(Object.keys(state.adminOperations).length,1);assert.equal(Object.keys(state.deposits).length,0);}finally{storage.close();}
+});
+
+test('demo fixture cannot restart as online and its original test ledger survives rejection',async t=>{
+ const h=await harness(t,{paymentMode:'demo'}),player=h.client();await player.register('DemoPlayer',1000);
+ await assert.rejects(h.restart(()=>{},'unconfigured'),error=>error.code==='payment_environment_migration_required');
+ await h.restart(()=>{},'demo');
+ const account=(await player.me()).user;assert.equal(account.balance,1000);assert.equal(account.transactions[0].demo,true);
+});
+
+test('test administrator setup stays outside the production public file list',async t=>{
+ const h=await harness(t);
+ const response=await fetch(`${h.base}/backend/test-fixtures.mjs`);
+ assert.equal(response.status,404);
+ assert.doesNotMatch(await response.text(),/seedFixtureAdministrator|grantFixtureCredits/);
 });

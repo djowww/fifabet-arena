@@ -18,7 +18,7 @@ Cada adição grava, na mesma transação SQLite, o saldo, um lançamento `admin
 
 Antes de confirmar, o navegador guarda somente a operação pendente no armazenamento da sessão, vinculada ao administrador. Se a resposta for interrompida, inclusive após recarregar a página, o painel recupera a mesma chave para consultar e confirmar sem duplicar a adição. O registro local é removido após sucesso; não guarda e-mails nem credenciais. Se o navegador bloquear esse armazenamento, o painel não envia a operação.
 
-Uma adição administrativa não confirma Pix, não cria depósito e não ativa pagamentos. Partidas com créditos continuam dependendo das regras do modo de pagamento configurado. Em `unconfigured`, novas partidas continuam amistosas.
+Uma adição administrativa não confirma Pix, não cria depósito e não ativa pagamentos. Partidas com créditos continuam dependendo das regras do modo de pagamento configurado. Em `unconfigured`, é possível criar amistosas gratuitas ou salas com Joga aí Coin principal já disponível; compras permanecem indisponíveis.
 
 Os administradores também acessam a revisão existente, respeitando a proibição de aprovar o próprio resultado ou o próprio comprovante. A conferência de pagamentos continua sujeita à configuração e às regras existentes da carteira.
 
@@ -26,7 +26,7 @@ Os administradores também acessam a revisão existente, respeitando a proibiç�
 
 As rotas exigem sessão autenticada; gravações também exigem origem válida, token CSRF e limites de requisições. Busca retorna até 50 contas; histórico retorna as últimas 100 adições. Senhas, tokens de sessão e evidências não fazem parte da listagem de usuários. O e-mail verificado fica em uma seção recolhida do jogador selecionado.
 
-O painel não remove créditos, não exclui contas, não oferece saques e não substitui conciliação financeira. O registro de operações cresce com o uso; retenção e exportação auditável precisam de planejamento antes de uma operação em grande escala.
+O painel não remove créditos, não oferece saques e não substitui conciliação financeira. Solicitações de remoção da conta têm revisão administrativa independente: podem ser rejeitadas com motivo ou resultar em desativação e anonimização do perfil quando saldos e operações pendentes estiverem resolvidos. A operação preserva registros financeiros, histórico e evidências privadas; não elimina a linha da conta nem reescreve backups. Consulte [privacidade e retenção](PRIVACIDADE-RETENCAO.md). O registro de operações cresce com o uso; eliminação definitiva e retenção de backups ainda precisam de planejamento operacional antes de ativar pagamentos.
 
 ## Revisão visual
 

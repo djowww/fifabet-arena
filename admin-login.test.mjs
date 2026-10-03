@@ -1,4 +1,9 @@
 import {createRenderGate,filterRooms,mergeRecords} from './room-ui.mjs';
+import {createAppNotifications} from './app-notifications.mjs';
+import {createAccountTools} from './account-tools.mjs';
+import {renderReviewEvidence} from './review-evidence.mjs';
+import * as resultPhases from './result-phases.mjs';
+import * as reviewTools from './review-tools.mjs';
 import * as chatUI from './chat-ui.mjs';
 import {preparationState} from './room-ui.mjs';
 import test from 'node:test';
@@ -69,6 +74,8 @@ async function harness({sessionUser = null, arenaUser = sessionUser, loginUser =
     FormData: class {constructor(form) {this.fields = form.fields;} get(key) {return this.fields[key] ?? null;}}
   };
   Object.assign(context,chatUI,{preparationState});
+  Object.assign(context,resultPhases,reviewTools,{AbortController,createAccountTools,renderReviewEvidence,
+    createAppNotifications:options=>createAppNotifications({storage:context.localStorage,Notification:context.Notification,hidden:()=>context.document.hidden===true,onOpen:id=>{context.location.hash=`#partida/${id}`;},...options})});
   vm.createContext(context);
   const code = source.replace(/^import .*?;\r?\n/gm, '').replace(/\nstart\(\)\.catch\(/, '\nglobalThis.__boot=start().catch(');
   vm.runInContext(code, context);
@@ -90,6 +97,12 @@ async function harness({sessionUser = null, arenaUser = sessionUser, loginUser =
 }
 
 const privateCalls = calls => calls.filter(call => typeof call === 'string' && call.startsWith('admin-'));
+test('online recovery action appears on login only and opens the private recovery form',async()=>{
+ const h=await harness();await h.click('login');
+ assert.match(h.nodes.modalContent.innerHTML,/data-form='login'/);assert.match(h.nodes.modalContent.innerHTML,/data-action='recover-account'/);
+ await h.click('recover-account');assert.match(h.nodes.modalContent.innerHTML,/data-form='recover-account'/);assert.match(h.nodes.modalContent.innerHTML,/name='recoveryCode'/);assert.doesNotMatch(h.nodes.modalContent.innerHTML,/data-action='recover-account'/);
+ await h.click('signup');assert.match(h.nodes.modalContent.innerHTML,/data-form='signup'/);assert.doesNotMatch(h.nodes.modalContent.innerHTML,/data-action='recover-account'/);
+});
 function assertAdmin(h) {
   assert.equal(h.location.hash, '#admin');
   assert.match(h.nodes.navigation.innerHTML, /href='#admin'/);

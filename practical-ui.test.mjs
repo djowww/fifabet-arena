@@ -1,4 +1,9 @@
 import {createRenderGate,filterRooms,mergeRecords} from './room-ui.mjs';
+import {createAppNotifications} from './app-notifications.mjs';
+import {createAccountTools} from './account-tools.mjs';
+import {renderReviewEvidence} from './review-evidence.mjs';
+import * as resultPhases from './result-phases.mjs';
+import * as reviewTools from './review-tools.mjs';
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import vm from 'node:vm';
@@ -52,8 +57,8 @@ test('a late history search error from the previous account cannot appear in the
  const a={id:'search-a',nickname:'ContaA',publicPlayerId:'FBA-AAAAAAAAAA',balance:0},b={id:'search-b',nickname:'ContaB',publicPlayerId:'FBA-BBBBBBBBBB',balance:0};let current=a,rejectOld;const pending=new Promise((_resolve,reject)=>rejectOld=reject);
  const h=await harness({api:{detectBackend:async()=>({available:true}),loadSession:async()=>({user:current}),getArena:async()=>({user:current,duels:[],history:[],stats:{reserved:0}}),getHistory:async options=>current===a&&options.search?pending:{items:[],nextCursor:null},loginAccount:async()=>{current=b;}},url:'https://example.test/#historico'});await new Promise(resolve=>setImmediate(resolve));
  // Search transport is held while the human switches accounts through the real login flow.
- h.listeners.input({target:{id:'historySearch',value:'privado-a',selectionStart:9,closest:()=>null}});
- await h.click('login');await h.submit('login',{nickname:b.nickname,password:'senha-local-longa'});rejectOld(Error('SEGREDO-ERRO-A'));await new Promise(resolve=>setImmediate(resolve));assert.ok(![h.nodes.toast?.textContent,h.nodes.dialogError?.textContent,h.nodes.roomError?.textContent].join(' ').includes('SEGREDO-ERRO-A'));
+ h.listeners.input({target:{id:'historySearch',value:'privado-a',selectionStart:9,closest:()=>null}});const searching=h.runTimeout(250);
+ await h.click('login');await h.submit('login',{nickname:b.nickname,password:'senha-local-longa'});rejectOld(Error('SEGREDO-ERRO-A'));await searching;await new Promise(resolve=>setImmediate(resolve));assert.ok(![h.nodes.toast?.textContent,h.nodes.dialogError?.textContent,h.nodes.roomError?.textContent].join(' ').includes('SEGREDO-ERRO-A'));
 });
 test('wallet revision invalidates an older loaded deposit rather than retaining its obsolete pending status',async()=>{
  const user={id:'deposit-owner',nickname:'Alex',publicPlayerId:'FBA-1234567890',balance:0};let revision='one';const recent=Array.from({length:20},(_,i)=>({id:`recent-${i}`,amount:50,status:'approved',method:'pix',createdAt:'2026-10-02T12:00:00Z'})),old={id:'private-older-deposit',amount:100,status:'pending',method:'pix',createdAt:'2026-10-01T12:00:00Z'};
@@ -68,18 +73,20 @@ test('history revision invalidates an older active page after the match leaves t
  const h=await harness({api:{detectBackend:async()=>({available:true}),loadSession:async()=>({user}),getArena:async()=>({user,duels:old.status==='in_progress'?[structuredClone(old)]:[],history:recent,stats:{reserved:0}}),getHistory:async options=>({items:options?.cursor?[structuredClone(old)]:recent,nextCursor:options?.cursor?null:'older'})},url:'https://example.test/#historico'});await new Promise(resolve=>setImmediate(resolve));await h.click('history-more');assert.match(h.nodes.screen.innerHTML,/private-older-active/);old.status='completed';await h.intervals.find(x=>x.delay===8000).callback();await new Promise(resolve=>setImmediate(resolve));assert.ok(!h.nodes.screen.innerHTML.includes('private-older-active'));await h.click('history-more');assert.match(h.nodes.screen.innerHTML,/private-older-active/);assert.ok(!h.nodes.screen.innerHTML.includes('Partida em andamento'));
 });
 test('compatibility and match-rule drafts survive a deferred render before their wizard step is submitted',async()=>{
- const {h,duel}=await preparationHarness();h.route('#criar');const input=(id,value)=>h.listeners.input({target:{id,value,closest:()=>null}});input('matchEdition','FC privado 26');input('matchGeneration','PS5');await h.listeners.change({target:{id:'matchCrossplay',value:'enabled',closest:()=>null}});duel.readyBy.push(duel.readyBy.length?duel.guestId:duel.hostId);await h.intervals.find(x=>x.delay===8000).callback();await h.click('close');assert.match(h.nodes.screen.innerHTML,/value='FC privado 26'/);assert.match(h.nodes.screen.innerHTML,/value='PS5'/);assert.match(h.nodes.screen.innerHTML,/value='enabled' selected/);
- await h.submit('duel',{rivalId:'',mode:'1v1',platform:'pc',visibility:'public',gameEdition:'FC privado 26',consoleGeneration:'PS5',crossplay:'enabled'});await h.listeners.change({target:{id:'matchExtraTime',checked:true,closest:()=>null}});await h.listeners.change({target:{id:'matchPenalties',checked:true,closest:()=>null}});duel.readyBy.push(duel.readyBy.length?duel.guestId:duel.hostId);await h.intervals.find(x=>x.delay===8000).callback();await h.click('close');assert.match(h.nodes.screen.innerHTML,/name='extraTime' checked/);assert.match(h.nodes.screen.innerHTML,/name='penalties' checked/);
+ const {h,duel}=await preparationHarness();h.route('#criar');const input=(id,value)=>h.listeners.input({target:{id,value,closest:()=>null}});input('matchEdition','FC privado 26');input('matchGeneration','PS5');await h.listeners.change({target:{dataset:{},id:'matchCrossplay',value:'enabled',closest:()=>null}});duel.readyBy.push(duel.readyBy.length?duel.guestId:duel.hostId);await h.intervals.find(x=>x.delay===8000).callback();await h.click('close');assert.match(h.nodes.screen.innerHTML,/value='FC privado 26'/);assert.match(h.nodes.screen.innerHTML,/value='PS5'/);assert.match(h.nodes.screen.innerHTML,/value='enabled' selected/);
+ await h.submit('duel',{rivalId:'',mode:'1v1',platform:'pc',visibility:'public',gameEdition:'FC privado 26',consoleGeneration:'PS5',crossplay:'enabled'});await h.listeners.change({target:{dataset:{},id:'matchExtraTime',checked:true,closest:()=>null}});await h.listeners.change({target:{dataset:{},id:'matchPenalties',checked:true,closest:()=>null}});duel.readyBy.push(duel.readyBy.length?duel.guestId:duel.hostId);await h.intervals.find(x=>x.delay===8000).callback();await h.click('close');assert.match(h.nodes.screen.innerHTML,/name='extraTime' checked/);assert.match(h.nodes.screen.innerHTML,/name='penalties' checked/);
 });
 async function harness({initial=M.emptyState(),api={},url='https://example.test/fifabet-arena/#arena',bitmapFactory}={}){
-  const nodes={},listeners={},windowListeners={},stored=new Map([[M.STORAGE_KEY,JSON.stringify(initial)]]),copies=[],intervals=[];
+  const nodes={},listeners={},windowListeners={},stored=new Map([[M.STORAGE_KEY,JSON.stringify(initial)]]),copies=[],intervals=[],timers=new Map();let timerId=0;
   let failWrite=false;
   function node(id){return nodes[id]??={id,innerHTML:'',textContent:'',value:'',hidden:false,open:false,isConnected:true,disabled:false,files:[],dataset:{},classList:{add(){},remove(){},toggle(){}},setAttribute(){},removeAttribute(){},remove(){},append(){},insertAdjacentHTML(_position,html){this.innerHTML+=html;},contains(){return false;},querySelector(){return null;},querySelectorAll(){return [];},focus(){document.activeElement=this;},setSelectionRange(){},showModal(){this.open=true;},close(){this.open=false;},getBoundingClientRect(){return {left:0,right:500,top:0,bottom:500};},addEventListener(name,callback){this[name]=callback;}};}
   const document={getElementById:node,activeElement:null,hidden:false,querySelectorAll(){return [];},addEventListener(name,callback){listeners[name]=callback;},createElement(tag){if(tag==='button')return {...node(`button-${copies.length}`)};assert.equal(tag,'canvas');return {width:0,height:0,getContext(){return {drawImage(){},fillRect(){}};},toBlob(callback){callback(new Blob(['photo'],{type:'image/jpeg'}));},toDataURL(){return photo;}};}};
   const parsed=new URL(url),location={hash:parsed.hash,href:url,pathname:parsed.pathname,origin:parsed.origin};
   const localStorage={getItem:key=>stored.get(key)??null,setItem(key,value){if(failWrite){failWrite=false;throw Error('quota');}stored.set(key,String(value));},removeItem:key=>stored.delete(key)};
-  const API={detectBackend:async()=>null,evidenceUrl:id=>`/api/v1/evidence/${id}`,getRooms:async()=>({rooms:[]}),...api};
-  const context={createRenderGate,filterRooms,mergeRecords,M,API,COUNTRY_CODES,TERMS_VERSION,createAdminPanel,accountArt,uiIcon,renderLobbyView,renderWalletView,renderHistoryView,renderRankingView,renderProfileView,confirmationClock,safeRoomCards,notificationKey,notificationLabel,preparationState,createChatState,renderChatMessages,nearChatBottom,document,localStorage,sessionStorage:localStorage,location,window:{addEventListener(name,callback){windowListeners[name]=callback;},scrollTo(){}},history:{replaceState(_state,_title,value){location.href=new URL(value,location.href).href;location.hash=new URL(location.href).hash;}},navigator:{clipboard:{async writeText(value){copies.push(value);}}},crypto,URL,Blob,console,clearTimeout(){},setTimeout(){return 1;},setInterval(callback,delay){intervals.push({callback,delay});return intervals.length;},createImageBitmap:bitmapFactory||(async()=>({width:1280,height:720,close(){}})),fetch:async()=>({async blob(){return new Blob(['photo'],{type:'image/jpeg'});}}),FileReader:class{readAsDataURL(){this.result=photo;this.onload();}},FormData:class{constructor(form){this.fields=form.fields;}get(key){return this.fields[key]??null;}}};
+  const API={detectBackend:async()=>null,evidenceUrl:id=>`/api/v1/evidence/${id}`,listDepositRecoveries:async()=>({deposits:[]}),getDeletionRequests:async()=>({requests:[]}),getRooms:async()=>({rooms:[]}),...api};
+  const context={createRenderGate,filterRooms,mergeRecords,M,API,COUNTRY_CODES,TERMS_VERSION,createAdminPanel,accountArt,uiIcon,renderLobbyView,renderWalletView,renderHistoryView,renderRankingView,renderProfileView,confirmationClock,safeRoomCards,notificationKey,notificationLabel,preparationState,createChatState,renderChatMessages,nearChatBottom,document,localStorage,sessionStorage:localStorage,location,window:{addEventListener(name,callback){windowListeners[name]=callback;},scrollTo(){}},history:{replaceState(_state,_title,value){location.href=new URL(value,location.href).href;location.hash=new URL(location.href).hash;}},navigator:{clipboard:{async writeText(value){copies.push(value);}}},crypto,URL,Blob,console,clearTimeout(id){timers.delete(id);},setTimeout(callback,delay){const id=++timerId;timers.set(id,{callback,delay});return id;},setInterval(callback,delay){intervals.push({callback,delay});return intervals.length;},createImageBitmap:bitmapFactory||(async()=>({width:1280,height:720,close(){}})),fetch:async()=>({async blob(){return new Blob(['photo'],{type:'image/jpeg'});}}),FileReader:class{readAsDataURL(){this.result=photo;this.onload();}},FormData:class{constructor(form){this.fields=form.fields;}get(key){return this.fields[key]??null;}}};
+  Object.assign(context,resultPhases,reviewTools,{AbortController,createAccountTools,renderReviewEvidence,
+    createAppNotifications:options=>createAppNotifications({storage:context.localStorage,Notification:context.Notification,hidden:()=>context.document.hidden===true,onOpen:id=>{context.location.hash=`#partida/${id}`;},...options})});
   vm.createContext(context);
   context.prepareEvidencePhoto=vm.runInContext(`(()=>{${fs.readFileSync(new URL('./image-preparation.mjs',import.meta.url),'utf8').replace(/^export /gm,'')}return preparePhoto;})()`,context);
   const code=source.replace(/^import .*?;\r?\n/gm,'').replace(/\nstart\(\)\.catch\(/,'\nglobalThis.__boot=start().catch(');
@@ -97,13 +104,14 @@ async function harness({initial=M.emptyState(),api={},url='https://example.test/
     const elements=Object.fromEntries(Object.entries(fields).map(([key,value])=>[key,{...node(`field-${key}`),value:typeof value==='string'?value:'',checked:value===true||value==='yes'}]));
     const form={isConnected:true,dataset:{form:kind,...captured,...dataset},fields,elements,querySelector(selector){if(selector==='#resultImage')return {files:fields.evidence?[fields.evidence]:[]};return button;},querySelectorAll(){return Object.values(elements);}};
     let selection;
-    if(['result','confirm-result','dispute'].includes(kind)&&fields.evidence){selection=listeners.change({target:{id:'resultImage',files:[fields.evidence],isConnected:true,closest(selector){return selector==='[data-form]'?form:null;}}});}
+    if(['result','confirm-result','dispute'].includes(kind)&&fields.evidence){selection=listeners.change({target:{dataset:{},id:'resultImage',files:[fields.evidence],isConnected:true,closest(selector){return selector==='[data-form]'?form:null;}}});}
     await listeners.submit({preventDefault(){},target:{closest(selector){assert.equal(selector,'[data-form]');return form;}}});
     await selection;
   };
   const route=hash=>{location.hash=hash;windowListeners.hashchange();};
   const persisted=()=>M.restore(stored.get(M.STORAGE_KEY));
-  return {nodes,document,listeners,windowListeners,localStorage,location,copies,click,submit,route,intervals,api:context.practical,persisted,failNextWrite(){failWrite=true;}};
+  const runTimeout=delay=>{const found=[...timers].find(([,timer])=>timer.delay===delay);assert.ok(found,`Expected scheduled timeout at ${delay}ms`);timers.delete(found[0]);return found[1].callback();};
+  return {runTimeout,nodes,document,listeners,windowListeners,localStorage,location,copies,click,submit,route,intervals,api:context.practical,persisted,failNextWrite(){failWrite=true;}};
 }
 async function fundLocal(h){await h.click('deposit');await h.submit('deposit',{amount:'1000',method:'pix',installments:'1'});const deposit=M.current(h.persisted()).depositRequests[0];assert.ok(deposit,JSON.stringify({modal:h.nodes.modalContent?.innerHTML,error:h.nodes.dialogError?.textContent,room:h.nodes.roomError?.textContent,toast:h.nodes.toast?.textContent}));await h.click('deposit-confirm',deposit.id);await h.click('close');h.route('#arena');}
 async function twoPlayers(){
@@ -222,7 +230,10 @@ test('only a server reviewer gets review navigation and decisions carry the phot
   const h=await harness({api});assert.match(h.nodes.navigation.innerHTML,/Revisão/);h.route('#revisao');await new Promise(resolve=>setImmediate(resolve));
   assert.match(h.nodes.screen.innerHTML,/photo-current/);await h.click('review',duel.id);
   assert.match(h.nodes.modalContent.innerHTML,/data-report='report-current'/);
+  assert.match(h.nodes.modalContent.innerHTML,/name='confirmEvidence' required/);
   await h.submit('review',{winner:'host',reason:'Foto e placar conferidos pela equipe.'},{id:duel.id,report:'report-current'});
+  assert.deepEqual(calls,[]);assert.match(h.nodes.dialogError.textContent,/Confirme a conferência/);
+  await h.submit('review',{winner:'host',reason:'Foto e placar conferidos pela equipe.',confirmEvidence:'yes'},{id:duel.id,report:'report-current'});
   assert.deepEqual(calls,[{id:duel.id,reportId:'report-current',winner:'host',reason:'Foto e placar conferidos pela equipe.'}]);
   assert.match(h.nodes.toast.textContent,/Resultado revisado e registrado/);
 });
@@ -507,11 +518,11 @@ test('typing defers cancelled room details until the next poll after blur withou
  await h.intervals.find(x=>x.delay===8000).callback();assert.match(h.nodes.screen.innerHTML,/Devolução dos Joga aí Coin/);assert.match(h.nodes.screen.innerHTML,/Somente leitura/);assert.equal(h.api.getChat().draft,'Meu ID no jogo');
 });
 test('chat submit awaits a slow POST and handles blank validation in the existing error surface',async()=>{
- let release;const pending=new Promise(done=>{release=done;});const {h,user,duel}=await preparationHarness({sendDuelChat:()=>pending});
+ let release,markStarted;const started=new Promise(resolve=>{markStarted=resolve;});const pending=new Promise(done=>{release=done;});const {h,user,duel}=await preparationHarness({sendDuelChat:()=>{markStarted();return pending;}});
  const button={disabled:false,isConnected:true,textContent:'Enviar mensagem',removeAttribute(){}},field={value:'Vamos?',disabled:false};
  const form={dataset:{form:'chat',owner:user.id,id:duel.id},fields:{text:'Vamos?'},querySelector:selector=>selector==='textarea'?field:button};
  h.nodes.screen.querySelector=selector=>selector==='[data-form=chat]'?form:null;
- const sending=h.listeners.submit({preventDefault(){},target:{closest:()=>form}});await Promise.resolve();assert.equal(h.api.getChat().sending,true);assert.equal(button.disabled,true);assert.equal(button.textContent,'Enviando…');
+ const sending=h.listeners.submit({preventDefault(){},target:{closest:()=>form}});await started;assert.equal(h.api.getChat().sending,true);assert.equal(button.disabled,true);assert.equal(button.textContent,'Enviando…');
  release({messages:[],lastSequence:0,closed:true});await sending;assert.equal(h.api.getChat().sending,false);assert.equal(button.disabled,true);
  // Use an open room for validation and ensure rejected text never escapes the listener.
  h.api.getChat().closed=false;form.fields.text='   ';await h.listeners.submit({preventDefault(){},target:{closest:()=>form}});assert.match(h.nodes.roomError.textContent,/Escreva uma mensagem/);

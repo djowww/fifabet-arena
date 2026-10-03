@@ -298,6 +298,10 @@ export async function openArenaDatabase(dataDir){
       remove:db.prepare(`DELETE FROM ${name} WHERE ${keys.map(key=>`${key}=?`).join(' AND ')}`),
       upsert:db.prepare(`INSERT INTO ${name}(${columns.join(',')}) VALUES(${columns.map(()=>'?').join(',')}) ON CONFLICT(${keys.join(',')}) DO UPDATE SET ${columns.filter(key=>!keys.includes(key)).map(key=>`${key}=excluded.${key}`).join(',')}`)
     }));
+    const rowKey=(table,row)=>encoded(table.keys.map(column=>row[table.columns.indexOf(column)]));
+    const readRows=()=>Object.fromEntries(tables.map(table=>[table.name,new Map(table.read.all().map(record=>{const row=table.columns.map(column=>record[column]);return [rowKey(table,row),row];}))]));
+    // Serialized rows are isolated from callers' mutable state. Advance this baseline only after COMMIT.
+    let baseline=readRows(),baselineExtra=readMetadata('state_extra')||{};
     let reliabilityMigration=false;
     function migrateReliability(draft){
       for(const user of Object.values(draft.users))if(user.walletOpeningBalance===undefined)user.walletOpeningBalance=(user.balance||0)-user.transactions.reduce((sum,tx)=>sum+tx.amount,0);
@@ -310,17 +314,18 @@ export async function openArenaDatabase(dataDir){
     }
     function save(draft,migration){
       if(closed)throw Error('O banco da arena está fechado.');
-      const previousUsers=new Map(db.prepare('SELECT id,data_json FROM users').all().map(row=>[row.id,JSON.parse(row.data_json)]));
-      const ledgerTransition=draft.walletLedgerVersion===1&&!readMetadata('state_extra')?.walletLedgerVersion;
-      const previousLedger=ledgerTransition?load():null,demoMigratedUsers=new Set();
+      const previousUsers=new Map([...baseline.users.values()].map(row=>[row[0],JSON.parse(row[6])]));
+      const ledgerTransition=draft.walletLedgerVersion===1&&!baselineExtra.walletLedgerVersion;
+      const previousTransactions=new Map(),demoMigratedUsers=new Set();
+      if(ledgerTransition)for(const row of [...baseline.transactions.values()].sort((a,b)=>a[4]-b[4])){if(!previousTransactions.has(row[1]))previousTransactions.set(row[1],[]);previousTransactions.get(row[1]).push(JSON.parse(row[5]));}
       for(const user of Object.values(draft.users)){
         const previous=previousUsers.get(user.id);
         if(user.walletOpeningBalance===undefined&&!previous)user.walletOpeningBalance=(user.balance||0)-user.transactions.reduce((sum,tx)=>sum+tx.amount,0);
-        const demoMigration=ledgerTransition&&previous&&user.balance===0&&user.transactions.length===0&&user.walletOpeningBalance===0&&user.demoBalance===previous.balance&&encoded(user.demoTransactions)===encoded(previousLedger.users[user.id].transactions);
+        const demoMigration=ledgerTransition&&previous&&user.balance===0&&user.transactions.length===0&&user.walletOpeningBalance===0&&user.demoBalance===previous.balance&&encoded(user.demoTransactions)===encoded(previousTransactions.get(user.id)||[]);
         if(demoMigration)demoMigratedUsers.add(user.id);
         if(previous?.walletOpeningBalance!==undefined&&user.walletOpeningBalance!==previous.walletOpeningBalance&&!demoMigration)invalid('saldo de abertura imutável.');
       }
-      const previousDeposits=new Map(db.prepare('SELECT id,data_json FROM deposits').all().map(row=>[row.id,JSON.parse(row.data_json)]));
+      const previousDeposits=new Map([...baseline.deposits.values()].map(row=>[row[0],JSON.parse(row[3])]));
       for(const deposit of Object.values(draft.deposits||{})){
         const previous=previousDeposits.get(deposit.id),unchanged=previous&&previous.userId===deposit.userId&&previous.amount===deposit.amount&&previous.status===deposit.status&&(previous.paymentMode||'demo')===(deposit.paymentMode||'demo');
         if(unchanged&&demoMigratedUsers.has(deposit.userId)&&deposit.status==='approved'&&(deposit.paymentMode||'demo')==='demo')deposit.legacyDepositLedger='demo';
@@ -328,7 +333,7 @@ export async function openArenaDatabase(dataDir){
         if(deposit.legacyBankApproval&&!reliabilityMigration&&!previous?.legacyBankApproval)invalid('aprovação legada exige migração explícita.');
       }
       validateState(draft);
-      const legacyDuels=new Set(db.prepare('SELECT id FROM duels WHERE public_match_id IS NULL').all().map(row=>row.id));
+      const legacyDuels=new Set([...baseline.duels.values()].filter(row=>row[1]===null).map(row=>row[0]));
       for(const duel of Object.values(draft.duels))if(duel.publicMatchId==null&&!migration&&!legacyDuels.has(duel.id))invalid('nova partida exige código público FG com 10 dígitos hexadecimais.');
       const extra=Object.fromEntries(Object.entries(draft).filter(([key])=>key!=='version'&&!MAPS.includes(key)));
       const extraJson=encoded(extra);
@@ -347,8 +352,8 @@ export async function openArenaDatabase(dataDir){
         for(const item of Object.values(draft.walletEvidence||{}))rows.wallet_evidence.push([item.id,item.depositId,item.authorId,item.bytes,encoded(item)]);
         for(const identity of Object.values(draft.authIdentities||{}))rows.auth_identities.push([identity.provider,identity.subject,identity.userId,encoded(identity)]);
         const changes=tables.map(table=>{
-          const key=row=>encoded(table.keys.map(column=>row[table.columns.indexOf(column)]));
-          const previous=new Map(table.read.all().map(record=>{const row=table.columns.map(column=>record[column]);return [key(row),row];}));
+          const key=row=>rowKey(table,row);
+          const previous=baseline[table.name];
           const next=new Map(rows[table.name].map(row=>[key(row),row]));if(next.size!==rows[table.name].length)invalid('chave primária duplicada.');return {table,previous,next,key};
         });
         for(const {table,previous,next} of [...changes].reverse())for(const [key,row] of previous)if(!next.has(key))table.remove.run(...table.keys.map(column=>row[table.columns.indexOf(column)]));
@@ -356,25 +361,27 @@ export async function openArenaDatabase(dataDir){
         setMetadata.run('state_extra',extraJson);setMetadata.run('initialized','true');
         if(migration)setMetadata.run('json_migration',encoded(migration));
         db.exec('COMMIT;');
+        baseline=Object.fromEntries(changes.map(({table,next})=>[table.name,next]));baselineExtra=JSON.parse(extraJson);
       }catch(error){db.exec('ROLLBACK;');throw error;}
     }
     function load(){
       if(closed)throw Error('O banco da arena está fechado.');
       db.exec('BEGIN;');
       try{
-        const result={...(readMetadata('state_extra')||{}),version:1,...Object.fromEntries(MAPS.map(key=>[key,{}]))};
-        for(const row of db.prepare('SELECT id,password_hash,password_salt,data_json FROM users').all()){
-          const user=JSON.parse(row.data_json);
-          if(row.password_hash!==null)user.passwordHash=row.password_hash;
-          if(row.password_salt!==null)user.passwordSalt=row.password_salt;
-          user.transactions=[];result.users[row.id]=user;
+        const extra=readMetadata('state_extra')||{},snapshot=readRows();
+        const result={...extra,version:1,...Object.fromEntries(MAPS.map(key=>[key,{}]))};
+        for(const row of snapshot.users.values()){
+          const user=JSON.parse(row[6]);
+          if(row[4]!==null)user.passwordHash=row[4];
+          if(row[5]!==null)user.passwordSalt=row[5];
+          user.transactions=[];result.users[row[0]]=user;
         }
-        for(const row of db.prepare('SELECT user_id,data_json FROM transactions ORDER BY user_id,position').all())result.users[row.user_id].transactions.push(JSON.parse(row.data_json));
-        for(const [map,table,key] of [['duels','duels','id'],['sessions','sessions','token_hash'],['deposits','deposits','id'],['evidence','evidence','id'],['walletEvidence','wallet_evidence','id']]){
-          for(const row of db.prepare(`SELECT ${key} AS record_key,data_json FROM ${table}`).all())result[map][row.record_key]=JSON.parse(row.data_json);
+        for(const row of [...snapshot.transactions.values()].sort((a,b)=>a[4]-b[4]))result.users[row[1]].transactions.push(JSON.parse(row[5]));
+        for(const [map,table] of [['duels','duels'],['sessions','sessions'],['deposits','deposits'],['evidence','evidence'],['walletEvidence','wallet_evidence']]){
+          for(const row of snapshot[table].values())result[map][row[0]]=JSON.parse(row.at(-1));
         }
-        for(const row of db.prepare('SELECT provider,subject,data_json FROM auth_identities').all())result.authIdentities[`${row.provider}:${row.subject}`]=JSON.parse(row.data_json);
-        db.exec('COMMIT;');return result;
+        for(const row of snapshot.auth_identities.values())result.authIdentities[`${row[0]}:${row[1]}`]=JSON.parse(row[3]);
+        db.exec('COMMIT;');baseline=snapshot;baselineExtra=JSON.parse(encoded(extra));return result;
       }catch(error){db.exec('ROLLBACK;');throw error;}
     }
     if(!readMetadata('initialized')){

@@ -135,7 +135,7 @@ test('each configured verified account is authorized and removing configuration 
 
 test('overview counts only the deposits eligible for the current administrator proof review',async t=>{
   const customize=(state,accounts)=>{
-    for(const [owner,status,method,paymentMode]of [['ordinary','review','transfer','demo'],['unverified','review','transfer',undefined],['admin','review','transfer','demo'],['ordinary','pending','transfer','demo'],['ordinary','review','pix','demo'],['ordinary','review','pix','pix_manual'],['ordinary','approved','transfer','demo']]){
+    for(const [owner,status,method,paymentMode]of [['ordinary','review','transfer','demo'],['unverified','review','transfer',undefined],['admin','review','transfer','demo'],['ordinary','pending','transfer','demo'],['ordinary','review','pix','demo'],['ordinary','approved','transfer','demo']]){
       const id=randomUUID();state.deposits[id]={id,userId:accounts[owner].user.id,status,method,...(paymentMode?{paymentMode}:{}),amount:100,version:1,createdAt:new Date().toISOString()};
       if(status==='approved'){const account=state.users[accounts[owner].user.id];account.balance+=100;account.transactions.unshift({id:randomUUID(),reference:`deposit:${id}`,amount:100,label:'Recarga aprovada de teste',date:new Date().toISOString()});}
     }
@@ -144,7 +144,12 @@ test('overview counts only the deposits eligible for the current administrator p
   const review=(await demo.api('admin','/wallet/reviews')).data;
   assert.equal(review.deposits.length,2);
   assert.equal((await demo.api('admin','/admin/overview')).data.stats.pendingDeposits,review.deposits.length);
-  const unconfigured=await harness(t,{customize});
+  // Connected fixtures retain real Pix requests; demo ledgers belong to their own database.
+  const unconfigured=await harness(t,{customize:(state,accounts)=>{
+    for(const [owner,status]of [['ordinary','review'],['admin','review'],['ordinary','pending']]){
+      const id=randomUUID();state.deposits[id]={id,userId:accounts[owner].user.id,status,method:'pix',paymentMode:'pix_manual',amount:100,priceCents:1000,version:1,createdAt:new Date().toISOString()};
+    }
+  }});
   assert.deepEqual((await unconfigured.api('admin','/wallet/reviews')).data.deposits,[]);
   assert.equal((await unconfigured.api('admin','/admin/overview')).data.stats.pendingDeposits,0);
 });

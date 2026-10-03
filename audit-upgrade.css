@@ -1,0 +1,83 @@
+/* Audit additions preserve the existing account palette and surfaces. */
+.room-result figcaption>.score-pair{display:block;text-align:left;margin:8px 0;line-height:1.5;letter-spacing:0}
+.account-history .history-score{white-space:normal;overflow-wrap:anywhere;line-height:1.4;min-width:0}
+@media(max-width:700px){
+ .account-history .match-history-row>.history-score{grid-column:3/-1;grid-row:2;text-align:left;font-size:20px}
+ .account-history .match-history-row>.history-rival{grid-column:3/-1;grid-row:1}
+}
+@media(max-width:480px){
+ .account-history .match-history-row>.history-score{grid-column:2/-1}
+ .account-history .match-history-row>.history-rival{grid-column:2/-1}
+}
+.review-evidence{min-width:0;margin-block:24px;color:var(--text)}
+.review-evidence>h2{font-size:20px;line-height:1.3;margin:0 0 10px}
+.review-evidence>.account-note{max-width:70ch;margin:0 0 16px;line-height:1.6}
+.review-evidence-grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:24px}
+.review-evidence-photo{min-width:0}
+.review-evidence-photo h3{font-size:17px;line-height:1.35;margin:0 0 8px}
+.review-evidence-author,.review-evidence-date{overflow-wrap:anywhere;font-size:14px;line-height:1.6;margin:4px 0}
+.review-evidence-date,.review-evidence-author span{color:var(--muted)}
+.review-evidence-zoom{display:block;color:var(--lime);text-decoration:underline;text-underline-offset:4px;margin-block:12px}
+.review-evidence-zoom img{display:block;width:100%;height:clamp(180px,28vw,320px);object-fit:contain;background:var(--card);border-radius:9px}
+.review-evidence-zoom>span{display:flex;align-items:center;flex-wrap:wrap;gap:6px;min-height:44px;font-size:14px}
+.review-evidence-zoom:focus-visible{outline:3px solid var(--lime);outline-offset:4px;border-radius:9px}
+.review-evidence-zoom:hover{color:var(--text)}
+.review-evidence-reading{font-size:14px;line-height:1.6;font-variant-numeric:tabular-nums}
+.review-evidence-reading p{margin:4px 0}
+.review-evidence-risks{margin:12px 0;padding-inline-start:20px;font-size:14px;line-height:1.6}
+.review-evidence-warning{font-size:14px;line-height:1.6;padding:12px;border:1px solid var(--line);border-radius:9px}
+.account-profile .account-achievements{list-style:none;padding:0;margin:20px 0 0}
+.account-profile .account-achievements li{display:flex;align-items:flex-start;gap:14px;padding-block:14px;border-block-start:1px solid var(--line)}
+.account-profile .account-achievements li>div{min-width:0;overflow-wrap:anywhere}
+.account-profile .achievement-icon{width:36px;height:36px;flex:none;color:var(--lime)}
+.account-profile .account-achievements h3{margin:0 0 6px;font-size:16px;line-height:1.4}
+.account-profile .account-achievements p,.account-profile .account-achievements small{font-size:14px;line-height:1.6;color:var(--muted)}
+.account-profile .profile-security h2,.account-profile .profile-notifications h2,.account-profile .profile-retention h2,.account-profile .profile-achievements h2{font-size:20px}
+.account-ranking .ranking-evolution{margin-block-start:24px;min-width:0}
+.account-ranking .ranking-evolution h3{font-size:17px;margin:0 0 12px}
+.account-ranking .ranking-evolution th small{display:block;font-weight:400;color:var(--muted);font-size:14px;margin-block-start:4px}
+.account-ranking .ranking-evolution .account-table{font-variant-numeric:tabular-nums}
+@media(max-width:640px){
+ .review-evidence-grid{grid-template-columns:minmax(0,1fr);gap:28px}
+ .review-evidence-zoom img{height:auto;max-height:340px;min-height:120px}
+ .account-ranking .ranking-evolution .account-table{min-width:420px}
+}
+
+/* Private account dialogs and agreed match phases share the existing palette. */
+.security-settings{min-width:0;color:var(--text)}
+.security-settings h3{margin:24px 0 12px;font-size:18px;line-height:1.4}
+.security-settings form{display:grid;gap:12px;min-width:0;margin-block:0 24px}
+.security-settings form>h3{margin:0 0 4px}
+.security-settings form+form{padding-block-start:24px;border-block-start:1px solid var(--line)}
+form[data-form='recover-account'],form[data-form='delete-account-request']{display:grid;gap:12px;min-width:0;margin-block:20px}
+:is(.security-settings,form[data-form='recover-account'],form[data-form='delete-account-request']) .form-label{margin:8px 0 0;font-size:14px;line-height:1.5;color:var(--text)}
+:is(.security-settings,form[data-form='recover-account'],form[data-form='delete-account-request']) .form-input{width:100%;min-width:0;min-height:48px;margin:0;font-size:16px;line-height:1.5;caret-color:var(--lime)}
+:is(.security-settings,form[data-form='recover-account'],form[data-form='delete-account-request']) .form-input::placeholder{color:var(--muted);opacity:1}
+form[data-form='delete-account-request'] textarea{min-height:110px;resize:vertical}
+:is(.security-settings,form[data-form='recover-account'],form[data-form='delete-account-request']) .btn,[data-action='copy-recovery-codes']{min-height:48px;white-space:normal}
+.security-settings .meta{font-size:14px;line-height:1.6;margin:0;color:var(--muted);overflow-wrap:anywhere}
+.security-sessions{list-style:none;padding:0;margin:0 0 20px}
+.security-sessions li{display:flex;align-items:center;justify-content:space-between;gap:16px;padding-block:16px;border-block-start:1px solid var(--line)}
+.security-sessions li>div{min-width:0;overflow-wrap:anywhere}
+.security-sessions p,.security-sessions small{display:block;color:var(--muted);font-size:14px;line-height:1.6;margin:6px 0 0;font-variant-numeric:tabular-nums}
+.security-sessions .btn{flex:none}
+.recovery-code-list{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:12px 24px;margin:24px 0;padding-inline-start:26px;color:var(--text)}
+.recovery-code-list li{min-width:0;padding:8px 0;line-height:1.6}
+.recovery-code-list code{font-size:15px;font-variant-numeric:tabular-nums;overflow-wrap:anywhere;word-break:normal;user-select:all}
+.result-phase{min-width:0;margin:20px 0;padding:16px;border:1px solid var(--line);border-radius:10px;color:var(--text)}
+.result-phase legend{padding-inline:6px;font-size:16px;font-weight:600;line-height:1.4}
+.result-phase-toggle{display:flex;align-items:center;gap:12px;min-height:48px;margin:0;cursor:pointer;font-size:16px;line-height:1.5}
+.result-phase-toggle input[type=checkbox]{flex:none;width:20px;height:20px;min-width:20px;min-height:20px;margin:0;accent-color:var(--lime)}
+.result-phase>.meta{font-size:14px;line-height:1.6;color:var(--muted);margin:8px 0 16px}
+.result-phase .form-grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:16px}
+.result-phase .form-grid>label{display:grid;gap:8px;min-width:0;font-size:14px;line-height:1.5;overflow-wrap:anywhere}
+.result-phase .form-input{width:100%;min-width:0;min-height:48px;margin:0;font-size:16px;font-variant-numeric:tabular-nums;caret-color:var(--lime)}
+.result-phase [data-phase-fields][hidden]{display:none}
+:is(.security-settings,form[data-form='recover-account'],form[data-form='delete-account-request'],.result-phase) :is(button,input,textarea,select):focus-visible,[data-action='copy-recovery-codes']:focus-visible{outline:3px solid var(--lime);outline-offset:4px}
+@media(max-width:600px){
+ .security-sessions li{display:grid;gap:12px;justify-content:stretch}
+ .security-sessions .btn{width:100%}
+ .recovery-code-list{grid-template-columns:minmax(0,1fr);gap:8px;padding-inline-start:24px}
+ .result-phase{padding:12px}
+ .result-phase .form-grid{grid-template-columns:minmax(0,1fr);gap:12px}
+}

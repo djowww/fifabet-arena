@@ -54,12 +54,16 @@ GET consulta projeções da conta/sala sem clonar o banco global. `cursorPage(it
 
 Fotos de salas/depósitos inteiramente encerrados há 30 dias podem ser movidas para `archive/evidence/` e `archive/wallet-evidence/`, dentro da mesma pasta privada. Disputas e relatos abertos são preservados no armazenamento ativo. Não há exclusão automática. A leitura verifica autorização antes de consultar arquivo ativo ou arquivado; caminhos alternativos preservam acesso mesmo se o movimento do arquivo acontecer e a gravação dos metadados falhar.
 
-`FIFABET_MAX_EVIDENCE_BYTES` limita o armazenamento ativo a 200 MiB por padrão; o arquivo privado continua contabilizado no total apresentado à administração. `FIFABET_ARCHIVE_AFTER_MS` configura o prazo de arquivamento, padrão de 30 dias. Backup deve incluir ambas as áreas e os metadados do SQLite.
+`FIFABET_MAX_EVIDENCE_BYTES` limita o total de fotos ativas e arquivadas a 200 MiB por padrão; arquivar não libera espaço nessa cota. Novos envios também preservam uma margem padrão de 64 MiB de espaço livre no sistema de arquivos, levando em conta envios simultâneos reservados. `FIFABET_ARCHIVE_AFTER_MS` configura o prazo de arquivamento, padrão de 30 dias. Backup deve incluir ambas as áreas e os metadados do SQLite.
+
+A limpeza de órfãos remove somente arquivos ativos com nome UUID sem referência nos mapas de evidência, fora de envios em andamento e com mais de 24 horas desde a última modificação. Não percorre o arquivo privado nem remove fotos ainda vinculadas a partidas ou recargas. É uma recuperação de espaço para arquivos sem registro, não um prazo de exclusão das evidências dos usuários.
 
 ## Operação e privacidade
 
 `node backend/accounts.mjs` consulta um SQLite existente em modo somente leitura e lista somente apelido, ID público e ID interno necessário para configurar a equipe. Não cria um banco. Quando ainda não existe SQLite, lê o JSON legado sem migrá-lo. A ferramenta não imprime hashes, salts, sessões, saldos ou identidades externas.
 
 Mantenha a pasta privada acessível apenas ao usuário do serviço. O adaptador solicita permissões `0700` para a pasta e `0600` para o banco e backups em sistemas que suportam essas permissões. Não envie `arena.sqlite`, arquivos `-wal`/`-shm`, JSON, imagens ou backups ao GitHub. Para copiar a pasta completa de forma consistente, pare o servidor e feche o banco; preserve também quaisquer arquivos WAL existentes. Configure retenção, armazenamento separado e restauração de backups antes de operar pagamentos reais.
+
+A anonimização aprovada desativa acesso e remove credenciais, vínculo externo e preferências de perfil. Preserva a linha da conta, IDs, país/aceite, extratos, decisões, partidas, conversas e fotos privadas para manter referências e registros protegidos. As cópias de segurança existentes não são reescritas por essa operação. Consulte [privacidade e retenção operacional](PRIVACIDADE-RETENCAO.md) para sessões, recuperação e critérios de revisão; o código não define um prazo definitivo para eliminação dos registros ou backups.
 
 Referência técnica: [SQLite nativo do Node.js 24](https://nodejs.org/docs/latest-v24.x/api/sqlite.html).

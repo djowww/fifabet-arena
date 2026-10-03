@@ -1,4 +1,9 @@
 import {createRenderGate,filterRooms,mergeRecords} from './room-ui.mjs';
+import {createAppNotifications} from './app-notifications.mjs';
+import {createAccountTools} from './account-tools.mjs';
+import {renderReviewEvidence} from './review-evidence.mjs';
+import * as resultPhases from './result-phases.mjs';
+import * as reviewTools from './review-tools.mjs';
 import * as chatUI from './chat-ui.mjs';
 import {preparationState} from './room-ui.mjs';
 import test from 'node:test';
@@ -32,7 +37,7 @@ const plain = html => html.replace(/<[^>]*>/g, ' ').replace(/\s+/g, ' ');
 const duel = (overrides = {}) => ({id: 'private-match-a', publicMatchId: 'FG-1234567890', hostId: user.id, guestId: opponent.id, host: {...user}, guest: {...opponent}, mode: '1v1', platform: 'playstation', stake: 100, status: 'completed', createdAt: '2026-10-01T12:00:00.000Z', winnerId: user.id, result: {id: 'private-result', reporterId: user.id, homeScore: 3, awayScore: 1, evidenceId: 'private-photo'}, ...overrides});
 
 async function harness({sessionUser = {...user}, backendStatus = status, arena = {}, api = {}, route = 'arena'} = {}) {
-  const nodes = {}, listeners = {}, windowListeners = {}, calls = [], copies = [];
+  const nodes = {}, listeners = {}, windowListeners = {}, calls = [], copies = [], timers = new Map(); let timerId = 0;
   const stored = new Map([[M.STORAGE_KEY, JSON.stringify(M.emptyState())]]), session = new Map();
   const storage = map => ({getItem: key => map.get(key) ?? null, setItem: (key, value) => map.set(key, String(value)), removeItem: key => map.delete(key)});
   const location = {href: `https://betfifa.com.br/#${route}`, hash: `#${route}`, pathname: '/', origin: 'https://betfifa.com.br'};
@@ -85,9 +90,11 @@ async function harness({sessionUser = {...user}, backendStatus = status, arena =
     navigator: {clipboard: {async writeText(value) {copies.push(value);}}},
     window: {addEventListener(event, callback) {windowListeners[event] = callback;}, scrollTo() {}},
     history: {replaceState(_state, _title, value) {const next = new URL(value, location.href); Object.assign(location, {href: next.href, hash: next.hash, pathname: next.pathname});}},
-    setTimeout() {return 1;}, clearTimeout() {}, setInterval() {return 2;}, clearInterval() {}
+    setTimeout(callback,delay) {const id=++timerId;timers.set(id,{callback,delay});return id;}, clearTimeout(id) {timers.delete(id);}, setInterval() {return 2;}, clearInterval() {}
   };
   Object.assign(context,chatUI,{preparationState});
+  Object.assign(context,resultPhases,reviewTools,{AbortController,createAccountTools,renderReviewEvidence,
+    createAppNotifications:options=>createAppNotifications({storage:context.localStorage,Notification:context.Notification,hidden:()=>context.document.hidden===true,onOpen:id=>{context.location.hash=`#partida/${id}`;},...options})});
   vm.createContext(context);
   vm.runInContext(source.replace(/^import .*?;\r?\n/gm, '').replace(/\nstart\(\)\.catch\(/, '\nglobalThis.__boot=start().catch('), context);
   await context.__boot;
@@ -103,7 +110,9 @@ async function harness({sessionUser = {...user}, backendStatus = status, arena =
   }
   async function search(value) {
     const field = node('historySearch'); field.value = value; field.selectionStart = value.length;
-    listeners.input({target: field}); await settle();
+    listeners.input({target: field});
+    for(const [id,timer] of timers)if(timer.delay===250){timers.delete(id);await timer.callback();}
+    await settle();
   }
   async function input(id, value) {
     const field = node(id); field.value = value;
@@ -240,6 +249,11 @@ test('logging out while the wallet loads prevents rendering the former account b
 
 test('an unfinished OAuth profile cannot load private account pages until onboarding is completed', async () => {
   const h = await harness({sessionUser: {...user, needsOnboarding: true}});
+  assert.equal(h.nodes.modal.open,true);
+  assert.match(h.nodes.modalContent.innerHTML,/data-form='onboarding'/);
+  assert.match(h.nodes.modalContent.innerHTML,/data-owner='account-a'/);
+  assert.doesNotMatch(h.nodes.modalContent.innerHTML,/data-action='recover-account'|data-form='login'|data-form='signup'/);
+  assert.doesNotMatch(h.nodes.toast?.textContent||'',/signup|não foi possível/i);
   for (const page of ['carteira', 'historico', 'ranking', 'perfil']) {
     await h.routeTo(page); assert.match(h.html(), /data-action='complete-signup'/); assert.doesNotMatch(h.html(), /777|private-photo/);
   }

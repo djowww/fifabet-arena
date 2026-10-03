@@ -93,7 +93,7 @@ test('an operationally overdue match remains human review even when both later s
  assert.equal(confirmation.status,200);assert.equal(confirmation.data.duel.status,'pending_review');assert.equal(confirmation.data.duel.reviewReason,'match_timeout');assert.equal((await host.api('/me')).data.user.balance,900);
 });
 test('manual Pix needs bank value/date/reference and the same transfer cannot fund two accounts',async t=>{
- const h=await fixture(t),a=h.client(),b=h.client(),team=h.client();await a.register('Alice');await b.register('Bob');const reviewer=await team.register('Reviewer');h.reviewerIds.push(reviewer.id);
+ const h=await fixture(t,{paymentMode:'unconfigured'}),a=h.client(),b=h.client(),team=h.client();await a.register('Alice');await b.register('Bob');const reviewer=await team.register('Reviewer');h.reviewerIds.push(reviewer.id);
  await h.restart({paymentMode:'pix_manual',publicOrigin:'https://fifago.local-test',pixKey:'test@example.com',pixPackages:Object.fromEntries([100,250,500,1000].map(amount=>[amount,{amount,priceCents:amount*10}]))});
  async function proof(client){const order=await client.api('/wallet/deposits',{method:'POST',data:{amount:100,method:'pix',idempotencyKey:randomUUID()}});assert.equal(order.status,200);const sent=await client.api(`/wallet/deposits/${order.data.deposit.id}/proof?version=1`,{method:'POST',body:PNG,mime:'image/png'});assert.equal(sent.status,200);return sent.data.deposit;}
  const one=await proof(a),two=await proof(b),decision={decision:'approve',reason:'Conferência sintética de extrato em teste local.',version:2,bankReference:'E1234567890TEST',bankAmountCents:1000,paidAt:new Date().toISOString()};

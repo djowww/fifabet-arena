@@ -309,6 +309,7 @@
 
 /* Arena keeps room discovery and personal activity above the fold. */
 .arena-directory { min-width: 0; }
+.arena-directory .sr-only { position: absolute; width: 1px; height: 1px; padding: 0; margin: -1px; overflow: hidden; clip: rect(0,0,0,0); white-space: nowrap; border: 0; }
 .arena-directory-heading { display: flex; align-items: center; justify-content: space-between; gap: 24px; margin-bottom: 22px; }
 .arena-directory-heading h1 { margin: 0 0 8px; font-size: clamp(30px, 3vw, 40px); line-height: 1.1; }
 .arena-directory-heading p { margin: 0; color: var(--muted); font-size: 15px; line-height: 1.5; }
@@ -324,10 +325,44 @@
 .arena-directory .arena-room-card .row { flex-wrap: wrap; }
 .arena-directory .arena-room-card .row > div { min-width: 0; }
 .arena-directory .arena-room-card h3 { overflow-wrap: anywhere; }
-.arena-directory .arena-room-card > .btn { align-self: flex-start; margin-top: auto; }
-.arena-directory .arena-room-card > .meta:last-of-type { flex: 1; margin-bottom: 18px; }
-.arena-directory .arena-own-room { border-color: #61806a; }
-.arena-directory .arena-room-code { font-variant-numeric: tabular-nums; letter-spacing: .04em; }
+.arena-directory .arena-room-card > .btn { align-self: flex-start; margin-top: 12px; }
+.arena-directory .room-entry-price { display: flex; align-items: baseline; flex-wrap: wrap; gap: 6px 10px; margin: 20px 0 6px; font-size: 30px; line-height: 1.2; }
+.arena-directory .room-entry-price > span { font-size: 14px; line-height: 1.5; }
+.arena-entry-note { margin: 6px 0 0; color: var(--muted); font-size: 13px; line-height: 1.5; }
+.arena-list-controls { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 12px 24px; margin-bottom: 16px; }
+.arena-list-controls > .meta { margin: 0; }
+.arena-directory .arena-room-grid, .arena-directory .taste-activity-grid { margin-top: 0; }
+.arena-filter-disclosure { flex: 0 0 auto; }
+.arena-filter-disclosure[open] { flex-basis: 100%; }
+.arena-filter-disclosure > summary, .arena-card-options > summary { min-height: 44px; display: flex; align-items: center; gap: 8px; width: fit-content; color: var(--text); font-size: 14px; cursor: pointer; list-style: none; border-radius: 6px; }
+.arena-filter-disclosure > summary::-webkit-details-marker, .arena-card-options > summary::-webkit-details-marker { display: none; }
+.arena-filter-disclosure > summary::after, .arena-card-options > summary::after { content: '+'; color: var(--muted); font-size: 18px; }
+.arena-filter-disclosure[open] > summary::after, .arena-card-options[open] > summary::after { content: '−'; }
+.arena-filter-disclosure > summary:focus-visible, .arena-card-options > summary:focus-visible { outline: 2px solid var(--accent, #73e5ac); outline-offset: 4px; }
+.arena-directory .arena-filters { padding: 18px; margin: 4px 0 0; border: 1px solid var(--line); border-radius: 10px; background: var(--surface, #18221b); }
+.arena-status-filter { display: flex; align-items: center; gap: 10px; color: var(--muted); font-size: 14px; }
+.arena-status-filter select { width: auto; min-width: 200px; min-height: 44px; }
+.arena-directory .lobby-queue { margin-top: 0; }
+.arena-directory .queue-nudge { display: inline-flex; align-items: center; gap: 4px; margin: 0; padding: 8px 0; border: 0; background: none; min-height: 44px; }
+.arena-directory .queue-nudge .ui-icon { width: 16px; height: 16px; }
+.arena-directory .arena-personal-card { display: flex; flex-direction: column; padding: 20px; }
+.arena-directory .arena-personal-card .duel-players { margin-bottom: 14px; }
+.arena-directory .arena-personal-card .duel-players small { font-size: 14px; }
+.arena-directory .arena-personal-card > .pill { align-self: flex-start; }
+.arena-card-summary { display: flex; align-items: baseline; justify-content: space-between; flex-wrap: wrap; gap: 8px 20px; }
+.arena-card-score { display: grid; gap: 6px; margin: 12px 0; text-align: right; }
+.arena-card-score span { color: var(--muted); font-size: 12px; }
+.arena-card-score strong { font-size: 22px; font-variant-numeric: tabular-nums; }
+.arena-card-actions { display: flex; flex-wrap: wrap; align-items: center; gap: 10px 20px; margin-top: auto; padding-top: 18px; }
+.arena-card-actions > .btn { min-height: 46px; font-size: 14px; }
+.arena-card-options[open] { flex-basis: 100%; }
+.duel-secondary-actions { display: flex; flex-wrap: wrap; gap: 8px; width: 100%; }
+.duel-secondary-actions .btn { min-height: 44px; font-size: 13px; }
+.arena-empty { display: flex; flex-direction: column; align-items: center; justify-content: center; min-height: 220px; gap: 8px; padding: 30px 20px; text-align: center; }
+.arena-empty-icon { display: grid; place-items: center; width: 48px; height: 48px; margin-bottom: 6px; border-radius: 50%; background: #20382b; color: var(--muted); }
+.arena-empty-icon .ui-icon { width: 25px; height: 25px; }
+.arena-empty strong { font-size: 18px; }
+.arena-empty p { max-width: 44ch; margin: 0; }
 .arena-directory .lobby-empty-activity .btn { margin-top: 12px; }
 .arena-home-link { display: flex; justify-content: space-between; align-items: center; gap: 20px; padding: 20px 24px; margin: 18px 0; border: 1px solid var(--line); border-radius: 12px; background: var(--surface, #18221b); }
 .arena-home-link > div { display: flex; align-items: center; gap: 14px; min-width: 0; }
@@ -340,11 +375,18 @@
   .arena-directory-heading p { font-size: 14px; }
   .arena-directory-actions { width: 100%; }
   .arena-directory-actions > .btn { flex: 1; min-height: 48px; padding-inline: 12px; }
+  .arena-directory-actions > .text-button { min-height: 48px; padding-inline: 8px; }
   .arena-directory-toolbar { align-items: stretch; flex-wrap: wrap; gap: 8px; margin-bottom: 16px; padding-bottom: 12px; }
   .arena-directory-tabs { width: 100%; }
   .arena-directory-tabs .tab { flex: 1; justify-content: center; padding-inline: 10px; gap: 6px; }
   .arena-directory-toolbar > .text-button { margin-left: auto; min-height: 44px; }
   .arena-directory .arena-room-card > .btn { width: 100%; min-height: 48px; }
+  .arena-status-filter { width: 100%; }
+  .arena-status-filter select { flex: 1; min-width: 0; }
+  .arena-directory .arena-personal-card { padding: 18px; }
+  .arena-card-actions > .btn { width: 100%; min-height: 48px; }
+  .duel-secondary-actions .btn { flex: 1 1 140px; }
+  .arena-directory .arena-filters { padding: 14px; }
   .arena-home-link { align-items: stretch; flex-direction: column; padding: 18px; gap: 16px; }
   .arena-home-link > .btn { width: 100%; min-height: 48px; }
 }

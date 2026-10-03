@@ -352,7 +352,7 @@ test('the connected arena renders only current server rooms and escapes public n
   assert.match(h.html(),/Salas abertas/);
   assert.match(h.html(),/data-action='public-room' data-id='FG-0000000001'/);
   assert.match(h.html(),/&lt;img onerror=alert\(1\)&gt;/);
-  assert.match(h.html(),/Conferir Coin exigidos/);
+  assert.match(h.html(),/Saldo insuficiente para entrar/);assert.match(h.html(),/Ver sala/);
   assert.doesNotMatch(h.html(),/data-action='public-room' data-id='private/);
 });
 

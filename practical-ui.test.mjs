@@ -535,27 +535,28 @@ function directoryFixture(){
  const api={detectBackend:async()=>({available:true,paymentMode:'unconfigured'}),loadSession:async()=>({user}),getArena:async()=>({user,duels:[own,secret],history:[],stats:{reserved:500}}),getRooms:async()=>({rooms:[available]})};
  return {user,own,secret,available,api};
 }
-test('Arena brings available and own public waiting rooms into the same directory without the home hero',async()=>{
+test('Arena shows public rivals separately from own rooms without the home hero',async()=>{
  const {api}=directoryFixture(),h=await harness({api,url:'https://example.test/#salas'}),html=h.nodes.screen.innerHTML;
  assert.equal(h.nodes.breadcrumb.textContent,'Arena');assert.match(html,/<h1[^>]*>Arena<\/h1>/);
- assert.doesNotMatch(html,/taste-home-hero|lobby-footballer|FG-2222222222/);
- assert.match(html,/FG-1111111111/);assert.match(html,/250/);assert.match(html,/Rival público/);assert.match(html,/Joga aí Coin por jogador/);
- assert.match(html,/data-action='room' data-id='own-open'/);assert.match(html,/data-action='public-room' data-id='FG-3333333333'/);
+ assert.doesNotMatch(html,/taste-home-hero|lobby-footballer|FG-1111111111|FG-2222222222|arena-owned-section/);
+ assert.match(html,/100/);assert.match(html,/Rival público/);assert.match(html,/Joga aí Coin por jogador/);
+ assert.doesNotMatch(html,/data-action='room' data-id='own-open'/);assert.match(html,/data-action='public-room' data-id='FG-3333333333'/);
  assert.equal((html.match(/<h1\b/g)||[]).length,1);
 });
 test('Arena personal tab preserves private rooms and their actions while home offers a short directory link',async()=>{
  const {api}=directoryFixture(),h=await harness({api});
  assert.match(h.nodes.screen.innerHTML,/data-action='browse-arena'/);assert.doesNotMatch(h.nodes.screen.innerHTML,/data-action='cancel'|arena-room-grid/);
  await h.click('browse-arena');assert.equal(h.location.hash,'#salas');await h.click('arena-tab','mine');
- assert.match(h.nodes.screen.innerHTML,/FG-2222222222/);assert.match(h.nodes.screen.innerHTML,/data-action='cancel'/);assert.doesNotMatch(h.nodes.screen.innerHTML,/data-action='public-room'/);
- await h.click('room','own-open');assert.equal(h.location.hash,'#partida/own-open');assert.match(h.nodes.screen.innerHTML,/href='#salas'/);
+ assert.match(h.nodes.screen.innerHTML,/data-action='room' data-id='own-private'/);assert.match(h.nodes.screen.innerHTML,/data-action='cancel' data-id='own-private'/);assert.doesNotMatch(h.nodes.screen.innerHTML,/data-action='public-room'|arena-room-code/);
+ assert.match(h.nodes.screen.innerHTML,/250 <span>Joga aí Coin por jogador/);
+ await h.click('room','own-open');assert.equal(h.location.hash,'#partida/own-open');assert.match(h.nodes.screen.innerHTML,/href='#salas'/);assert.match(h.nodes.screen.innerHTML,/FG-1111111111/);
 });
 test('Arena updates available rooms on polling and keeps its selected personal tab',async()=>{
  const {api,available}=directoryFixture();let rooms=[available];api.getRooms=async()=>({rooms});
  const h=await harness({api,url:'https://example.test/#salas'});rooms=[];
- await h.intervals.find(x=>x.delay===8000).callback();assert.doesNotMatch(h.nodes.screen.innerHTML,/Rival público/);assert.match(h.nodes.screen.innerHTML,/FG-1111111111/);
+ await h.intervals.find(x=>x.delay===8000).callback();assert.doesNotMatch(h.nodes.screen.innerHTML,/Rival público|data-action='room' data-id='own-open'/);assert.match(h.nodes.screen.innerHTML,/A próxima sala pode ser a sua/);
  await h.click('arena-tab','mine');rooms=[available];await h.intervals.find(x=>x.delay===8000).callback();
- assert.match(h.nodes.screen.innerHTML,/FG-2222222222/);assert.doesNotMatch(h.nodes.screen.innerHTML,/Rival público/);
+ assert.match(h.nodes.screen.innerHTML,/data-action='room' data-id='own-private'/);assert.doesNotMatch(h.nodes.screen.innerHTML,/Rival público/);
 });
 test('Arena guest view asks for login without rendering member rooms or personal counts',async()=>{
  const {api}=directoryFixture();api.loadSession=async()=>({user:null});api.getArena=async()=>{assert.fail('Guest must not load personal arena');};
@@ -563,9 +564,10 @@ test('Arena guest view asks for login without rendering member rooms or personal
  assert.equal(h.nodes.breadcrumb.textContent,'Arena');assert.match(h.nodes.screen.innerHTML,/data-action='login'/);assert.doesNotMatch(h.nodes.screen.innerHTML,/FG-1111111111|FG-2222222222|Rival público|data-action='arena-tab'/);
 });
 test('Arena does not claim a Coin reservation for an own free room and omits expired own rooms',async()=>{
- const {api,own,secret}=directoryFixture();own.stake=0;secret.visibility='public';secret.expiresAt='2000-01-01T00:00:00Z';
- const h=await harness({api,url:'https://example.test/#salas'}),html=h.nodes.screen.innerHTML;
- assert.match(html,/Nenhum Coin é reservado/);assert.doesNotMatch(html,/Sua parte já está reservada|FG-2222222222/);
+ const {api,own,secret}=directoryFixture();own.stake=0;secret.visibility='public';secret.expiresAt='2000-01-01T00:00:00Z';secret.status='expired';
+ const h=await harness({api,url:'https://example.test/#salas'});await h.click('arena-tab','mine');const html=h.nodes.screen.innerHTML;
+ assert.match(html,/Grátis <span>amistosa sem Coin/);assert.match(html,/data-action='room' data-id='own-open'/);assert.doesNotMatch(html,/Sua parte já está reservada|data-action='room' data-id='own-private'/);
+ await h.click('room','own-open');assert.match(h.nodes.screen.innerHTML,/sem Joga aí Coin/);assert.doesNotMatch(h.nodes.screen.innerHTML,/Sua parte em Coin já foi reservada/);
 });
 test('Arena shows a polling room failure even if the last room and account data are unchanged',async()=>{
  const {api,available}=directoryFixture();let failed=false;api.getRooms=async()=>{if(failed)throw Error('Private diagnostic');return {rooms:[available]};};
@@ -575,5 +577,5 @@ test('Arena shows a polling room failure even if the last room and account data 
 test('logging in from Arena loads available rooms immediately without waiting for a poll',async()=>{
  const {api}=directoryFixture();api.loadSession=async()=>({user:null});api.loginAccount=async()=>({});
  const h=await harness({api,url:'https://example.test/#salas'});await h.click('login');await h.submit('login',{nickname:'Alex',password:'fixture login password'});
- assert.match(h.nodes.screen.innerHTML,/Rival público/);assert.match(h.nodes.screen.innerHTML,/FG-1111111111/);
+ assert.match(h.nodes.screen.innerHTML,/Rival público/);assert.match(h.nodes.screen.innerHTML,/data-action='public-room' data-id='FG-3333333333'/);assert.doesNotMatch(h.nodes.screen.innerHTML,/data-action='room' data-id='own-open'/);
 });

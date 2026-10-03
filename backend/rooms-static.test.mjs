@@ -29,7 +29,7 @@ test('published app module graph includes room and photo helpers without exposin
   const response=await fetch(origin+privatePath);assert.equal(response.status,404);await response.arrayBuffer();
  }
  const index=await readFile(new URL('../index.html',import.meta.url),'utf8');
- assert.match(index,/data-app="play\.js\?v=36"/);
+ assert.match(index,/data-app="play\.js\?v=37"/);
  for(const module of ['account-tools','account-security-ui','app-notifications','review-evidence','review-tools','result-phases'])assert.ok([...seen].some(path=>path.startsWith('/'+module+'.mjs')),module+' must be served');
  for(const css of ['audit-upgrade.css','review-tools.css'])assert.equal((await fetch(origin+'/'+css)).status,200);
  assert.equal((await fetch(origin+'/backend/test-fixtures.mjs')).status,404);

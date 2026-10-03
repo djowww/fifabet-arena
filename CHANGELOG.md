@@ -2,6 +2,13 @@
 
 Registro resumido das entregas recentes. O histórico completo está nos [commits](https://github.com/djowww/fifabet-arena/commits/main/). A data de um commit não implica publicação automática no site.
 
+## 2026-10-03 — Arena simplificada
+
+- Salas abertas e partidas próprias em abas separadas, sem cartões duplicados.
+- Coin por jogador em destaque e uma ação principal por cartão.
+- Filtros recolhidos, seletor de etapa e opções secundárias acessíveis.
+- Ajustes para celular, navegação por teclado e atualização das salas.
+
 ## 2026-10-03 — Organização do repositório
 
 - README com apresentação do produto, funcionalidades, limitações e início rápido.

@@ -1,6 +1,6 @@
 # Fifa GO — approved audit upgrade
 
-Approved by the user: apply all recommendations from the preceding audit, using Superpowers. Architecture work across existing modules; preserve production data, wallet ledger, 9% room agreement, authenticated private evidence, existing design, and Tibia services. Payments remain unconfigured. No fabricated integrations.
+Approved by the user: apply all recommendations from the preceding audit, using Superpowers. Architecture work across existing modules; preserve production data, wallet ledger, 9% room agreement, authenticated private evidence, existing design, and other existing services. Payments remain unconfigured. No fabricated integrations.
 
 ## Design decisions
 - Fix safety issues before adding convenience: compare both independent evidence photos, guard environment changes, validate penalty outcome, admission cap, full pending totals, bounded requests, staged upload cleanup and streamed downloads.

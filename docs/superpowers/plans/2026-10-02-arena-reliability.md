@@ -15,7 +15,7 @@
 - No real payments, settlement or test accounts on production. Preserve existing balances and completed matches.
 - House fee 900 basis points, existing integer rounding, draw refunds, idempotency and independent review.
 - Deadline does not award victory; payment availability remains server-owned.
-- Preserve unrelated workspace edits and all Tibia services. Publish only Fifa GO after verification.
+- Preserve unrelated workspace edits and all other existing services. Publish only Fifa GO after verification.
 
 ## Tasks
 

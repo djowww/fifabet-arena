@@ -1,8 +1,8 @@
 # Contas, desafios, banco e carteira
 
-O servidor `backend/server.mjs` mantém contas e partidas compartilhadas em SQLite privado: cada pessoa entra com apelido ou ID e senha, os dois lados usam o mesmo desafio e a foto fica privada. O login Google/Apple possui fluxo próprio no servidor e depende das credenciais externas de cada provedor. O Google está configurado em um projeto isolado no modo de teste; a API informa o provedor Google disponível e a conta do proprietário consta na lista de testadores. Apple fica desativado. O padrão da carteira continua `unconfigured`, que desativa compras e permite amistosas sem créditos. Há um modo opcional de Pix manual, descrito abaixo, que só funciona após configuração explícita e aprovação humana pelo extrato bancário. Saques e consulta a partidas da EA não estão integrados.
+O servidor `backend/server.mjs` mantém contas e partidas compartilhadas em SQLite privado: cada pessoa entra com apelido ou ID e senha, os dois lados usam o mesmo desafio e a foto fica privada. O login Google/Apple possui fluxo próprio no servidor e depende das credenciais externas de cada provedor. Na implantação documentada em [LOGIN_SOCIAL.md](LOGIN_SOCIAL.md), Google estava configurado em um projeto isolado no modo de teste, a API informava o provedor disponível e a conta do proprietário constava na lista de testadores; Apple estava desativado. Consulte `/api/v1/status` para a disponibilidade no ambiente em uso. O padrão da carteira continua `unconfigured`, que desativa compras e permite amistosas sem créditos. Há um modo opcional de Pix manual, descrito abaixo, que só funciona após configuração explícita e aprovação humana pelo extrato bancário. Saques e consulta a partidas da EA não estão integrados.
 
-A arquitetura de publicação usa HTTPS em `betfifa.com.br`, pelo VPS e pelo proxy da zona exclusiva do domínio na Cloudflare, com registro na Hostinger. O serviço Fifa GO tem usuário, runtime, código e dados próprios; serviços, arquivos, bancos, domínios e regras de firewall do Tibia devem permanecer preservados. O release ativo está no link `/opt/fifago/current`; consulte esse caminho para identificar a versão publicada. O endpoint de início OAuth redireciona ao Google. O GitHub Pages mantém uma publicação estática que não executa a API; retornar essa versão ao domínio exige reapontar os registros DNS.
+A arquitetura de publicação usa HTTPS em `betfifa.com.br`, pelo VPS e pelo proxy da zona exclusiva do domínio na Cloudflare, com registro na Hostinger. O serviço Fifa GO tem usuário, runtime, código e dados próprios; serviços, arquivos, bancos, domínios e regras de firewall dos outros projetos devem permanecer preservados. O release ativo está no link `/opt/fifago/current`; consulte esse caminho para identificar a versão publicada. O endpoint de início OAuth redireciona ao Google. O GitHub Pages mantém uma publicação estática que não executa a API; retornar essa versão ao domínio exige reapontar os registros DNS.
 
 ## Domínio e HTTPS
 
@@ -16,7 +16,7 @@ O novo host Nginx `betfifa.com.br` atende HTTP/HTTPS, redireciona HTTP para HTTP
 
 O certificado próprio foi inicialmente emitido por DNS-01 e agora usa renovação automática por webroot em `/var/lib/fifago-acme`. O `certbot.timer` já existente permanece ativo. A simulação de renovação (`dry-run`) e a renovação real do certificado específico de `betfifa.com.br` foram concluídas com sucesso. O hook novo `fifago-reload` confere `RENEWED_LINEAGE` para atuar somente nesse certificado e valida a configuração do Nginx antes de recarregá-lo. Os hooks, certificados e configurações de renovação anteriores permanecem separados; não devem ser alterados para manter o Fifa GO.
 
-Não editar os registros DNS dos domínios do Tibia para publicar ou atualizar o Fifa GO. O arquivo `CNAME` no repositório preserva a configuração do domínio no GitHub Pages para contingência; ele não aponta o DNS de volta nem instala a API.
+Não editar os registros DNS dos domínios de outros projetos para publicar ou atualizar o Fifa GO. O arquivo `CNAME` no repositório preserva a configuração do domínio no GitHub Pages para contingência; ele não aponta o DNS de volta nem instala a API.
 
 Referências: [domínio personalizado no GitHub Pages](https://docs.github.com/en/pages/configuring-a-custom-domain-for-your-github-pages-site/managing-a-custom-domain-for-your-github-pages-site) e [registros DNS da Hostinger](https://www.hostinger.com/support/1583249-how-to-manage-dns-records-at-hostinger/).
 
@@ -50,12 +50,12 @@ Por padrão, os dados privados ficam em `%USERPROFILE%\.fifabet-arena` no Window
 
 ## Login Google e Apple
 
-O fluxo está implementado no servidor, com identidade persistida por `(provider, subject)` no SQLite e sessão própria em cookie `HttpOnly`. O projeto **Fifa GO** e um cliente OAuth Web Google foram criados em modo externo de teste, com o callback exato abaixo. O acesso permanece indisponível no site enquanto as credenciais privadas não forem instaladas no servidor e os testadores não forem cadastrados. Apple fica desativado. Para ativar Google, configure `FIFABET_PUBLIC_ORIGIN` com a origem HTTPS exata e as duas credenciais privadas:
+O fluxo está implementado no servidor, com identidade persistida por `(provider, subject)` no SQLite e sessão própria em cookie `HttpOnly`. O projeto **Fifa GO** e um cliente OAuth Web Google foram criados em modo externo de teste, com o callback exato abaixo. Na implantação documentada em [LOGIN_SOCIAL.md](LOGIN_SOCIAL.md), as credenciais Google foram instaladas e o início do fluxo estava disponível para os testadores cadastrados; isso não comprova um login completo nem o estado atual da publicação. Apple fica desativado nessa implantação. Para configurar Google em outro ambiente, defina `FIFABET_PUBLIC_ORIGIN` com a origem HTTPS exata e as duas credenciais privadas:
 
 - Google: `FIFABET_GOOGLE_CLIENT_ID` e `FIFABET_GOOGLE_CLIENT_SECRET`; a URL de retorno autorizada é `https://betfifa.com.br/api/v1/auth/oauth/google/callback`. Até o app sair do modo de teste, somente contas adicionadas como testadoras podem entrar.
 - Apple: `FIFABET_APPLE_CLIENT_ID` (Services ID), `FIFABET_APPLE_TEAM_ID`, `FIFABET_APPLE_KEY_ID` e `FIFABET_APPLE_PRIVATE_KEY_FILE`; cadastrar o domínio e a URL de retorno `https://betfifa.com.br/api/v1/auth/oauth/apple/callback` no provedor. O arquivo da chave `.p8` deve usar caminho absoluto, privado e fora do repositório.
 
-Essas credenciais e os cadastros externos permanecem pendentes de configuração. `GET /status` indica quais provedores estão disponíveis; sem configuração válida, o login social fica indisponível e nenhuma conta falsa é criada. O início redireciona ao provedor; a resposta é verificada no servidor antes de gravar uma conta/sessão, incluindo assinatura, emissor, destinatário, prazo, nonce e vínculo com o navegador. Tokens do provedor não são enviados à interface nem persistidos.
+A disponibilidade depende das credenciais privadas e dos cadastros externos de cada ambiente. `GET /api/v1/status` indica quais provedores estão disponíveis; sem configuração válida, o login social fica indisponível e nenhuma conta falsa é criada. O início redireciona ao provedor; a resposta é verificada no servidor antes de gravar uma conta/sessão, incluindo assinatura, emissor, destinatário, prazo, nonce e vínculo com o navegador. Tokens do provedor não são enviados à interface nem persistidos.
 
 Contas externas novas recebem apelido genérico e ID próprio, sem publicar automaticamente nome completo ou e-mail. O e-mail verificado fica privado e não vincula uma conta existente automaticamente; o identificador estável é o subject do provedor. Uma conta Google/Apple sem senha deve entrar pelo mesmo provedor. Fluxos de login ainda não concluídos duram até 10 minutos e ficam em memória; após reiniciar, iniciar novamente o login.
 
@@ -197,15 +197,15 @@ O serviço usa `CPUQuota=20%`, `MemoryHigh=384M`, `MemoryMax=512M`, `TasksMax=32
 
 ### Atualizações e dados
 
-**O deploy é manual.** Um commit ou push no GitHub atualiza o repositório e eventualmente a publicação estática, mas não substitui a versão instalada no VPS. Instalar uma nova versão em pasta própria, preservar `/var/lib/fifago` e o arquivo de ambiente, trocar a versão ativa e reiniciar somente `fifago.service`. Conferir `/api/v1/status` e a página HTTPS após cada publicação. Não instalar pacotes globais, substituir a configuração principal do Nginx ou reiniciar serviços do Tibia para atualizar a aplicação.
+**O deploy é manual.** Um commit ou push no GitHub atualiza o repositório e eventualmente a publicação estática, mas não substitui a versão instalada no VPS. Instalar uma nova versão em pasta própria, preservar `/var/lib/fifago` e o arquivo de ambiente, trocar a versão ativa e reiniciar somente `fifago.service`. Conferir `/api/v1/status` e a página HTTPS após cada publicação. Não instalar pacotes globais, substituir a configuração principal do Nginx ou reiniciar serviços de outros projetos para atualizar a aplicação.
 
 Após instalar a versão nova, conferir `https://betfifa.com.br/api/v1/status` com validação TLS: espera-se `mode:'shared'`, `storage:'sqlite'`, `schemaVersion:1`, `paymentMode:'unconfigured'` e `paymentsAvailable:false`. Conferir também a página `#arena`, login por senha, código de partida e rótulos de pagamentos pendentes. Provedores sociais só devem aparecer disponíveis depois da configuração externa. Esta descrição não substitui a conferência da publicação; uma resposta da versão anterior não confirma a migração. Se a API ficar indisponível no domínio de produção, a interface deve bloquear cadastro/carteira e oferecer nova tentativa, sem mudar para demonstração local ou substituir dados das contas.
 
-Na publicação, as configurações anteriores do Nginx, a unidade do Tibia e as regras UFW foram conferidas sem alterações; o processo do Tibia permaneceu em execução. Essa conferência se refere à implantação realizada, e deve ser repetida quando houver manutenção da infraestrutura compartilhada.
+Na publicação, as configurações anteriores do Nginx, as unidades dos outros serviços e as regras UFW foram conferidas sem alterações; os processos dos outros serviços permaneceram em execução. Essa conferência se refere à implantação realizada, e deve ser repetida quando houver manutenção da infraestrutura compartilhada.
 
 O SQLite grava transações atômicas, com chaves estrangeiras e restrições de unicidade, enquanto o servidor serializa o estado em memória. Ele só pode ter uma instância escritora por pasta de dados: `instance.lock` impede processos concorrentes. Se houver encerramento inesperado, confirme que o processo parou antes de remover o lock. A migração inicial preserva JSON, contas, sessões e evidências; a carteira antiga fica separada como demonstração. Para múltiplas instâncias e escala maior, a estratégia de escrita precisa evoluir. Backup automatizado, monitoramento, retenção de imagens e recuperação de conta ainda exigem configuração operacional.
 
-Faça backup da pasta completa com apenas `fifago.service` parado e o banco fechado, preservando SQLite, WAL/SHM, fotos ativas, `archive/` e backups anteriores. Fotos de salas/depósitos inteiramente encerrados há 30 dias podem ir ao arquivo privado e continuam legíveis por contas autorizadas; disputas/relatos abertos não são arquivados. Não há exclusão automática. `FIFABET_ARCHIVE_AFTER_MS` configura o prazo; `FIFABET_MAX_EVIDENCE_BYTES` limita arquivos ativos (padrão 200 MiB). Administração acompanha uso ativo, arquivado e total; o arquivo não dispensa planejar espaço/backups. Nunca publicar dados privados. Perfis da demonstração no navegador continuam separados.
+Faça backup da pasta completa com apenas `fifago.service` parado e o banco fechado, preservando SQLite, WAL/SHM, fotos ativas, `archive/` e backups anteriores. Fotos de salas/depósitos inteiramente encerrados há 30 dias podem ir ao arquivo privado e continuam legíveis por contas autorizadas; disputas/relatos abertos não são arquivados. Não há exclusão automática. `FIFABET_ARCHIVE_AFTER_MS` configura o prazo; `FIFABET_MAX_EVIDENCE_BYTES` limita o total de arquivos ativos e arquivados (padrão 200 MiB). Administração acompanha uso ativo, arquivado e total; o arquivo não dispensa planejar espaço/backups. Nunca publicar dados privados. Perfis da demonstração no navegador continuam separados.
 
 ### Leitura, atualização e capacidade
 
@@ -223,9 +223,9 @@ Para devolver somente os arquivos do Fifa GO à hospedagem estática, sem contas
 2. Na zona **betfifa.com.br** da Cloudflare, restaurar os quatro registros A de `@`: `185.199.108.153`, `185.199.109.153`, `185.199.110.153` e `185.199.111.153`, em modo somente DNS, removendo o destino anterior desse mesmo registro. Manter os nameservers dessa zona na Cloudflare. Conferir também registros AAAA de `@` para não manter uma rota concorrente para o VPS.
 3. Se o endereço `www` for usado no GitHub Pages, definir seu CNAME como `djowww.github.io`, sem o nome do repositório, também em modo somente DNS, e conferir o domínio personalizado e HTTPS nas configurações do Pages.
 4. Aguardar a propagação e conferir a página. No Pages, a API não existe: em `betfifa.com.br`/`www.betfifa.com.br`, a versão nova deve mostrar indisponibilidade e bloquear cadastro/carteira locais. Contas e partidas compartilhadas do VPS ficam preservadas, mas indisponíveis nessa hospedagem estática. O modo demonstrativo permanece separado em hosts autorizados de demonstração.
-5. Se quiser interromper o consumo da aplicação no VPS após a mudança, executar apenas `sudo systemctl stop fifago.service`. Não parar Nginx nem qualquer serviço do Tibia. A configuração do novo host pode permanecer instalada enquanto o DNS aponta para o Pages.
+5. Se quiser interromper o consumo da aplicação no VPS após a mudança, executar apenas `sudo systemctl stop fifago.service`. Não parar Nginx nem qualquer serviço de outro projeto. A configuração do novo host pode permanecer instalada enquanto o DNS aponta para o Pages.
 
-O retorno por DNS não desfaz dados da API nem altera a zona, os nameservers, o firewall ou os serviços do Tibia. Para reativar a versão conectada, conferir o serviço e o certificado próprios antes de apontar novamente apenas esse domínio ao VPS pelo proxy da Cloudflare.
+O retorno por DNS não desfaz dados da API nem altera a zona, os nameservers, o firewall ou os serviços dos outros projetos. Para reativar a versão conectada, conferir o serviço e o certificado próprios antes de apontar novamente apenas esse domínio ao VPS pelo proxy da Cloudflare.
 
 ## Proteções funcionais incluídas
 
@@ -248,7 +248,7 @@ Todas as rotas ficam em `/api/v1`; respostas são JSON, exceto fotos e redirecio
 |---|---|---|
 | Detectar servidor | `GET /status` | Somente leitura: disponibilidade, SQLite/esquema, modo da carteira, `paymentsAvailable`, provedores sociais e revisor configurado |
 | Sessão atual | `GET /session` | `{user,csrfToken}` ou valores nulos |
-| Criar conta | `POST /auth/register` | `{nickname,password}` |
+| Criar conta | `POST /auth/register` | `{nickname,password,countryCode,acceptedTerms:true,termsVersion}`; versão dos termos informada por `/status` |
 | Entrar | `POST /auth/login` | `{identifier,password}`; identificador é apelido ou ID público |
 | Iniciar login social | `GET /auth/oauth/google/start` ou `GET /auth/oauth/apple/start` | Redireciona ao provedor configurado; fluxo vinculado ao navegador |
 | Retorno Google | `GET /auth/oauth/google/callback` | Valida a resposta externa, grava identidade/sessão e redireciona |
@@ -270,21 +270,21 @@ Todas as rotas ficam em `/api/v1`; respostas são JSON, exceto fotos e redirecio
 | Prévia por código público | `GET /invites/code/:publicMatchId` | Sem sessão: código `FG-10HEX`, modo/plataforma, stake/creditMode, estado e prazo; sem nomes, regras em texto livre ou IDs de contas. Com sessão autorizada, inclui `host.nickname` e `rules` |
 | Aceitar código público | `POST /invites/code/:publicMatchId/accept` | Exige sessão/CSRF e destinatário autorizado; retorna a partida privada |
 | Abrir convite secreto | `GET /invites/:token` | Requer conta e convite pendente autorizado; `{invite:{publicMatchId,creditMode,host:{nickname},stake,mode,platform,rules,status,expiresAt}}` |
-| Aceitar link | `POST /invites/:token/accept` | Novas salas entram em `awaiting_funds` quando há créditos; amistosas iniciam diretamente |
+| Aceitar link | `POST /invites/:token/accept` | Novas salas entram em `waiting_start`; a parte do rival é reservada ao aceitar quando há Coin. Ambos confirmam prontidão antes do início |
 | Aceitar pelo ID | `POST /duels/:id/accept` | Somente o destinatário predefinido |
 | Cancelar | `POST /duels/:id/cancel` | Cancelamento antes do aceite ou pedido de concordância dupla |
 | Retirar ou recusar cancelamento | `POST /duels/:id/cancel-withdraw` | Somente participante, desafio em andamento com pedido pendente; não devolve pontos |
 | Enviar foto | `POST /evidence?duelId=:id` | Corpo binário, tipo de imagem no `Content-Type` |
 | Ver foto | `GET /evidence/:id` | Somente participante ou revisor |
-| Registrar placar | `POST /duels/:id/result` | `{homeScore,awayScore,evidenceId}` |
-| Concordar | `POST /duels/:id/confirm` | `{reportId}`; apenas o adversário do relator |
+| Registrar placar | `POST /duels/:id/result` | `{homeScore,awayScore,evidenceId,scoreSide}`; foto própria, `scoreSide:host` ou `guest` indica quem aparece à esquerda |
+| Concordar | `POST /duels/:id/confirm` | `{reportId,evidenceId,homeScore,awayScore,scoreSide}`; apenas o adversário do relator, com foto própria e placar correspondente |
 | Sinalizar divergência | `POST /duels/:id/dispute` | `{reason,evidenceId,reportId}` |
 | Fila da equipe | `GET /reviews` | Desafios aguardando revisão ou em disputa |
 | Decidir e distribuir | `POST /reviews/:id` | `{winner:'host'|'guest'|'draw',reason,reportId}` |
 
-Modos: `1v1`, `Ultimate Team`, `Clubes`. Plataformas: `playstation`, `xbox`, `pc`, `switch`. Em `unconfigured`, novas partidas exigem `stake:0` e são amistosas. No modo demonstrativo local, stake aceita zero ou de 10 a 5.000 pontos por participante, sujeitos ao saldo. Placar inteiro: de 0 a 99. `homeScore` é sempre o anfitrião; `awayScore`, o convidado.
+Modos: `1v1`, `Ultimate Team`, `Clubes`. Plataformas: `playstation`, `xbox`, `pc`, `switch`. Novas partidas aceitam `stake:0` para amistosas gratuitas ou de 10 a 5.000 Coin por participante, sujeitos ao saldo. Em `unconfigured`, saldo principal existente permite salas `coins`, sem habilitar compras; créditos demonstrativos anteriores continuam separados. Placar inteiro: de 0 a 99. `homeScore` é sempre o anfitrião; `awayScore`, o convidado.
 
-Estados de desafio: `invited`, `awaiting_funds`, `in_progress`, `pending_review`, `disputed`, `completed`, `cancelled`, `expired`. O perfil mantém `id` interno e `publicPlayerId` estável; o desafio tem `publicMatchId` permanente e `creditMode:'friendly'|'legacy_demo'|'demo'`. A visualização privada inclui `host`, `guest`, `recipient`, `result`, `reports` e `disputes`. O token secreto só aparece para o criador enquanto o convite estiver pendente. Conta da equipe recebe `isReviewer:true` do servidor.
+Estados de desafio: `invited`, `awaiting_funds`, `waiting_start`, `in_progress`, `pending_review`, `disputed`, `completed`, `cancelled`, `expired`. O perfil mantém `id` interno e `publicPlayerId` estável; o desafio tem `publicMatchId` permanente e `creditMode:'friendly'|'legacy_demo'|'demo'|'coins'|'pix_manual'`. A visualização privada inclui `host`, `guest`, `recipient`, `result`, `reports` e `disputes`. O token secreto só aparece para o criador enquanto o convite estiver pendente. Conta da equipe recebe `isReviewer:true` do servidor.
 
 ### Privacidade e validação dos convites
 

@@ -15,7 +15,7 @@
 - Não mudar a economia: reserva na criação/entrada, nenhuma nova cobrança ao iniciar, comissão existente de 9%.
 - Não regredir salas anteriores; salas já iniciadas continuam em andamento.
 - Preservar fotos, análise do placar, confirmação e distribuição atuais.
-- Não alterar infraestrutura, segredos, pagamentos ou serviços de Tibia.
+- Não alterar infraestrutura, segredos, pagamentos ou serviços de outros projetos.
 - Testar contas e saldos apenas em ambiente local; publicar com a autoria Git de Djow já autorizada.
 
 ## Contrato

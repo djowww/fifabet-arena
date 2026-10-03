@@ -1,5 +1,7 @@
 # Plano de dados e integração com EA SPORTS FC
 
+> Pesquisa histórica de 29/09/2026. As descrições do aplicativo e as condições dos serviços externos abaixo são daquele período. Para o produto atual, consulte o [índice da documentação](../README.md).
+
 Pesquisa revisada em 29/09/2026. O projeto atual é uma demonstração estática: perfis, desafios, EA ID informado e ranking são guardados localmente no navegador, então cada dispositivo tem seus próprios dados.
 
 ## O que foi implementado nesta versão

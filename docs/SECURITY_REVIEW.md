@@ -1,10 +1,10 @@
 # Revisão de segurança — Fifa GO
 
-Revisão defensiva do código e da publicação, em 30/09/2026. Isto reduz riscos conhecidos, mas não garante que um sistema seja impossível de atacar nem substitui um teste de invasão independente.
+Registro histórico da revisão defensiva do código e da publicação em **30/09/2026**. As observações de implantação e os próximos controles abaixo se referem àquela data; não confirmam o estado operacional atual. A revisão não garante que um sistema seja impossível de atacar nem substitui um teste de invasão independente.
 
 ## Proteções verificadas
 
-- O backend usa Node.js e SQLite sem dependências npm de runtime. Consultas usam parâmetros SQL; arquivos do banco e evidências ficam fora da pasta publicada e com permissões privadas.
+- O backend usa Node.js e SQLite nativo. Consultas usam parâmetros SQL; arquivos do banco e evidências ficam fora da pasta publicada e com permissões privadas. O código atual também depende de Sharp para processamento de imagens e Tesseract.js para OCR, conforme `package.json`; essa atualização documental não confirma a instalação dessas dependências na publicação observada.
 - Senhas são derivadas com `scrypt`. Sessões usam tokens aleatórios armazenados como hash, cookie `HttpOnly`/`SameSite=Lax` e `Secure` quando a origem é HTTPS. Operações autenticadas exigem origem exata e token CSRF.
 - OAuth Google usa state, nonce, PKCE e validação das claims do token. O segredo OAuth fica no arquivo privado do serviço, fora do Git.
 - O revisor é definido por configuração privada do servidor. Participantes não revisam seus próprios resultados ou comprovantes; fotos de placar e comprovantes têm autorização por partida/conta.

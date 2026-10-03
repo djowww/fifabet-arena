@@ -313,9 +313,9 @@ O campo opcional `expectedHostId` contém o ID interno da conta que conferiu o r
 
 ## Salas com reservas individuais
 
-O contrato de novas salas, a taxa de 9%, a leitura local de fotos e a resolução de problemas estão em [SALAS.md](SALAS.md). Criar e aceitar um novo convite não reservam créditos; cada participante confirma sua parte na sala pelo endpoint `/duels/:id/fund`. As descrições de reserva na criação ou no aceite continuam valendo apenas para partidas antigas.
+O contrato de novas salas, a taxa de 9%, a leitura local de fotos e a resolução de problemas estão em [SALAS.md](SALAS.md). Salas novas com `fundingVersion:2` reservam a parte do anfitrião ao criar e a parte do rival ao aceitar. Depois disso, ambos confirmam a prontidão antes do início, sem nova cobrança. O endpoint `/duels/:id/fund` permanece para salas legadas com `fundingVersion:1` que ainda aguardam reservas; completar esse fluxo também registra o prazo operacional da partida.
 
-Instale as dependências fixadas antes de iniciar: `pnpm install --frozen-lockfile --ignore-scripts`. A leitura usa o modelo local incluído em `backend/ocr/`; não carrega bibliotecas nem envia fotos a um CDN.
+Instale as dependências fixadas antes de iniciar: `npm ci --ignore-scripts` ou `pnpm install --frozen-lockfile --ignore-scripts`. Verifique o Sharp nativo e o worker visual com uma imagem de teste que tenha contraste; uma imagem uniforme é rejeitada por não conter informação suficiente. A leitura OCR usa o modelo local incluído em `backend/ocr/`; não carrega bibliotecas nem envia fotos a um CDN.
 
 ## Suíte existente
 

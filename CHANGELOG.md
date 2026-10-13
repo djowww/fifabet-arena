@@ -2,6 +2,13 @@
 
 Registro resumido das entregas recentes. O histórico completo está nos [commits](https://github.com/djowww/fifabet-arena/commits/main/). A data de um commit não implica publicação automática no site.
 
+## 2026-10-13 — Sala da partida simplificada
+
+- Valor em Joga aí Coin por jogador em destaque, separado do prêmio previsto e da taxa.
+- Conversa privada e confirmação de início lado a lado no desktop, empilhadas no celular.
+- Regras, liquidação, código e compartilhamento em detalhes recolhidos.
+- Preservação do início bilateral, das reservas, dos rascunhos e dos estados de revisão.
+
 ## 2026-10-03 — Arena simplificada
 
 - Salas abertas e partidas próprias em abas separadas, sem cartões duplicados.

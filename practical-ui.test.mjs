@@ -476,6 +476,32 @@ async function preparationHarness(extra={}){
  const api={detectBackend:async()=>({available:true,paymentMode:'demo'}),loadSession:async()=>({user}),getArena:async()=>({user,duels:[{...duel,readyBy:[...duel.readyBy]}],history:[],stats:{reserved:100}}),getDuelChat:async()=>({messages:[],lastSequence:0,closed:false}),startDuel:async id=>{calls.push(id);duel.readyBy.push(user.id);if(duel.readyBy.includes(duel.hostId))duel.status='in_progress';},logoutAccount:async()=>{},...extra};
  const h=await harness({api,url:'https://example.test/#partida/prep-room'});await new Promise(resolve=>setImmediate(resolve));return {h,user,duel,calls};
 }
+test('the room entry summary distinguishes each reservation from the combined prize',async()=>{
+ const {h,duel}=await preparationHarness();
+ duel.economics={pot:200,houseFee:18,winnerPayout:182,feeBps:900};
+ await h.click('refresh');
+ const entry=h.nodes.screen.innerHTML.match(/<section class='room-entry-summary'[^>]*>([\s\S]*?)<\/section>/)?.[1];
+ assert.ok(entry,'The entry amount must have its own accessible summary.');
+ assert.match(entry,/100 <span>Joga aí Coin por jogador<\/span>/);
+ assert.match(entry,/Prêmio previsto: 182/);assert.match(entry,/Taxa da casa: 9%/);
+ duel.stake=0;await h.click('refresh');
+ const friendly=h.nodes.screen.innerHTML.match(/<section class='room-entry-summary'[^>]*>([\s\S]*?)<\/section>/)?.[1];
+ assert.match(friendly,/Grátis/);assert.match(friendly,/Amistosa sem Joga aí Coin/);
+ assert.doesNotMatch(friendly,/Prêmio previsto/);
+});
+
+test('room terms stay expanded through readiness refreshes and are closed on a new account session',async()=>{
+ const {h,duel}=await preparationHarness({loginAccount:async()=>({})});
+ const detail={isConnected:true,open:true,dataset:{roomOptions:'room-terms:'+duel.id}};
+ h.listeners.toggle({target:detail});
+ duel.readyBy=[duel.hostId];await h.click('refresh');
+ assert.match(h.nodes.screen.innerHTML,/<details class='room-details' data-room-options='room-terms:prep-room' open>/);
+ assert.match(h.nodes.screen.innerHTML,/Pronto para jogar/);
+ await h.click('logout');await h.click('login');await h.submit('login',{nickname:'Bruna',password:'senha-local-longa'});
+ h.route('#partida/prep-room');await new Promise(resolve=>setImmediate(resolve));
+ assert.match(h.nodes.screen.innerHTML,/<details class='room-details' data-room-options='room-terms:prep-room' >/);
+});
+
 test('joined preparation shows both readiness states and starts the existing match view only with both confirmations',async()=>{
  const {h,duel,calls}=await preparationHarness();
  assert.equal(h.api.duels()[0].status,'preparing');assert.match(h.nodes.screen.innerHTML,/Conversa da sala/);assert.match(h.nodes.screen.innerHTML,/Iniciar partida/);
@@ -496,6 +522,18 @@ test('failed chat sends retain draft and retry with the same operation; successf
  await h.api.sendRoomChat(form,data);assert.equal(operations[0].operationId,operations[1].operationId);assert.equal(h.api.getChat().draft,'');assert.equal(h.api.getChat().messages.length,1);
  assert.ok(![...Object.keys(h.persisted())].includes('messages'));
 });
+test('cancellation wording follows a match start while the chat composer is focused',async()=>{
+ const {h,duel}=await preparationHarness();
+ const main={innerHTML:''},composer={id:'chatText',dataset:{},matches:()=>true};
+ h.document.activeElement=composer;h.nodes.screen.contains=()=>true;
+ h.nodes.screen.querySelector=selector=>selector==='#roomMainState'?main:null;
+ h.api.updateRoomWhileTyping();assert.match(main.innerHTML,/Cancelar sala e devolver reservas/);
+ duel.status='in_progress';await h.intervals.find(x=>x.delay===8000).callback();
+ assert.match(main.innerHTML,/Pedir cancelamento/);
+ assert.doesNotMatch(main.innerHTML,/Cancelar sala e devolver reservas/);
+ assert.equal(h.document.activeElement,composer);
+});
+
 test('typing receives readiness updates without replacing the composer or moving its cursor',async()=>{
  const {h,duel}=await preparationHarness();let replaced=0;
  const main={innerHTML:''},composer={value:'Meu rascunho',selectionStart:3,selectionEnd:5,id:'chatText',dataset:{},matches:()=>true};

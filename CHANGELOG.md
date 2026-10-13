@@ -2,6 +2,16 @@
 
 Registro resumido das entregas recentes. O histórico completo está nos [commits](https://github.com/djowww/fifabet-arena/commits/main/). A data de um commit não implica publicação automática no site.
 
+## 2026-10-13 — Continuidade e facilidade de uso
+
+- Acesso direto às salas próprias e ao próximo passo de cada partida na página inicial.
+- Criação com escolha entre amigo e Arena pública, compatibilidade opcional e amistosa grátis separada de Coin.
+- Retorno à criação após login Google e navegação por telas preservando o botão Voltar.
+- Rascunhos de foto e placar privados, temporários nesta aba por até 15 minutos, com descarte confirmado e limpeza ao sair.
+- Reservas e extrato ligados às partidas da conta; nova partida pelo histórico, sempre revisada antes da confirmação.
+- Perfil compacto, IDs de jogo copiáveis, ranking sem chamadas duplicadas e links maiores para toque.
+- Avisos com próxima ação e recuperação de conexão. Notificações com o app fechado ainda dependem de Web Push.
+
 ## 2026-10-13 — Sala da partida simplificada
 
 - Valor em Joga aí Coin por jogador em destaque, separado do prêmio previsto e da taxa.

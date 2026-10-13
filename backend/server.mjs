@@ -555,7 +555,7 @@ export async function createArenaServer(options={}){
   }
   const mimeTypes={'.html':'text/html; charset=utf-8','.js':'text/javascript; charset=utf-8','.mjs':'text/javascript; charset=utf-8','.css':'text/css; charset=utf-8','.png':'image/png','.jpg':'image/jpeg','.webp':'image/webp','.svg':'image/svg+xml','.webmanifest':'application/manifest+json; charset=utf-8'};
   const publicFiles=new Set([
-    'review-evidence.mjs','account-tools.mjs','review-tools.mjs','review-tools.css','account-security-ui.mjs','result-phases.mjs','app-notifications.mjs','audit-upgrade.css',
+    'flow-continuity.mjs','review-evidence.mjs','account-tools.mjs','review-tools.mjs','review-tools.css','account-security-ui.mjs','result-phases.mjs','app-notifications.mjs','audit-upgrade.css',
     'manifest.webmanifest','sw.js','pwa.mjs','pwa.css','offline.html',
     'index.html','legal.html','colecao.html','bootstrap.js','app.js','play.js','backend-client.mjs','account-policy.mjs','model.mjs','clubs.mjs','football-trophies.mjs','rivalry-section.mjs','admin-panel.mjs','account-art.mjs','account-views.mjs','lobby-view.mjs','ui-icons.mjs','room-ui.mjs','chat-ui.mjs','image-preparation.mjs',
     'styles.css','arena.css','shop.css','profile.css','achievements.css','rivalry.css','competitive-modes.css','practical.css','lobby.css','wizard.css','admin.css','account.css','account-pages.css','taste.css'

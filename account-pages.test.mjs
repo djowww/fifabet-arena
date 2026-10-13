@@ -6,6 +6,7 @@ import * as resultPhases from './result-phases.mjs';
 import * as reviewTools from './review-tools.mjs';
 import * as chatUI from './chat-ui.mjs';
 import {preparationState} from './room-ui.mjs';
+import {createPendingFlow,createResultDraftStore} from './flow-continuity.mjs';
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import fs from 'node:fs';
@@ -92,7 +93,7 @@ async function harness({sessionUser = {...user}, backendStatus = status, arena =
     history: {replaceState(_state, _title, value) {const next = new URL(value, location.href); Object.assign(location, {href: next.href, hash: next.hash, pathname: next.pathname});}},
     setTimeout(callback,delay) {const id=++timerId;timers.set(id,{callback,delay});return id;}, clearTimeout(id) {timers.delete(id);}, setInterval() {return 2;}, clearInterval() {}
   };
-  Object.assign(context,chatUI,{preparationState});
+  Object.assign(context,chatUI,{preparationState,createPendingFlow,createResultDraftStore});
   Object.assign(context,resultPhases,reviewTools,{AbortController,createAccountTools,renderReviewEvidence,
     createAppNotifications:options=>createAppNotifications({storage:context.localStorage,Notification:context.Notification,hidden:()=>context.document.hidden===true,onOpen:id=>{context.location.hash=`#partida/${id}`;},...options})});
   vm.createContext(context);

@@ -1,3 +1,4 @@
+import {createPendingFlow,createResultDraftStore} from './flow-continuity.mjs';
 import {createRenderGate,filterRooms,mergeRecords} from './room-ui.mjs';
 import {createAppNotifications} from './app-notifications.mjs';
 import {createAccountTools} from './account-tools.mjs';
@@ -59,6 +60,7 @@ async function harness({initial=M.emptyState(),api={}}={}){
  Object.assign(context,chatUI,{preparationState});
   Object.assign(context,resultPhases,reviewTools,{AbortController,createAccountTools,renderReviewEvidence,
     createAppNotifications:options=>createAppNotifications({storage:context.localStorage,Notification:context.Notification,hidden:()=>context.document.hidden===true,onOpen:id=>{context.location.hash=`#partida/${id}`;},...options})});
+  Object.assign(context,{createPendingFlow,createResultDraftStore});
   vm.createContext(context);
  vm.runInContext(source.replace(/^import .*?;\r?\n/gm,'').replace(/\nstart\(\)\.catch\(/,'\nglobalThis.__boot=start().catch(')+`\nglobalThis.wizard={getUI:()=>ui,getState:()=>state,render};`,context);
  await context.__boot;

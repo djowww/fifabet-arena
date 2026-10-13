@@ -1,20 +1,37 @@
+import {createPendingFlow,createResultDraftStore} from './flow-continuity.mjs?v=1';
 import * as M from './model.mjs?v=19';
 import * as API from './backend-client.mjs?v=25';
 import {renderReviewEvidence} from './review-evidence.mjs?v=1';
 import {resultPhasesFields,collectResultPhases,resultScoreText,recognitionScoreFields} from './result-phases.mjs?v=1';
 import {createAccountTools} from './account-tools.mjs?v=1';
-import {createAppNotifications} from './app-notifications.mjs?v=1';
+import {createAppNotifications} from './app-notifications.mjs?v=2';
 import {renderRecoveryQueue,renderDepositRecoveryForm,renderDeletionQueue} from './review-tools.mjs?v=1';
 import {COUNTRY_CODES,TERMS_VERSION} from './account-policy.mjs?v=1';
 import {createAdminPanel} from './admin-panel.mjs?v=4';
 import {accountArt} from './account-art.mjs?v=1';
 import {uiIcon} from './ui-icons.mjs?v=1';
-import {renderLobbyView} from './lobby-view.mjs?v=5';
-import {renderWalletView,renderHistoryView,renderRankingView,renderProfileView} from './account-views.mjs?v=4';
+import {renderLobbyView} from './lobby-view.mjs?v=6';
+import {renderWalletView,renderHistoryView,renderRankingView,renderProfileView} from './account-views.mjs?v=5';
 import {preparePhoto as prepareEvidencePhoto} from './image-preparation.mjs?v=1';
 import {confirmationClock,safeRoomCards,notificationKey,notificationLabel,preparationState,createRenderGate,filterRooms,mergeRecords} from './room-ui.mjs?v=3';
 import {createChatState,renderChatMessages,nearChatBottom} from './chat-ui.mjs?v=1';
 const privateChat=createChatState();
+const pendingFlow=(()=>{try{return createPendingFlow({storage:sessionStorage});}catch{return createPendingFlow({storage:null});}})();
+const resultDrafts=createResultDraftStore();
+const wizardDrafts=new Map();
+function wizardStore(owner){
+ if(!wizardDrafts.has(owner))wizardDrafts.set(owner,createPendingFlow({storage:{getItem:key=>sessionStorage.getItem(key+':'+owner),setItem:(key,value)=>sessionStorage.setItem(key+':'+owner,value),removeItem:key=>sessionStorage.removeItem(key+':'+owner)}}));
+ return wizardDrafts.get(owner);
+}
+const wizardSnapshot=()=>Object.fromEntries(['mode','platform','rival','rules','visibility','stake','gameEdition','consoleGeneration','crossplay','extraTime','penalties'].map(key=>[key,ui[key]]));
+let syncFailed=false,lastSyncAt=null;
+function syncFeedback(failed=false){
+ syncFailed=failed;if(!failed)lastSyncAt=Date.now();
+ const status=$('appSyncStatus'),banner=$('appSyncBanner');
+ if(status){status.textContent=failed?'Reconectando… Os dados exibidos podem estar desatualizados.':'Atualização restabelecida.';status.hidden=!failed;}
+ if(banner)banner.hidden=!failed;
+ const room=$('roomSyncStatus');if(room)room.textContent=failed?'Reconectando… Use Atualizar para conferir a sala.':lastSyncAt?'Atualizado às '+new Date(lastSyncAt).toLocaleTimeString('pt-BR',{hour:'2-digit',minute:'2-digit'}):'';
+}
 let chatDenied=null,pendingRoomRender=null;
 const deferredRender=createRenderGate();
 let accountCacheEpoch=0,walletOwner=null;
@@ -87,7 +104,7 @@ async function syncArena(){
  const owner=profile()?.id,revision=++arenaSyncRevision,latest=await API.getArena({compact:true});
  if(profile()?.id!==owner||revision!==arenaSyncRevision)return false;
  if(latest.user?.id!==owner)throw Error('A conta mudou. Entre novamente para continuar.');
- arena=latest;announceNotifications(latest);await loadPublicRooms(owner);return true;
+ arena=latest;announceNotifications(latest);syncFeedback(false);await loadPublicRooms(owner);return true;
 }
 async function loadPublicRooms(owner=profile()?.id){
  const revision=++publicRoomsRevision;
@@ -105,7 +122,25 @@ function announceNotifications(latest){
 }
 async function refresh(){if(online){if(!await syncArena())return;}else state=read();render();}
 let resultDraft=null,resultDraftRevision=0,depositDetail=null;
-function clearResultDraft(){resultDraft=null;resultDraftRevision++;}
+const resultFieldNames=['homeScore','awayScore','scoreSide','extraTimeHome','extraTimeAway','penaltiesHome','penaltiesAway','useExtraTime','usePenalties','reason'];
+function rememberResultDraft(){
+ let draft=resultDraft;
+ if(!draft&&$('modal').open){const form=$('modalContent').querySelector?.('.match-result-form');if(form&&['result','confirm-result'].includes(form.dataset.form)&&form.dataset.owner===profile()?.id)draft={form,id:form.dataset.id,owner:profile().id,file:null,photo:null,evidenceId:null,scores:null};}
+ if(!draft||draft.owner!==profile()?.id)return;
+ const fields={};for(const name of resultFieldNames){const field=draft.form.elements?.namedItem?.(name)||draft.form.elements?.[name];if(field)fields[name]=field.type==='checkbox'?field.checked:field.value;}
+ resultDrafts.put(draft.owner,draft.id,{file:draft.file,photo:draft.photo,evidenceId:draft.evidenceId,scores:draft.scores,fields,kind:draft.form.dataset.form,report:draft.form.dataset.report||''});
+}
+function clearResultDraft({discard=false}={}){if(discard){if(resultDraft)resultDrafts.delete(resultDraft.owner,resultDraft.id);}else rememberResultDraft();resultDraft=null;resultDraftRevision++;}
+function restoreResultDraft(id,kind){
+ const saved=resultDrafts.get(profile()?.id,id),form=$('modalContent').querySelector?.('[data-form="'+kind+'"]');
+ if(!saved||!form||saved.kind!==kind||saved.report!==(form.dataset.report||''))return;
+ const draft=saved.file?setResultPhoto(form,saved.file):{form,id,owner:profile().id,file:null,photo:null,evidenceId:null,scores:null,photoPromise:Promise.resolve(null)};resultDraft=draft;draft.scores=saved.scores;draft.evidenceId=saved.evidenceId;
+ for(const [name,value]of Object.entries(saved.fields||{})){const field=form.elements?.namedItem?.(name)||form.elements?.[name];if(field){if(field.type==='checkbox')field.checked=value===true;else field.value=value;}}
+ for(const toggle of form.querySelectorAll?.('[data-phase-toggle]')||[]){const fields=toggle.closest('fieldset').querySelector('[data-phase-fields]');fields.hidden=!toggle.checked;for(const field of fields.querySelectorAll('input')){field.disabled=!toggle.checked;field.required=toggle.checked;}}
+ const image=form.querySelector('#resultImage');if(image)image.required=!saved.file;
+ const note=$('resultDraftNote');if(note)note.textContent='Rascunho recuperado. Confira a foto e o placar antes de enviar.';
+ draft.photoPromise.then(photo=>{if(!photo||!currentResultDraft(draft))return;const preview=$('photoPreview');if(preview){preview.innerHTML="<img src='"+esc(photo.dataUrl)+"' alt='Foto do placar recuperada'>";preview.hidden=false;}if($('photoSelection'))$('photoSelection').textContent='Foto recuperada: '+(saved.file?.name||photo.name);const recognize=form.querySelector('[data-action="recognize"]');if(recognize)recognize.disabled=false;}).catch(error=>{if(currentResultDraft(draft))fail(error.message);});
+}
 function modal(title,subtitle,html,{account=false,registration=false,deposit=null}={}){
  depositDetail=deposit?{owner:profile()?.id,epoch:accountCacheEpoch,deposit}:null;
  clearResultDraft();modalRevision++;opener=document.activeElement;
@@ -118,10 +153,10 @@ function modal(title,subtitle,html,{account=false,registration=false,deposit=nul
  $('modalContent').innerHTML=runtimeCopy(account?"<div class='taste-account-layout'><div class='taste-account-content'>"+content+"</div>"+aside+"</div>":content);
  if(!$('modal').open)$('modal').showModal();
 }
-function resetAccountCaches(){historyAbort?.abort();historyAbort=null;clearTimeout(historyDebounce);notices.reset();accountCacheEpoch++;depositDetail=null;arenaSyncRevision++;renderRevision++;walletLoadRevision++;walletData=null;walletOwner=null;historyLoadRevision++;historyOwner=null;historyItems=[];historyNextCursor=null;historyLoaded=false;historyQuery='';ui.search='';ui.filter='all';reviewDuels=[];depositReviews=[];recoveryDeposits=[];publicRooms=[];publicRoomsError='';arenaOpenOptions.clear();ui.roomFiltersOpen=false;ui.roomFilterDraft=null;privateChat.clear();chatDenied=null;pendingRoomRender=null;deferredRender.clear();}
+function resetAccountCaches(){clearResultDraft({discard:true});resultDrafts.clear();for(const draft of wizardDrafts.values())draft.clear();wizardDrafts.clear();resetDuelDraft(null);syncFeedback(false);historyAbort?.abort();historyAbort=null;clearTimeout(historyDebounce);notices.reset();accountCacheEpoch++;depositDetail=null;arenaSyncRevision++;renderRevision++;walletLoadRevision++;walletData=null;walletOwner=null;historyLoadRevision++;historyOwner=null;historyItems=[];historyNextCursor=null;historyLoaded=false;historyQuery='';ui.search='';ui.filter='all';reviewDuels=[];depositReviews=[];recoveryDeposits=[];publicRooms=[];publicRoomsError='';arenaOpenOptions.clear();ui.roomFiltersOpen=false;ui.roomFilterDraft=null;privateChat.clear();chatDenied=null;pendingRoomRender=null;deferredRender.clear();}
 function currentHistory(){return !!profile()?.id&&historyOwner===profile().id;}
 function flushDeferredRender(){const editing=$('screen')?.contains?.(document.activeElement)&&document.activeElement?.matches?.('input,select,textarea,summary,[contenteditable]');if(deferredRender.flush(!busy&&!document.hidden&&!$('modal').open&&!editing))render();}
-function closeModal(){modalRevision++;depositDetail=null;clearResultDraft();if($('modal').open)$('modal').close();if(opener?.isConnected)opener.focus();flushDeferredRender();}
+function closeModal({discardResult=false}={}){modalRevision++;depositDetail=null;clearResultDraft({discard:discardResult});if($('modal').open)$('modal').close();if(opener?.isConnected)opener.focus();flushDeferredRender();}
 function fail(message){if($('dialogError')&&$('modal').open){$('dialogError').textContent=message;$('dialogError').hidden=false;}else if($('roomError')){$('roomError').textContent=message;$('roomError').hidden=false;}else toast(message);}
 function joinFeedback(message){if($('modal').open)return fail(message);const feedback=$('joinError');if(feedback){feedback.textContent=message;feedback.hidden=false;}else toast(message);}
 function intro(title,description){return `<div class='practical-intro'><div><p class='eyebrow'>FIFA GO · ENTRE AMIGOS</p><h1>${title}</h1><p class='muted'>${description}</p></div></div>`;}
@@ -159,12 +194,12 @@ function identity(){
  if(!p)return `<aside class='card arena-sidebar pad'><h2>Seu próximo rival está aqui.</h2><p class='muted'>Crie seu perfil e receba seu ID Fifa GO para encontrar amigos.</p><button class='btn primary wide' data-action='signup'>Criar conta</button><p class='meta'>${online?'Sua conta começa com saldo zero. Pagamentos em configuração.':'Demonstração local com saldo inicial zero e Joga aí Coin fictícios.'}</p></aside>`;
  return `<aside class='card arena-sidebar pad'><div class='row'>${avatar(p)}<div><strong>${esc(p.nickname)}</strong><p class='meta'>${esc(M.clubById(p.clubId)?.name||'Escolha seu time no perfil')}</p></div></div><p class='form-label'>Seu ID Fifa GO</p><div class='player-id'><code>${esc(p.publicPlayerId)}</code><button class='btn secondary small' data-action='copy-id'>Copiar</button></div><p class='meta'>Envie seu ID para um amigo te desafiar.</p><div class='divider'></div><ol class='step-list'><li>${friendlyMode()?'Combine o modo e as regras.':'Combine Joga aí Coin e regras.'}</li><li>Seu rival aceita o convite.</li><li>Envie o placar com uma foto.</li><li>${online?'As fotos e o placar são conferidos.':'A conferência funciona na versão conectada.'}</li></ol><button class='text-button' data-action='profile'>Editar perfil</button></aside>`;
 }
-function preferredPlatform(owner){try{const stored=localStorage.getItem('fifago-platform:'+owner);if(['pc','playstation','xbox','switch'].includes(stored))return stored;}catch{}const generation=profile()?.gameAccount?.consoleGeneration||'';return /ps[45]|playstation/i.test(generation)?'playstation':/xbox/i.test(generation)?'xbox':/switch/i.test(generation)?'switch':'pc';}
-function resetDuelDraft(owner=profile()?.id||null){ui.duelOwner=owner;ui.duelStep=1;ui.duelRevision++;ui.duelOperation='';ui.duelError='';ui.rival='';ui.mode='1v1';ui.platform=preferredPlatform(owner);ui.stake='0';ui.visibility='public';ui.rules='';ui.gameEdition=profile()?.gameAccount?.gameEdition||'';ui.consoleGeneration=profile()?.gameAccount?.consoleGeneration||'';ui.crossplay=profile()?.gameAccount?.crossplay||'any';ui.extraTime=false;ui.penalties=false;foundPlayer=null;}
+function preferredPlatform(owner){if(!owner)return 'pc';try{const stored=localStorage.getItem('fifago-platform:'+owner);if(['pc','playstation','xbox','switch'].includes(stored))return stored;}catch{}const generation=profile()?.gameAccount?.consoleGeneration||'';return /ps[45]|playstation/i.test(generation)?'playstation':/xbox/i.test(generation)?'xbox':/switch/i.test(generation)?'switch':'pc';}
+function resetDuelDraft(owner=profile()?.id||null){const gameAccount=profile()?.id===owner?profile().gameAccount||{}:{};ui.compatibilityOpen=false;ui.duelOwner=owner;ui.duelStep=1;ui.duelRevision++;ui.duelOperation='';ui.duelError='';ui.rival='';ui.mode='1v1';ui.platform=preferredPlatform(owner);ui.stake='0';ui.visibility='public';ui.rules='';ui.gameEdition=gameAccount.gameEdition||'';ui.consoleGeneration=gameAccount.consoleGeneration||'';ui.crossplay=gameAccount.crossplay||'any';ui.extraTime=false;ui.penalties=false;foundPlayer=null;const saved=owner?wizardStore(owner).read():null;if(saved?.draft)Object.assign(ui,saved.draft);}
 function updateDuelDraft(values){
  let changed=false;for(const [key,value] of Object.entries(values)){if(ui[key]!==value){ui[key]=value;changed=true;if(key==='rival')foundPlayer=null;}}
  if(values.rival!==undefined&&String(values.rival).trim())ui.visibility='private';
- if(changed){ui.duelRevision++;ui.duelOperation='';ui.duelError='';const form=$('screen').querySelector?.("[data-form='duel']");if(form){form.dataset.revision=String(ui.duelRevision);form.dataset.operation='';}if($('composerError'))$('composerError').hidden=true;}
+ if(changed){if(ui.duelOwner)wizardStore(ui.duelOwner).save({action:'create',draft:wizardSnapshot()});ui.duelRevision++;ui.duelOperation='';ui.duelError='';const form=$('screen').querySelector?.("[data-form='duel']");if(form){form.dataset.revision=String(ui.duelRevision);form.dataset.operation='';}if($('composerError'))$('composerError').hidden=true;}
 }
 function ensureDuelOwner(){
  if(!profile()||profile().id!==ui.duelOwner)throw Error('A conta mudou. Abra a criação de partida novamente.');
@@ -199,11 +234,11 @@ function composer(){
  const p=profile();if(ui.duelOwner!==(p?.id||null))resetDuelDraft(p?.id||null);
  const others=Object.values(state.profiles).filter(x=>x.id!==p?.id),step=ui.duelStep,platforms=[['pc','PC'],['playstation','PlayStation'],['xbox','Xbox'],['switch','Nintendo Switch']];
  const progress=`<ol class='duel-wizard-steps' aria-label='Etapas da criação'>${['Partida','Coin e regras','Confirmar'].map((label,i)=>`<li class='${step===i+1?'current':step>i+1?'done':''}' ${step===i+1?"aria-current='step'":''}><span aria-hidden='true'>${i+1}</span>${label}</li>`).join('')}</ol>`;
- const visibility=online?`<label class='form-label' for='roomVisibility'>Quem pode entrar?</label><select class='form-input' id='roomVisibility' name='visibility' ${ui.rival?'disabled':''} aria-describedby='visibilityHint'><option value='public' ${ui.visibility==='public'?'selected':''}>Sala aberta na arena</option><option value='private' ${ui.visibility==='private'?'selected':''}>Somente por convite</option></select><p class='meta' id='visibilityHint'>${ui.rival?'Com o ID do amigo, a sala fica privada para esse jogador.':'Uma sala aberta aparece para jogadores conectados. Seu saldo e suas fotos continuam privados.'}</p>`:'';
- const rivals=online?`<input class='form-input' id='rivalId' name='rivalId' maxlength='14' value='${esc(ui.rival)}' placeholder='FBA-XXXXXXXXXX ou deixe vazio para uma sala aberta' aria-describedby='rivalPreview'><button class='text-button' type='button' data-action='find'>Conferir ID do amigo</button><p id='rivalPreview' class='meta'>${foundPlayer?`Jogador encontrado: ${esc(foundPlayer.nickname)}`:'Com o ID, só esse jogador aceita. Sem ID, escolha sala aberta ou convite privado.'}</p>${visibility}`:`<select class='form-input' id='rivalId' name='rivalId' ${!others.length?'disabled':''} required><option value=''>Selecione um jogador</option>${others.map(x=>`<option value='${esc(x.publicPlayerId)}' ${ui.rival===x.publicPlayerId?'selected':''}>${esc(x.nickname)} · ${esc(x.publicPlayerId)}</option>`).join('')}</select><p class='meta'>Perfis cadastrados neste navegador. Convites entre aparelhos precisam da versão com servidor.</p>`;
+ const audience=online?`<fieldset class='wizard-choice'><legend>Quem joga com você?</legend><button class='btn secondary' type='button' data-action='audience' data-id='private' aria-pressed='${ui.visibility==='private'}'>Convidar um amigo</button><button class='btn secondary' type='button' data-action='audience' data-id='public' aria-pressed='${ui.visibility==='public'}'>Encontrar um rival</button></fieldset><input type='hidden' name='visibility' value='${esc(ui.visibility)}'><p class='meta' id='visibilityHint'>${ui.visibility==='public'?'Sua sala aparece na Arena para jogadores conectados.':'Sala privada. Compartilhe o convite com seu amigo.'}</p>`:'';
+ const rivals=online?ui.visibility==='private'?`<label class='form-label' for='rivalId'>ID Fifa GO do amigo · opcional</label><input class='form-input' id='rivalId' name='rivalId' maxlength='14' value='${esc(ui.rival)}' placeholder='FBA-XXXXXXXXXX' aria-describedby='rivalPreview'><button class='text-button' type='button' data-action='find'>Conferir ID do amigo</button><p id='rivalPreview' class='meta'>${foundPlayer?`Jogador encontrado: ${esc(foundPlayer.nickname)}`:'Sem ID, você pode compartilhar um convite privado por link.'}</p>`:`<input type='hidden' name='rivalId' value=''><p class='meta'>O primeiro jogador compatível pode conferir e aceitar sua sala. Seu saldo e suas fotos permanecem privados.</p>`:`<label class='form-label' for='rivalId'>Seu amigo</label><select class='form-input' id='rivalId' name='rivalId' ${!others.length?'disabled':''} required><option value=''>Selecione um jogador</option>${others.map(x=>`<option value='${esc(x.publicPlayerId)}' ${ui.rival===x.publicPlayerId?'selected':''}>${esc(x.nickname)} · ${esc(x.publicPlayerId)}</option>`).join('')}</select><p class='meta'>Perfis deste navegador. Convites entre aparelhos precisam da versão conectada.</p>`;
  let content;
- if(step===1)content=`<h3 class='wizard-heading' id='wizardHeading' tabindex='-1'>Quem joga com você?</h3><label class='form-label' for='rivalId'>${online?'ID Fifa GO do amigo · opcional':'Seu amigo'}</label>${rivals}<div class='form-grid'><div><label class='form-label' for='gameMode'>Modo de jogo</label><select class='form-input' id='gameMode' name='mode'>${['1v1','Ultimate Team','Clubes'].map(m=>`<option ${ui.mode===m?'selected':''}>${m}</option>`).join('')}</select></div><div><label class='form-label' for='gamePlatform'>Plataforma</label><select class='form-input' id='gamePlatform' name='platform'>${platforms.map(([v,label])=>`<option value='${v}' ${ui.platform===v?'selected':''}>${label}</option>`).join('')}</select></div></div>${online?compatibilityFields(ui):''}<div class='duel-wizard-actions'><button class='btn primary' type='submit' ${!online&&!others.length?'disabled':''}>Continuar →</button></div>`;
- else if(step===2)content=`<h3 class='wizard-heading' id='wizardHeading' tabindex='-1'>Combinem Joga aí Coin e regras.</h3><p class='wizard-available'>Você tem <strong>${fmt(p?.balance||0)} ${creditUnit()} disponíveis</strong>.</p><label class='form-label' for='duelStake'>${online?'Joga aí Coin':'Joga aí Coin de teste'} por jogador</label><input class='form-input' id='duelStake' name='stake' type='number' min='0' max='5000' step='1' value='${esc(ui.stake)}' required aria-describedby='stakeHint'><div class='stake-options'>${[0,50,100,250].map(n=>`<button class='btn secondary small' type='button' data-action='stake' data-id='${n}'>${n===0?'Sem Coin':n+' Coin'}</button>`).join('')}</div><p class='meta' id='stakeHint'>Zero para jogar sem Coin; de 10 a 5.000 para exigir Coin na sala. Total com as duas partes reservadas: <strong id='potPreview'>${fmt(Number(ui.stake||0)*2)} ${creditUnit()}</strong>.</p>${online?`<p class='meta'>Você reserva sua parte ao criar. Seu rival precisa ter e reservar a mesma quantidade ao entrar. Na vitória, o prêmio desconta a taxa da casa de 9% do total.</p>`:''}<label class='form-label' for='duelRules'>Regras combinadas · opcional</label><textarea class='form-input' id='duelRules' name='rules' maxlength='240' rows='3' placeholder='Ex.: jogo único, 6 minutos, sem times personalizados'>${esc(ui.rules)}</textarea>${online?`<fieldset class='compatibility-fields'><legend>Regras para esta partida</legend><label><input type='checkbox' id='matchExtraTime' name='extraTime' ${ui.extraTime?'checked':''}>Usar prorrogação em empate</label><label><input type='checkbox' id='matchPenalties' name='penalties' ${ui.penalties?'checked':''}>Usar pênaltis em empate</label><p class='meta'>Desconexão: revisão pela equipe. Empate confirmado devolve as reservas, sem taxa.</p></fieldset>`:''}<div class='duel-wizard-actions'><button class='btn secondary' type='button' data-action='duel-back'>← Voltar</button><button class='btn primary' type='submit'>Revisar desafio →</button></div>`;
+ if(step===1)content=`<h3 class='wizard-heading' id='wizardHeading' tabindex='-1'>Prepare sua partida.</h3>${audience}${rivals}<div class='form-grid'><div><label class='form-label' for='gameMode'>Modo de jogo</label><select class='form-input' id='gameMode' name='mode'>${['1v1','Ultimate Team','Clubes'].map(m=>`<option ${ui.mode===m?'selected':''}>${m}</option>`).join('')}</select></div><div><label class='form-label' for='gamePlatform'>Plataforma</label><select class='form-input' id='gamePlatform' name='platform'>${platforms.map(([v,label])=>`<option value='${v}' ${ui.platform===v?'selected':''}>${label}</option>`).join('')}</select></div></div>${online?`<details class='wizard-compatibility' ${ui.compatibilityOpen?'open':''}><summary>Compatibilidade · opcional</summary>${compatibilityFields(ui)}</details>`:''}<div class='duel-wizard-actions'><button class='btn primary' type='submit' ${!online&&!others.length?'disabled':''}>Continuar →</button></div>`;
+ else if(step===2)content=`<h3 class='wizard-heading' id='wizardHeading' tabindex='-1'>Como vocês vão jogar?</h3><div class='wizard-choice' role='group' aria-label='Valor da partida'><button class='btn secondary' type='button' data-action='coin-mode' data-id='free' aria-pressed='${friendlyMode()}'>Amistosa grátis</button><button class='btn secondary' type='button' data-action='coin-mode' data-id='coins' aria-pressed='${!friendlyMode()}'>Com Joga aí Coin</button></div>${friendlyMode()?`<input id='duelStake' name='stake' type='hidden' value='0'><p class='hint'>Amistosa grátis: sem reserva de Coin e sem taxa da casa.</p>`:`<p class='wizard-available'>Você tem <strong>${fmt(p?.balance||0)} ${creditUnit()} disponíveis</strong>.</p><label class='form-label' for='duelStake'>Joga aí Coin por jogador</label><input class='form-input' id='duelStake' name='stake' type='number' inputmode='numeric' min='10' max='5000' step='1' value='${esc(ui.stake)}' required aria-describedby='stakeHint'><div class='stake-options'>${[50,100,250].map(n=>`<button class='btn secondary small' type='button' data-action='stake' data-id='${n}'>${n} Coin</button>`).join('')}</div><p class='meta' id='stakeHint'>De 10 a 5.000 Coin por jogador. Total com as duas reservas: <strong id='potPreview'>${fmt(Number(ui.stake||0)*2)} ${creditUnit()}</strong>.</p>${online?`<p class='meta'>Você reserva sua parte ao criar. Seu rival precisa reservar a mesma quantidade ao entrar. Na vitória, a taxa da casa é de 9% do total.</p>`:''}`}<label class='form-label' for='duelRules'>Regras combinadas · opcional</label><textarea class='form-input' id='duelRules' name='rules' maxlength='240' rows='3' placeholder='Ex.: jogo único, 6 minutos, sem times personalizados'>${esc(ui.rules)}</textarea>${online?`<fieldset class='compatibility-fields'><legend>Em caso de empate</legend><label><input type='checkbox' id='matchExtraTime' name='extraTime' ${ui.extraTime?'checked':''}>Usar prorrogação</label><label><input type='checkbox' id='matchPenalties' name='penalties' ${ui.penalties?'checked':''}>Usar pênaltis</label><p class='meta'>${friendlyMode()?'Amistosa sem Coin. Desconexões seguem para revisão.':'Empate confirmado devolve as reservas, sem taxa. Desconexões seguem para revisão.'}</p></fieldset>`:''}<div class='duel-wizard-actions'><button class='btn secondary' type='button' data-action='duel-back'>← Voltar</button><button class='btn primary' type='submit'>Revisar desafio →</button></div>`;
  else{const rival=foundPlayer||(!online?M.findProfileByPlayerId(state,ui.rival):null);content=`<h3 class='wizard-heading' id='wizardHeading' tabindex='-1'>Tudo certo para chamar seu rival?</h3><dl class='duel-summary'><div><dt>${ui.visibility==='public'&&!ui.rival?'Sala aberta':'Amigo'}</dt><dd>${esc(rival?.nickname||(ui.visibility==='public'?'Qualquer jogador conectado à arena':'Convite por link'))}<button class='text-button' type='button' data-action='duel-edit' data-id='1'>Editar partida</button></dd></div><div><dt>Modo e plataforma</dt><dd>${esc(ui.mode)} · ${esc(platforms.find(([id])=>id===ui.platform)?.[1]||ui.platform)}</dd></div><div><dt>Por jogador</dt><dd>${fmt(Number(ui.stake))} ${creditUnit()}<button class='text-button' type='button' data-action='duel-edit' data-id='2'>Editar Joga aí Coin e regras</button></dd></div>${Number(ui.stake)>0?`<div><dt>Total em disputa</dt><dd>${fmt(Number(ui.stake)*2)} ${creditUnit()}, ${online?'com as duas reservas confirmadas':'após o aceite do amigo'}</dd></div>`:""}${online&&Number(ui.stake)>0?`<div><dt>Taxa da casa na vitória</dt><dd>${Number(ui.stake)>0?'9% do total, arredondado para Coin inteiro':'Sem taxa: partida sem Coin'}</dd></div><div><dt>Prêmio previsto do vencedor</dt><dd>${fmt(Number(ui.stake)*2-Math.round(Number(ui.stake)*2*.09))} ${creditUnit()}, após a conferência das duas fotos</dd></div>`:''}${online?`<div><dt>Compatibilidade</dt><dd>${esc(ui.gameEdition||'Edição não informada')} · ${esc(ui.consoleGeneration||'Geração não informada')} · Crossplay ${esc(({any:'a combinar',enabled:'ativado',disabled:'desativado'})[ui.crossplay])}</dd></div><div><dt>Regras de empate</dt><dd>Prorrogação: ${ui.extraTime?'sim':'não'} · Pênaltis: ${ui.penalties?'sim':'não'} · Desconexão: revisão</dd></div>${Number(ui.stake)>0?`<div><dt>Ganho líquido previsto</dt><dd>${fmt(Number(ui.stake)-Math.round(Number(ui.stake)*2*.09))} ${creditUnit()}</dd></div>`:""}`:''}<div><dt>Regras</dt><dd class='duel-summary-rules'>${esc(ui.rules.trim()||'Sem regras extras. Combine os detalhes com seu amigo antes de jogar.')}</dd></div></dl><p class='hint'>${online?'Em salas com Coin, sua parte é reservada ao criar e a do rival ao entrar. Em salas sem Coin, não há reserva. Cada jogador envia a própria foto do placar para conferir o resultado.':`Ao confirmar, ${fmt(Number(ui.stake))} Joga aí Coin de teste serão reservados do seu saldo. Seu amigo reserva a parte dele ao aceitar. No modo local, resultado e foto ficam neste navegador. A revisão pela equipe exige um servidor conectado.`}</p><div class='duel-wizard-actions'><button class='btn secondary' type='button' data-action='duel-back'>← Voltar</button><button class='btn primary' type='submit'>${online&&ui.visibility==='public'&&!ui.rival?'Confirmar e criar sala':'Confirmar e criar convite'}</button></div>`;}
  return `<section class='card duel-composer pad'><div class='card-top'><h2>Criar minha partida</h2><span class='pill subtle'>ETAPA ${step} DE 3</span></div>${progress}<form data-form='duel' data-step='${step}' data-owner='${esc(ui.duelOwner||'')}' data-revision='${ui.duelRevision}' data-operation='${esc(ui.duelOperation)}'><fieldset ${!p?'disabled':''} class='duel-wizard-fields'>${content}</fieldset><p id='composerError' class='error-message' role='alert' ${ui.duelError?'':'hidden'}>${esc(ui.duelError)}</p></form>${!p?`<div class='row wrap wizard-signup'><button class='btn primary' data-action='signup'>Criar conta para desafiar</button><button class='btn secondary' data-action='login'>Já tenho conta</button></div>`:!online&&!others.length?`<div class='wizard-signup'><p class='meta'>Adicione outro perfil para testar uma partida entre dois jogadores.</p><button class='btn secondary' data-action='signup'>Adicionar outro jogador</button></div>`:''}<p class='meta wizard-test-note'>${online?'Coin só são reservados após você conferir e confirmar a partida.':'Joga aí Coin fictícios, sem cobrança ou saques. Nenhum Coin é reservado antes da sua confirmação.'}</p></section>`;
 }
@@ -254,10 +289,22 @@ function balanceHint(p){
  return !p?'Crie seu perfil local. O saldo inicial é zero.':!p.balance?(reserved()?'Seu saldo está reservado em partidas. Adicione Joga aí Coin de teste para criar outro desafio.':'Seu saldo está zerado. Adicione Joga aí Coin de teste para experimentar uma partida.'):'Joga aí Coin fictícios, sem valor financeiro. Reservas só são liberadas após o resultado revisado ou cancelamento.';
 }
 
+function continuationCards(all){
+ const owner=profile()?.id;
+ const priority=d=>d.status==='review'&&d.result?.submittedBy!==owner&&!d.peerConfirmed?0:d.status==='active'?1:d.status==='preparing'?2:d.status==='awaiting_funds'?3:4;
+ const rooms=all.filter(d=>[d.hostId,d.guestId,d.recipientId].includes(owner)).sort((a,b)=>priority(a)-priority(b)).slice(0,3);
+ if(!rooms.length)return '';
+ return "<section class='home-continuation' aria-labelledby='continuationTitle'><div class='account-section-head'><h2 id='continuationTitle'>Continuar minha partida</h2><button class='text-button' data-action='my-reservations'>Ver minhas salas</button></div><ul>"+rooms.map(d=>{
+  const ready=preparationState(d,owner),saved=resultDrafts.get(owner,d.id),rival=opponent(d)?.nickname||'Aguardando rival';
+  const hint=d.status==='preparing'?ready.ownReady?'Você confirmou. Aguardando o rival.':'Converse com seu rival e confirme o início.':d.status==='active'?saved?'Você tem um envio de placar para continuar.':'Jogo em andamento. Envie o placar quando terminar.':d.status==='review'?d.result?.submittedBy!==owner&&!d.peerConfirmed&&!confirmationClock(d.result?.confirmationDeadline)?.expired?'Seu rival enviou o placar. Falta sua foto e confirmação.':'Acompanhe a conferência do resultado.':d.status==='awaiting_funds'?'Confira a reserva de Coin para entrar em campo.':d.hostId===owner?'Aguardando um rival aceitar a sala.':'Confira o convite antes de aceitar.';
+  const notice=(arena?.notifications||[]).find(n=>n.duelId===d.id&&['review','result_confirmation','ready','waiting'].includes(n.type));
+  return `<li><div><strong>${esc(rival)}</strong><span>${esc(d.mode)} · ${d.stake?fmt(d.stake)+' Joga aí Coin por jogador':'Amistosa grátis'}</span><p>${esc(notice?notificationLabel(notice):hint)}</p></div><button class='btn secondary' data-action='room' data-id='${esc(d.id)}'>Abrir sala ${uiIcon('arrow')}</button></li>`;
+ }).join('')+'</ul></section>';
+}
 function arenaView(){
  const p=profile(),all=p?duels().filter(open):[],activitySummary={incoming:all.filter(d=>d.status==='invited'&&d.hostId!==p?.id).length,active:all.filter(d=>d.status==='active').length};
  const shortcut=p?`<section class='arena-home-link'><div>${uiIcon('ball')}<div><h2>Suas salas estão na Arena.</h2><p>${all.length?`${fmt(all.length)} ${all.length===1?'sala ou partida para acompanhar':'salas e partidas para acompanhar'}.`:'Encontre uma sala aberta ou acompanhe os desafios que você criar.'}</p></div></div><button class='btn secondary' data-action='browse-arena'>Ir para a Arena ${uiIcon('arrow')}</button></section>`:'';
- return roomNotices()+renderLobbyView({user:p,online,friendly:friendlyMode(),unit:creditUnit(),hint:balanceHint(p),reserved:reserved(),joinForm:joinForm(),queue:shortcut,activitySummary,esc,fmt,icon:uiIcon});
+ return (all.length?'':roomNotices())+renderLobbyView({user:p,online,friendly:friendlyMode(),unit:creditUnit(),hint:balanceHint(p),reserved:reserved(),joinForm:joinForm(),queue:continuationCards(all)||shortcut,activitySummary,esc,fmt,icon:uiIcon});
 }
 function roomNotices(){
  const alerts=(arena?.notifications||[]).filter(n=>n.duelId&&['waiting','result_confirmation','joined','review','invite','ready'].includes(n.type)).slice(0,3);
@@ -425,9 +472,9 @@ function showJoin(){
  modal('Entrar em uma partida','Confira o convite e confirme com seu próprio perfil.',`${joinForm(true)}${invitations}${!online?`<p class='hint'>Neste modo, o código funciona entre perfis cadastrados no mesmo navegador.</p>`:''}`);
 }
 async function continueIntent(){
- if(invite)return showInvite();
- const next=pendingIntent;pendingIntent=null;
- if(next==='create')go('criar');
+ if(invite){pendingIntent=null;pendingFlow.clear();return showInvite();}
+ const stored=pendingFlow.read(),next=pendingIntent||stored?.action;pendingIntent=null;pendingFlow.clear();if(stored?.draft&&profile()){resetDuelDraft();updateDuelDraft(stored.draft);}if(stored?.joinCode)ui.joinCode=stored.joinCode;
+ if(next==='create'||next==='rematch')go('criar');
  else if(next==='join')showJoin();
  else if(next==='join-code')await findInvitation(ui.joinCode);
  else if(next==='deposit')await showDeposit();
@@ -476,7 +523,7 @@ function accountContext(){return {user:profile(),online,esc,fmt,when,brl,avatar,
 async function walletView(){
  if(!profile())return accountGuest('wallet','Sua carteira.','Saldo e movimentações, sempre na sua conta.');
  const owner=profile()?.id,epoch=accountCacheEpoch,data=(walletOwner===owner?walletData:null)||await loadWallet();if(profile()?.id!==owner||epoch!==accountCacheEpoch||(online&&walletOwner!==owner)||!data)return '';
- return renderWalletView({...accountContext(),wallet:data,legacyDemoView});
+ return renderWalletView({...accountContext(),wallet:data,duels:duels(),legacyDemoView});
 }
 async function showDeposit({amount=100,method='pix',installments=1}={}){
  if(!profile()){pendingIntent='deposit';return showAuth(true);}
@@ -545,7 +592,7 @@ function render(){
  const savedComposer=$('screen').querySelector?.('[data-form=chat]'),savedList=$('screen').querySelector?.('#chatMessages'),savedScroll=savedList?.scrollTop,savedBottom=nearChatBottom(savedList),savedFocus=document.activeElement?.id==='chatText';
  const savedTicket=privateChat.ticket();
  const revision=++renderRevision,renderOwner=profile()?.id,renderEpoch=accountCacheEpoch,hash=location.hash.slice(1);
-  if(resultDraft&&resultDraft.owner!==profile()?.id)clearResultDraft();
+  if(resultDraft&&resultDraft.owner!==profile()?.id)clearResultDraft({discard:true});
   const roomMatch=/^partida\/([A-Za-z0-9_-]{1,100})$/.exec(hash);ui.roomId=roomMatch?decodeURIComponent(roomMatch[1]):null;
   ui.view=roomMatch?'sala':({palpites:'historico',amigos:'arena'}[hash]||(['arena','salas','criar','carteira','historico','ranking','perfil','revisao','admin'].includes(hash)?hash:'arena'));
  syncChatContext();
@@ -567,7 +614,7 @@ function render(){
  if(asyncView)asyncView().then(html=>{if(renderRevision===revision&&profile()?.id===renderOwner&&accountCacheEpoch===renderEpoch){$('screen').innerHTML=runtimeCopy(html);if(ui.view==='admin')administration().afterRender();if(ui.view==='sala'){syncChatContext();loadRoomChat();}restoreHistoryFocus();}}).catch(e=>{if(renderRevision===revision&&profile()?.id===renderOwner&&accountCacheEpoch===renderEpoch)$('screen').innerHTML=accountKind?`<div class='account-page'>${accountIntro(accountKind,ui.view==='carteira'?'Sua carteira.':'Cada vitória conta.','Seus dados continuam na sua conta.')}<div role='alert'>${accountEmpty(accountKind,'Não foi possível carregar.',e.message,`<button class='btn secondary' data-action='refresh'>Tentar novamente</button>`)}</div></div>`:`<section class='card pad'><h2>Não foi possível carregar.</h2><p>${esc(e.message)}</p><button class='btn secondary' data-action='refresh'>Tentar novamente</button></section>`;});
 }
 function focusScreen(){ $('screen').focus({preventScroll:true}); }
-function go(view){closeMoreNav();history.replaceState(null,'',new URL('#'+view,location.href).href);closeModal();ui.filter='all';render();focusScreen();window.scrollTo({top:0});}
+function go(view){closeMoreNav();if(location.hash!=='#'+view)(history.pushState||history.replaceState).call(history,null,'',new URL('#'+view,location.href).href);closeModal();ui.filter='all';render();focusScreen();window.scrollTo({top:0});}
 function accountPitch(){return `<svg class='account-pitch' viewBox='0 0 88 62' fill='none' aria-hidden='true'><rect x='1.5' y='1.5' width='85' height='59' rx='5'/><path d='M44 2v58M2 17h15v28H2m84-28H71v28h15'/><circle cx='44' cy='31' r='10'/><circle class='account-pitch-ball' cx='57' cy='40' r='3'/></svg>`;}
 const countryNames=new Intl.DisplayNames(['pt-BR'],{type:'region'});
 const countryOptions=selected=>`<option value=''>Selecione seu país</option>${COUNTRY_CODES.map(code=>({code,name:countryNames.of(code)||code})).sort((a,b)=>a.name.localeCompare(b.name,'pt-BR')).map(({code,name})=>`<option value='${code}' ${code===selected?'selected':''}>${esc(name)}</option>`).join('')}`;
@@ -581,7 +628,7 @@ function accountFields({signup=false,onboarding=false}={}){
 }
 function accountSocials(signup){
  if(!online)return '';
- const providers=signup?['google',...(backendStatus?.authProviders?.apple?.available?['apple']:[])]:['google','apple'];
+ const providers=['google',...(backendStatus?.authProviders?.apple?.available?['apple']:[])];
  return `<div class='account-socials'>${providers.map(id=>{const label=id==='google'?'Google':'Apple',available=backendStatus?.authProviders?.[id]?.available;return `<button class='btn secondary social-login-button' data-action='oauth' data-id='${id}' ${available?'':`disabled aria-describedby='${id}LoginHint'`}>${id==='google'?uiIcon('google'):''}Continuar com ${label}</button>${available?'':`<p class='account-help' id='${id}LoginHint'>${id==='google'&&['localhost','127.0.0.1'].includes(location.hostname)?'Google não está conectado neste ambiente.':`Login com ${label} em configuração.`}</p>`}`;}).join('')}</div><div class='auth-divider'><span>${signup?'ou crie com apelido e senha':'ou use sua conta Fifa GO'}</span></div>`;
 }
 function accountError(form,error){
@@ -610,6 +657,7 @@ function showCompleteSignup(){
  modal('Complete seu perfil','Sua conta foi conectada. Escolha como aparecer para os amigos.',`<form data-form='onboarding' data-owner='${esc(profile().id)}' data-terms='${TERMS_VERSION}' class='account-form' novalidate>${accountFields({onboarding:true})}<button class='btn primary wide account-submit' type='submit'>Concluir cadastro e receber meu ID</button><p class='account-zero'>Seu saldo começa em zero.</p></form><button class='text-button account-switch' data-action='logout'>Sair e usar outra conta</button>`,{account:true});
 }
 function showAuth(signup=false){
+ if(!profile()&&!pendingIntent&&(ui.view==='criar'||location.hash==='#criar'))pendingIntent='create';
  if(serviceUnavailable)return render();
  if(profile()?.needsOnboarding)return showCompleteSignup();
  if(!online&&!signup){const ps=Object.values(state.profiles);return modal('Entrar na arena','Escolha um perfil deste navegador.',`<div class='session-picker'>${ps.length?ps.map(p=>`<button class='btn secondary' data-action='select-profile' data-id='${esc(p.id)}'>${avatar(p)}<span>${esc(p.nickname)}<small>${esc(p.publicPlayerId)}</small></span></button>`).join(''):`<p class='muted'>Crie seu primeiro perfil para começar.</p>`}</div><button class='btn primary wide' data-action='signup' style='margin-top:14px'>Criar outro perfil</button>`);}
@@ -618,11 +666,15 @@ function showAuth(signup=false){
 const authErrors={oauth_unavailable:'Esse login ainda está em configuração. Use sua conta Fifa GO.',oauth_expired:'A solicitação de login expirou. Tente novamente.',oauth_invalid_state:'A solicitação de login expirou. Tente novamente.',oauth_cancelled:'O login foi cancelado. Você pode tentar novamente.',oauth_rejected:'O provedor não autorizou o login. Tente novamente.',oauth_invalid_response:'Não foi possível concluir o login. Tente novamente.',oauth_provider_unavailable:'O provedor de login está indisponível. Use sua conta Fifa GO.',failed:'Não foi possível concluir o login. Tente novamente.',account_conflict:'Essa conta já está vinculada. Use o método de login original.'};
 const AUTH_PENDING_KEY='fifago-pending-invitation';
 function saveAuthIntent(){
+ if(!profile()&&ui.duelOwner)resetDuelDraft(null);
+ if(!pendingIntent&&location.hash==='#criar')pendingIntent='create';
+ if(pendingIntent&&['create','join-code','deposit','rematch'].includes(pendingIntent))pendingFlow.save({action:pendingIntent,...(['create','rematch'].includes(pendingIntent)?{draft:wizardSnapshot()}: {})});else pendingFlow.clear();
  let pending=invite?.token?{type:'token',value:invite.token}:invite?.code?{type:'code',value:invite.code}:null;
  if(!pending&&ui.joinCode){try{const parsed=invitationInput(ui.joinCode);pending={type:parsed.token?'token':'code',value:parsed.token||parsed.code};}catch{}}
  try{if(pending)sessionStorage.setItem(AUTH_PENDING_KEY,JSON.stringify({...pending,expiresAt:Date.now()+30*60*1000}));else sessionStorage.removeItem(AUTH_PENDING_KEY);}catch{throw Error('Não foi possível guardar seu convite para o login. Permita o armazenamento do navegador e tente novamente.');}
 }
 function restoreAuthIntent(){
+ const stored=pendingFlow.read();if(stored){pendingIntent=stored.action;if(stored.joinCode)ui.joinCode=stored.joinCode;}
  try{const raw=sessionStorage.getItem(AUTH_PENDING_KEY);sessionStorage.removeItem(AUTH_PENDING_KEY);if(!raw)return;const pending=JSON.parse(raw);if(pending.expiresAt<Date.now())return;if(pending.type==='token'&&/^[A-Za-z0-9_-]{43}$/.test(pending.value))invite={token:pending.value};else if(pending.type==='code'&&/^FG-[A-F0-9]{10}$/.test(pending.value))invite={code:pending.value};}catch{}
 }
 function showProfile(){
@@ -633,7 +685,8 @@ function fileField(){return `<div class='result-photo-picker'><span class='form-
 function showResult(id,confirming=false){
  const d=byId(id),kind=confirming?'confirm-result':'result',existingClock=confirmationClock(d.result?.confirmationDeadline),waitNote=confirming?'As duas fotos e os placares serão comparados.':existingClock?.expired?'O prazo original terminou. O novo relato será analisado pela equipe.':existingClock?'O prazo original desta partida continua valendo para o rival confirmar.':'Após enviar, seu rival tem até 5 minutos para enviar a própria foto e confirmar.';
  if(confirming&&(!d.result||d.peerConfirmed||d.result.submittedBy===profile()?.id))throw Error('Esta confirmação não está disponível. Atualize a sala.');
- modal(confirming?'Confirme com a sua foto':'Partida encerrada',confirming?'Envie uma foto própria e confira o placar informado pelo rival.':'Envie a foto e confira os gols antes de registrar o resultado.',`<form data-form='${kind}' data-id='${esc(id)}' data-report='${esc(d.result?.id||'')}' data-owner='${esc(profile()?.id)}' class='match-result-form'>${fileField()}${online?`<div class='result-recognition'><button class='btn secondary' type='button' data-action='recognize' data-id='${esc(id)}' disabled>Ler placar da foto</button><p class='meta'>A leitura local procura os números do placar. Ela ajuda a conferir o resultado e pode exigir revisão.</p><div id='recognitionFeedback' role='status' aria-live='polite'></div></div>`:`<p class='meta'>Leitura da foto disponível na versão conectada. Informe os gols abaixo.</p>`}<label class='form-label' for='recognitionLeft'>Quem está à esquerda na sua foto?</label><select class='form-input' id='recognitionLeft' name='scoreSide' required><option value=''>Escolha o jogador à esquerda</option><option value='host'>${esc(d.host.nickname)}</option><option value='guest'>${esc(d.guest.nickname)}</option></select><p class='meta'>A ordem pode mudar na tela de cada console. Os gols abaixo devem corresponder aos nomes dos jogadores.</p><h3 class='result-score-heading'>${d.matchRules?.extraTime||d.matchRules?.penalties?"Gols no tempo regulamentar":"Confira os gols de cada jogador"}</h3><div class='form-grid score-entry'><label for='homeScore'><span class='form-label'>${esc(d.host.nickname)}</span><input id='homeScore' class='form-input' name='homeScore' type='number' inputmode='numeric' min='0' max='99' step='1' required value='${d.result?.homeScore??''}'></label><label for='awayScore'><span class='form-label'>${esc(d.guest.nickname)}</span><input id='awayScore' class='form-input' name='awayScore' type='number' inputmode='numeric' min='0' max='99' step='1' required value='${d.result?.awayScore??''}'></label></div>${online?resultPhasesFields(d,{esc}):''}<p class='hint'>${d.stake===0?'Amistosa sem Coin. O resultado será registrado após a conferência.':`As reservas ficam bloqueadas até a conferência. ${d.economics?`Prêmio previsto: ${fmt(d.economics.winnerPayout)} Joga aí Coin, com taxa de ${fmt(Number(d.economics.feeBps||0)/100)}% do total.`:''}`} ${esc(waitNote)} Divergências, fotos ilegíveis ou problemas seguem para a equipe.${online?'':' No modo local, a foto fica neste navegador.'}</p><button type='submit' class='btn primary wide'>${confirming?'Enviar minha foto e confirmar':'Enviar placar e foto'}</button></form>`);
+ modal(confirming?'Confirme com a sua foto':'Partida encerrada',confirming?'Envie uma foto própria e confira o placar informado pelo rival.':'Envie a foto e confira os gols antes de registrar o resultado.',`<form data-form='${kind}' data-id='${esc(id)}' data-report='${esc(d.result?.id||'')}' data-owner='${esc(profile()?.id)}' class='match-result-form'>${fileField()}${online?`<div class='result-recognition'><button class='btn secondary' type='button' data-action='recognize' data-id='${esc(id)}' disabled>Ler placar da foto</button><p class='meta'>A leitura local procura os números do placar. Ela ajuda a conferir o resultado e pode exigir revisão.</p><div id='recognitionFeedback' role='status' aria-live='polite'></div></div>`:`<p class='meta'>Leitura da foto disponível na versão conectada. Informe os gols abaixo.</p>`}<label class='form-label' for='recognitionLeft'>Quem está à esquerda na sua foto?</label><select class='form-input' id='recognitionLeft' name='scoreSide' required><option value=''>Escolha o jogador à esquerda</option><option value='host'>${esc(d.host.nickname)}</option><option value='guest'>${esc(d.guest.nickname)}</option></select><p class='meta'>A ordem pode mudar na tela de cada console. Os gols abaixo devem corresponder aos nomes dos jogadores.</p><h3 class='result-score-heading'>${d.matchRules?.extraTime||d.matchRules?.penalties?"Gols no tempo regulamentar":"Confira os gols de cada jogador"}</h3><div class='form-grid score-entry'><label for='homeScore'><span class='form-label'>${esc(d.host.nickname)}</span><input id='homeScore' class='form-input' name='homeScore' type='number' inputmode='numeric' min='0' max='99' step='1' required value='${d.result?.homeScore??''}'></label><label for='awayScore'><span class='form-label'>${esc(d.guest.nickname)}</span><input id='awayScore' class='form-input' name='awayScore' type='number' inputmode='numeric' min='0' max='99' step='1' required value='${d.result?.awayScore??''}'></label></div>${online?resultPhasesFields(d,{esc}):''}<p class='hint'>${d.stake===0?'Amistosa sem Coin. O resultado será registrado após a conferência.':`As reservas ficam bloqueadas até a conferência. ${d.economics?`Prêmio previsto: ${fmt(d.economics.winnerPayout)} Joga aí Coin, com taxa de ${fmt(Number(d.economics.feeBps||0)/100)}% do total.`:''}`} ${esc(waitNote)} Divergências, fotos ilegíveis ou problemas seguem para a equipe.${online?'':' No modo local, a foto fica neste navegador.'}</p><p id='resultDraftNote' class='meta'>Seu rascunho fica nesta aba por até 15 minutos. Recarregar ou fechar o app descarta a foto.</p><button class='text-button' type='button' data-action='discard-result-draft' data-id='${esc(id)}'>Descartar rascunho</button><div id='draftDiscardConfirm' class='hint' hidden><p>Descartar a foto e os dados que ainda não foram enviados?</p><button class='btn secondary' type='button' data-action='keep-result-draft'>Continuar editando</button><button class='btn secondary' type='button' data-action='confirm-discard-result' data-id='${esc(id)}'>Sim, descartar</button></div><button type='submit' class='btn primary wide'>${confirming?'Enviar minha foto e confirmar':'Enviar placar e foto'}</button></form>`);
+ restoreResultDraft(id,kind);
 }
 function showDetails(id){
   const d=byId(id),incoming=d.status==='invited'&&d.hostId!==profile()?.id,balance=d.creditMode==='legacy_demo'?Number(arena?.user?.demoBalance||arena?.user?.legacyDemoBalance||0):profile()?.balance||0,enough=balance>=d.stake;
@@ -647,14 +700,14 @@ function showConnection(){modal('Amigos em dispositivos diferentes',online?'Sua 
 const preparePhoto=file=>prepareEvidencePhoto(file,{local:!online});
 function currentResultDraft(draft){return resultDraft===draft&&draft.form.isConnected&&profile()?.id===draft.owner&&draft.form.dataset.id===draft.id;}
 function setResultPhoto(form,file){
- clearResultDraft();
+ clearResultDraft({discard:true});
  const draft={form,id:form.dataset.id,owner:profile()?.id,file,photo:null,evidenceId:null,uploadPromise:null,scores:null};resultDraft=draft;
  draft.photoPromise=preparePhoto(file).then(photo=>{if(!currentResultDraft(draft))throw Error('O envio mudou. Escolha a foto novamente.');draft.photo=photo;return photo;});
  return draft;
 }
 async function resultPhoto(form){
  let draft=resultDraft;
- if(!draft||draft.form!==form){const file=form.querySelector('#resultImage')?.files[0];if(!file)throw Error('Tire ou escolha uma foto do placar para continuar.');draft=setResultPhoto(form,file);}
+ if(!draft||draft.form!==form||!draft.file){const file=form.querySelector('#resultImage')?.files[0];if(!file)throw Error('Tire ou escolha uma foto do placar para continuar.');draft=setResultPhoto(form,file);}
  if(!currentResultDraft(draft))throw Error('A conta ou o envio mudou. Reabra o resultado e escolha a foto novamente.');
  await draft.photoPromise;return draft;
 }
@@ -758,6 +811,18 @@ async function execute(action,id){
  if(online&&profile()?.needsOnboarding&&!['logout','close','help','credits'].includes(action))return showCompleteSignup();
  if(action==='close')return closeModal();
  if(action==='browse-arena')return go('salas');
+ if(action==='my-reservations'){if(!profile())return showAuth(false);ui.arenaTab='mine';go('salas');return;}
+ if(action==='audience'){ensureDuelOwner();if(!['public','private'].includes(id))return;updateDuelDraft({visibility:id,...(id==='public'?{rival:''}:{})});render();return;}
+ if(action==='coin-mode'){ensureDuelOwner();if(!['free','coins'].includes(id))return;updateDuelDraft({stake:id==='free'?'0':Number(ui.stake)>0?ui.stake:'50'});render();return;}
+ if(action==='copy-game-id'){if(!['eaId','psnId','xboxId'].includes(id))return;const value=profile()?.gameAccount?.[id];if(typeof value!=='string'||!value.trim())throw Error('Preencha esse ID no perfil primeiro.');return copy(value,'ID do jogo copiado.');}
+ if(action==='rematch'){
+  const d=byId(id),owner=profile()?.id;if(!owner||![d.hostId,d.guestId].includes(owner)||d.status!=='settled')throw Error('Abra uma partida concluída da sua conta para jogar novamente.');
+  const other=opponent(d);if(!other?.publicPlayerId)throw Error('O ID do rival não está disponível. Crie uma partida por convite.');
+  wizardStore(owner).clear();resetDuelDraft(owner);updateDuelDraft({rival:other.publicPlayerId,visibility:'private',mode:d.mode,platform:d.platform||preferredPlatform(owner),rules:d.rules||'',stake:'0',gameEdition:d.gameEdition||'',consoleGeneration:d.consoleGeneration||'',crossplay:d.crossplay||'any',extraTime:!!d.matchRules?.extraTime,penalties:!!d.matchRules?.penalties});go('criar');toast('Nova partida preparada. Confira as regras e escolha se deseja usar Coin.');return;
+ }
+ if(action==='discard-result-draft'){rememberResultDraft();if(!resultDraft&&resultDrafts.get(profile()?.id,id)){const form=$('modalContent').querySelector?.('.match-result-form');if(form?.dataset.id===id)resultDraft={form,id,owner:profile().id};}if(resultDraft?.id!==id)return;$('draftDiscardConfirm').hidden=false;return;}
+ if(action==='keep-result-draft'){if($('draftDiscardConfirm'))$('draftDiscardConfirm').hidden=true;return;}
+ if(action==='confirm-discard-result'){if(resultDraft?.id!==id)return;const confirming=resultDraft.form.dataset.form==='confirm-result';closeModal({discardResult:true});showResult(id,confirming);return;}
  if(action==='arena-tab'){
   if(ui.view!=='salas'||!profile()||!['open','mine'].includes(id))return;
   ui.arenaTab=id;render();$('arenaList')?.focus({preventScroll:true});return;
@@ -784,7 +849,7 @@ async function execute(action,id){
  }
  if(action==='view-invite')return showInvite();
  if(action==='clear-invite'){invite=null;ui.joinCode='';pendingIntent=null;const url=new URL(location.href);url.searchParams.delete('convite');url.hash='arena';history.replaceState(null,'',url.href);return go('arena');}
- if(action==='create'){if(!profile()){pendingIntent='create';return showAuth(true);}return go('criar');}
+ if(action==='create'){if(!profile()){resetDuelDraft(null);pendingIntent='create';return showAuth(true);}return go('criar');}
  if(action==='deposit')return showDeposit();
  if(action==='payment-method')return showDeposit({method:id,amount:Number($('depositAmount').value),installments:Number($('depositInstallments')?.value||1)});
  if(action==='deposit-details')return showDepositDetails(id);
@@ -806,7 +871,7 @@ async function execute(action,id){
  if(action==='help')return showHelp();
  if(action==='connection')return showConnection();
  if(action==='copy-id')return copy(profile()?.publicPlayerId||'');
- if(action==='stake'){updateDuelDraft({stake:id});$('duelStake').value=id;$('potPreview').textContent=`${fmt(Number(id)*2)} ${creditUnit()}`;return;}
+ if(action==='stake'){updateDuelDraft({stake:id});if($('duelStake'))$('duelStake').value=id;if($('potPreview'))$('potPreview').textContent=`${fmt(Number(id)*2)} ${creditUnit()}`;return;}
  if(action==='duel-back'||action==='duel-edit'){
   ensureDuelOwner();const next=action==='duel-back'?ui.duelStep-1:Number(id);
   if(!Number.isInteger(next)||next<1||next>=ui.duelStep)throw Error('Volte a uma etapa anterior para editar sua partida.');
@@ -830,7 +895,7 @@ async function execute(action,id){
  if(action==='result')return showResult(id);
  if(action==='dispute')return showDispute(id);
  if(action==='select-profile'){save(M.change(read(),'login',{id}));ui.rival='';foundPlayer=null;resetAccountCaches();closeModal();render();return continueIntent();}
- if(action==='logout'){chatDenied=null;privateChat.clear();arenaSyncRevision++;if(online){await API.logoutAccount();arena=null;}else localChange('logout');adminPanel?.reset();resetAccountCaches();pendingIntent=null;closeModal();render();return;}
+ if(action==='logout'){pendingFlow.clear();try{sessionStorage.removeItem(AUTH_PENDING_KEY);}catch{}chatDenied=null;privateChat.clear();arenaSyncRevision++;if(online){await API.logoutAccount();arena=null;}else localChange('logout');adminPanel?.reset();resetAccountCaches();pendingIntent=null;closeModal();render();return;}
  if(action==='copy-code')return copy(id,online?'Convite copiado. Pronto para compartilhar.':'Código copiado. Use no perfil convidado deste navegador.');
  if(action==='refresh'){if(ui.view==='carteira')await loadWallet({preserve:true});if(ui.view==='historico')historyLoaded=false;await refresh();return toast('Arena atualizada.');}
  if(action==='retry')return start();
@@ -881,7 +946,7 @@ document.addEventListener('input',event=>{
  if(t.closest('.account-form')){t.removeAttribute('aria-invalid');const feedback=$(t.id+'Error');if(feedback)feedback.hidden=true;if($('dialogError'))$('dialogError').hidden=true;}
  adminPanel?.handleInput(t);
  if(t.id==='joinCode'||t.id==='dialogJoinCode'){ui.joinCode=t.value;if($('joinError'))$('joinError').hidden=true;}
- if(t.id==='duelStake'){updateDuelDraft({stake:t.value});$('potPreview').textContent=`${fmt(Number(t.value||0)*2)} ${creditUnit()}`;}
+ if(t.id==='duelStake'){updateDuelDraft({stake:t.value});if($('potPreview'))$('potPreview').textContent=`${fmt(Number(t.value||0)*2)} ${creditUnit()}`;}
  if(['homeScore','awayScore','disputeReason'].includes(t.id))invalidateRecognition(t.closest('[data-form]'));
  if(t.id==='rivalId'){updateDuelDraft({rival:t.value});if($('rivalPreview'))$('rivalPreview').textContent=online?'Com o ID, só esse jogador aceita. Sem ID, escolha sala aberta ou convite privado.':'';const visibility=$('roomVisibility');if(visibility){visibility.disabled=!!t.value.trim();visibility.value=ui.visibility;}const hint=$('visibilityHint');if(hint)hint.textContent=t.value.trim()?'Com o ID do amigo, a sala fica privada para esse jogador.':'Uma sala aberta aparece para jogadores conectados. Seu saldo e suas fotos continuam privados.';}
  if(t.id==='duelRules')updateDuelDraft({rules:t.value});
@@ -893,7 +958,7 @@ document.addEventListener('input',event=>{
  }
 });
 document.addEventListener('toggle',event=>{
- const detail=event.target;if(!detail.isConnected)return;
+ const detail=event.target;if(detail.classList?.contains?.('wizard-compatibility')){ui.compatibilityOpen=detail.open;return;}if(!detail.isConnected)return;
  if(detail.id==='arenaRoomFilters')ui.roomFiltersOpen=detail.open;
  if(detail.dataset.roomOptions){if(detail.open)arenaOpenOptions.add(detail.dataset.roomOptions);else arenaOpenOptions.delete(detail.dataset.roomOptions);}
 },true);
@@ -992,7 +1057,7 @@ document.addEventListener('submit',async event=>{
   ensureDuelOwner();
   if(form.dataset.owner!==ui.duelOwner||Number(form.dataset.step)!==ui.duelStep||Number(form.dataset.revision)!==ui.duelRevision)throw Error('Esta etapa mudou. Revise os dados da partida e continue novamente.');
   if(ui.duelStep===1){
-   updateDuelDraft({rival:String(data.get('rivalId')||'').trim().toUpperCase(),mode:String(data.get('mode')||''),platform:String(data.get('platform')||'pc'),visibility:String(data.get('visibility')||'private'),...(online?readCompatibility(data):{})});
+   updateDuelDraft({rival:String(data.get('rivalId')||'').trim().toUpperCase(),mode:String(data.get('mode')||''),platform:String(data.get('platform')||'pc'),visibility:String(data.get('visibility')||ui.visibility||'private'),...(online?readCompatibility(data):{})});
    await validateDuelDraft();ui.duelStep=2;ui.duelError='';render();$('wizardHeading')?.focus();return;
   }
   if(ui.duelStep===2){
@@ -1011,7 +1076,7 @@ document.addEventListener('submit',async event=>{
    else{localChange('createDuel',{opponentId:other.id,stake:payload.stake,mode:payload.mode,platform:payload.platform,rules:payload.rules,operationId:payload.operationId});d=duels().find(x=>x.operationId===payload.operationId);}
   }
   if(online)await refresh();
-  resetDuelDraft();
+  wizardStore(ui.duelOwner).clear();resetDuelDraft();
   openRoom(d.id);
   if(d.status!=='invited'){showDetails(d.id);return toast('A partida já foi criada. Confira o andamento.');}
   const shareable=online&&d.inviteToken,code=matchCode(d);
@@ -1040,9 +1105,10 @@ document.addEventListener('submit',async event=>{
   if(['result','confirm-result'].includes(kind)&&online&&!['host','guest'].includes(payload.scoreSide))throw Error('Escolha o jogador que está à esquerda na sua foto.');
   if(online){const evidenceId=await uploadResultPhoto(draft);if(profile()?.id!==profileId||!currentResultDraft(draft)||revision!==resultDraftRevision)throw Error('O envio mudou. Confira os dados e envie novamente.');if(kind==='result')await API.submitResult(id,{...payload,evidenceId});else if(kind==='confirm-result')await API.confirmResult(id,{...payload,evidenceId,reportId:form.dataset.report});else await API.disputeResult(id,{reportId:form.dataset.report,reason:data.get('reason'),evidenceId});}
   else localChange(kind==='result'?'submitDuelResult':'disputeDuelResult',{id,reportId:form.dataset.report,evidenceDataUrl:photo.dataUrl,evidenceName:photo.name,reason:data.get('reason'),...payload});
+  clearResultDraft({discard:true});resultDrafts.delete(profileId,id);
  }
  else if(kind==='review'){if(!data.get('confirmEvidence'))throw Error('Confirme a conferência das fotos e do prêmio.');await API.reviewDuel(form.dataset.id,{reportId:form.dataset.report,winner:data.get('winner'),reason:data.get('reason')});}
- closeModal();await refresh();toast(kind==='confirm-result'?'Sua foto e confirmação foram enviadas. Confira o resultado na sala.':kind==='result'?'Placar e foto enviados. Aguardando a confirmação do rival.':kind==='dispute'?'Contestação enviada. O resultado aguarda revisão.':kind==='issue'?'Problema registrado para a equipe. A partida continua em andamento.':kind==='issue-review'?'Decisão sobre o problema registrada.':kind==='review'?'Resultado revisado e registrado.':'Perfil atualizado.');
+ closeModal({discardResult:['result','confirm-result','dispute'].includes(kind)});await refresh();toast(kind==='confirm-result'?'Sua foto e confirmação foram enviadas. Confira o resultado na sala.':kind==='result'?'Placar e foto enviados. Aguardando a confirmação do rival.':kind==='dispute'?'Contestação enviada. O resultado aguarda revisão.':kind==='issue'?'Problema registrado para a equipe. A partida continua em andamento.':kind==='issue-review'?'Decisão sobre o problema registrada.':kind==='review'?'Resultado revisado e registrado.':'Perfil atualizado.');
  }catch(e){if(['signup','login','onboarding'].includes(kind))accountError(form,e);else if(kind==='duel'){ui.duelError=e.message;const error=$('composerError');if(error){error.textContent=e.message;error.hidden=false;}toast(e.message);}else if(kind==='join')joinFeedback(e.message);else fail(e.message);}finally{busy=false;if(submit?.isConnected){submit.disabled=false;if(submitLabel!==undefined)submit.textContent=submitLabel;submit.removeAttribute?.('aria-busy');}if(kind==='chat')updateChatControls();flushDeferredRender();}
 });
 $('modal').addEventListener('cancel',event=>{event.preventDefault();closeModal();});
@@ -1067,7 +1133,7 @@ setInterval(async()=>{
  try{
   const latest=await API.getArena({compact:true});
   if(profile()?.id!==owner||latest.user?.id!==owner||revision!==arenaSyncRevision)return;
-  const changed=previous!==arenaFingerprint(latest);arena=latest;deferredRender.mark(changed);announceNotifications(latest);if($('roomSyncStatus'))$('roomSyncStatus').textContent='';if(['arena','salas'].includes(ui.view))await loadPublicRooms(owner);
+  const changed=previous!==arenaFingerprint(latest);arena=latest;deferredRender.mark(changed);announceNotifications(latest);syncFeedback(false);if(['arena','salas'].includes(ui.view))await loadPublicRooms(owner);
   if(ui.view==='historico'&&document.activeElement?.id!=='historySearch'&&changed&&typeof API.getHistory==='function')await loadHistory({refresh:true});
   if(ui.view==='carteira'&&latest.walletRevision!==walletData?.revision){const before=JSON.stringify(walletData);await loadWallet({preserve:true});deferredRender.mark(before!==JSON.stringify(walletData));}
   deferredRender.mark(oldRooms!==JSON.stringify(publicRooms)||oldRoomsError!==publicRoomsError);
@@ -1077,7 +1143,7 @@ setInterval(async()=>{
    if(document.activeElement?.id==='chatText'&&ui.view==='sala'){updateRoomWhileTyping();}else render();if(action){const control=[...$('screen').querySelectorAll('[data-action]')].find(x=>x.dataset.action===action&&x.dataset.id===actionId);control?.focus({preventScroll:true});}
   }
   if(ui.view==='sala')await loadRoomChat();
- }catch(error){if(error.status===401&&profile()?.id===owner){privateChat.clear();arenaSyncRevision++;arena=null;resetAccountCaches();closeModal();render();toast('Sua sessão terminou. Entre novamente para acompanhar a partida.');return;}const feedback=$('roomSyncStatus');if(feedback)feedback.textContent='A atualização automática falhou. Use Atualizar para conferir o estado da sala.';}
+ }catch(error){if(error.status===401&&profile()?.id===owner){privateChat.clear();arenaSyncRevision++;arena=null;resetAccountCaches();closeModal();render();toast('Sua sessão terminou. Entre novamente para acompanhar a partida.');return;}if(profile()?.id===owner)syncFeedback(true);}
  finally{roomPollRunning=false;}
 },8000);
 async function start(){
@@ -1092,6 +1158,7 @@ async function start(){
  if(token&&online)invite={token};
  if(online&&profile()?.needsOnboarding)return showCompleteSignup();
  if(invite&&online)await showInvite();
+ else if(auth==='success'&&profile())await continueIntent();
  else if(token)inviteNotice('Este convite precisa da versão conectada. Nesta demonstração, use um código entre perfis neste navegador.');
 }
 start().catch(e=>{if(productionHost()){serviceUnavailable=true;arena=null;render();}else $('screen').innerHTML=`<section class='card pad'><h1>A arena não conseguiu iniciar.</h1><p>${esc(e.message)}</p><button class='btn primary' data-action='retry'>Tentar novamente</button></section>`;});

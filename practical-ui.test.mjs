@@ -1,3 +1,4 @@
+import {createPendingFlow,createResultDraftStore} from './flow-continuity.mjs';
 import {createRenderGate,filterRooms,mergeRecords} from './room-ui.mjs';
 import {createAppNotifications} from './app-notifications.mjs';
 import {createAccountTools} from './account-tools.mjs';
@@ -76,21 +77,24 @@ test('compatibility and match-rule drafts survive a deferred render before their
  const {h,duel}=await preparationHarness();h.route('#criar');const input=(id,value)=>h.listeners.input({target:{id,value,closest:()=>null}});input('matchEdition','FC privado 26');input('matchGeneration','PS5');await h.listeners.change({target:{dataset:{},id:'matchCrossplay',value:'enabled',closest:()=>null}});duel.readyBy.push(duel.readyBy.length?duel.guestId:duel.hostId);await h.intervals.find(x=>x.delay===8000).callback();await h.click('close');assert.match(h.nodes.screen.innerHTML,/value='FC privado 26'/);assert.match(h.nodes.screen.innerHTML,/value='PS5'/);assert.match(h.nodes.screen.innerHTML,/value='enabled' selected/);
  await h.submit('duel',{rivalId:'',mode:'1v1',platform:'pc',visibility:'public',gameEdition:'FC privado 26',consoleGeneration:'PS5',crossplay:'enabled'});await h.listeners.change({target:{dataset:{},id:'matchExtraTime',checked:true,closest:()=>null}});await h.listeners.change({target:{dataset:{},id:'matchPenalties',checked:true,closest:()=>null}});duel.readyBy.push(duel.readyBy.length?duel.guestId:duel.hostId);await h.intervals.find(x=>x.delay===8000).callback();await h.click('close');assert.match(h.nodes.screen.innerHTML,/name='extraTime' checked/);assert.match(h.nodes.screen.innerHTML,/name='penalties' checked/);
 });
-async function harness({initial=M.emptyState(),api={},url='https://example.test/fifabet-arena/#arena',bitmapFactory}={}){
-  const nodes={},listeners={},windowListeners={},stored=new Map([[M.STORAGE_KEY,JSON.stringify(initial)]]),copies=[],intervals=[],timers=new Map();let timerId=0;
+async function harness({initial=M.emptyState(),api={},url='https://example.test/fifabet-arena/#arena',bitmapFactory,sessionSeed={}}={}){
+  const nodes={},listeners={},windowListeners={},stored=new Map([[M.STORAGE_KEY,JSON.stringify(initial)],...Object.entries(sessionSeed)]),copies=[],intervals=[],timers=new Map();let timerId=0;
   let failWrite=false;
   function node(id){return nodes[id]??={id,innerHTML:'',textContent:'',value:'',hidden:false,open:false,isConnected:true,disabled:false,files:[],dataset:{},classList:{add(){},remove(){},toggle(){}},setAttribute(){},removeAttribute(){},remove(){},append(){},insertAdjacentHTML(_position,html){this.innerHTML+=html;},contains(){return false;},querySelector(){return null;},querySelectorAll(){return [];},focus(){document.activeElement=this;},setSelectionRange(){},showModal(){this.open=true;},close(){this.open=false;},getBoundingClientRect(){return {left:0,right:500,top:0,bottom:500};},addEventListener(name,callback){this[name]=callback;}};}
   const document={getElementById:node,activeElement:null,hidden:false,querySelectorAll(){return [];},addEventListener(name,callback){listeners[name]=callback;},createElement(tag){if(tag==='button')return {...node(`button-${copies.length}`)};assert.equal(tag,'canvas');return {width:0,height:0,getContext(){return {drawImage(){},fillRect(){}};},toBlob(callback){callback(new Blob(['photo'],{type:'image/jpeg'}));},toDataURL(){return photo;}};}};
-  const parsed=new URL(url),location={hash:parsed.hash,href:url,pathname:parsed.pathname,origin:parsed.origin};
+  const historyCalls=[];
+  const parsed=new URL(url),location={hash:parsed.hash,href:url,pathname:parsed.pathname,origin:parsed.origin,assign(value){this.assigned=value;}};
   const localStorage={getItem:key=>stored.get(key)??null,setItem(key,value){if(failWrite){failWrite=false;throw Error('quota');}stored.set(key,String(value));},removeItem:key=>stored.delete(key)};
   const API={detectBackend:async()=>null,evidenceUrl:id=>`/api/v1/evidence/${id}`,listDepositRecoveries:async()=>({deposits:[]}),getDeletionRequests:async()=>({requests:[]}),getRooms:async()=>({rooms:[]}),...api};
   const context={createRenderGate,filterRooms,mergeRecords,M,API,COUNTRY_CODES,TERMS_VERSION,createAdminPanel,accountArt,uiIcon,renderLobbyView,renderWalletView,renderHistoryView,renderRankingView,renderProfileView,confirmationClock,safeRoomCards,notificationKey,notificationLabel,preparationState,createChatState,renderChatMessages,nearChatBottom,document,localStorage,sessionStorage:localStorage,location,window:{addEventListener(name,callback){windowListeners[name]=callback;},scrollTo(){}},history:{replaceState(_state,_title,value){location.href=new URL(value,location.href).href;location.hash=new URL(location.href).hash;}},navigator:{clipboard:{async writeText(value){copies.push(value);}}},crypto,URL,Blob,console,clearTimeout(id){timers.delete(id);},setTimeout(callback,delay){const id=++timerId;timers.set(id,{callback,delay});return id;},setInterval(callback,delay){intervals.push({callback,delay});return intervals.length;},createImageBitmap:bitmapFactory||(async()=>({width:1280,height:720,close(){}})),fetch:async()=>({async blob(){return new Blob(['photo'],{type:'image/jpeg'});}}),FileReader:class{readAsDataURL(){this.result=photo;this.onload();}},FormData:class{constructor(form){this.fields=form.fields;}get(key){return this.fields[key]??null;}}};
   Object.assign(context,resultPhases,reviewTools,{AbortController,createAccountTools,renderReviewEvidence,
     createAppNotifications:options=>createAppNotifications({storage:context.localStorage,Notification:context.Notification,hidden:()=>context.document.hidden===true,onOpen:id=>{context.location.hash=`#partida/${id}`;},...options})});
+  Object.assign(context,{createPendingFlow,createResultDraftStore});
   vm.createContext(context);
   context.prepareEvidencePhoto=vm.runInContext(`(()=>{${fs.readFileSync(new URL('./image-preparation.mjs',import.meta.url),'utf8').replace(/^export /gm,'')}return preparePhoto;})()`,context);
+  context.history.pushState=(_state,_title,value)=>{historyCalls.push(value);location.href=new URL(value,location.href).href;location.hash=new URL(location.href).hash;};
   const code=source.replace(/^import .*?;\r?\n/gm,'').replace(/\nstart\(\)\.catch\(/,'\nglobalThis.__boot=start().catch(');
-  vm.runInContext(code+`\nglobalThis.practical={getState:()=>state,getArena:()=>arena,isOnline:()=>online,duels,render,getChat:()=>privateChat.current(),loadRoomChat,sendRoomChat,updateRoomWhileTyping};`,context);
+  vm.runInContext(code+`\nglobalThis.practical={getState:()=>state,getArena:()=>arena,isOnline:()=>online,duels,render,getChat:()=>privateChat.current(),loadRoomChat,sendRoomChat,updateRoomWhileTyping,setResultPhoto,restoreResultDraft,rememberResultDraft,savedResult:id=>resultDrafts.get(profile()?.id,id),continueIntent,saveAuthIntent,flow:pendingFlow,getUI:()=>ui};`,context);
   await context.__boot;
   const click=async(action,id)=>{
     const button={dataset:{action,id},disabled:false,isConnected:true};
@@ -111,8 +115,87 @@ async function harness({initial=M.emptyState(),api={},url='https://example.test/
   const route=hash=>{location.hash=hash;windowListeners.hashchange();};
   const persisted=()=>M.restore(stored.get(M.STORAGE_KEY));
   const runTimeout=delay=>{const found=[...timers].find(([,timer])=>timer.delay===delay);assert.ok(found,`Expected scheduled timeout at ${delay}ms`);timers.delete(found[0]);return found[1].callback();};
-  return {runTimeout,nodes,document,listeners,windowListeners,localStorage,location,copies,click,submit,route,intervals,api:context.practical,persisted,failNextWrite(){failWrite=true;}};
+  return {historyCalls,runTimeout,nodes,document,listeners,windowListeners,localStorage,location,copies,click,submit,route,intervals,api:context.practical,persisted,failNextWrite(){failWrite=true;}};
 }
+
+test('home offers direct continuation for a participant-owned preparation room',async()=>{
+ const {h,duel}=await preparationHarness();h.route('#arena');
+ assert.match(h.nodes.screen.innerHTML,/Continuar minha partida/);
+ assert.match(h.nodes.screen.innerHTML,new RegExp(`data-action='room' data-id='${duel.id}'`));
+ assert.match(h.nodes.screen.innerHTML,/Converse com seu rival/);
+});
+test('create flow makes public audience explicit and hides optional compatibility in a disclosure',async()=>{
+ const {h}=await preparationHarness();h.route('#criar');
+ assert.match(h.nodes.screen.innerHTML,/Encontrar um rival/);
+ assert.match(h.nodes.screen.innerHTML,/Convidar um amigo/);
+ assert.match(h.nodes.screen.innerHTML,/<details[^>]*class='wizard-compatibility'/);
+});
+test('free match avoids reserve and house-fee copy until coins are selected',async()=>{
+ const {h}=await preparationHarness();h.route('#criar');
+ await h.submit('duel',{rivalId:'',mode:'1v1',platform:'pc',visibility:'public'});
+ assert.match(h.nodes.screen.innerHTML,/Amistosa grátis/);
+ assert.doesNotMatch(h.nodes.screen.innerHTML,/Você reserva sua parte ao criar/);
+ await h.click('coin-mode','coins');
+ assert.match(h.nodes.screen.innerHTML,/Você reserva sua parte ao criar/);
+});
+test('screen actions add a browser history entry rather than replacing the previous screen',async()=>{
+ const {h}=await preparationHarness();h.route('#arena');await h.click('wallet');
+ assert.equal(h.historyCalls.length,1);assert.match(h.historyCalls[0],/#carteira$/);
+});
+test('poll failures show recovery feedback outside the match room and clear after success',async()=>{
+ let unavailable=false;const user={id:'sync-user',nickname:'Alex',publicPlayerId:'FBA-1234567890',balance:0};
+ const h=await harness({api:{detectBackend:async()=>({available:true}),loadSession:async()=>({user}),getArena:async()=>{if(unavailable)throw Error('network');return {user,duels:[],history:[],stats:{reserved:0}};}}});
+ unavailable=true;await h.intervals.find(x=>x.delay===8000).callback();
+ assert.match(h.nodes.appSyncStatus.textContent,/Reconectando/);
+ unavailable=false;await h.intervals.find(x=>x.delay===8000).callback();
+ assert.equal(h.nodes.appSyncStatus.hidden,true);
+});
+test('photo and score draft survives closing and restores only for the current account and report',async()=>{
+ const {h,duel}=await preparationHarness();await h.click('result',duel.id);
+ const form={isConnected:true,dataset:{id:duel.id,form:'result',report:''},elements:{homeScore:{value:'2'},awayScore:{value:'1'},scoreSide:{value:'guest'}},querySelector:()=>({required:true}),querySelectorAll:()=>[]};
+ const draft=h.api.setResultPhoto(form,image);await draft.photoPromise;await h.click('close');
+ assert.equal(h.api.savedResult(duel.id).fields.homeScore,'2');assert.equal(h.api.savedResult(duel.id).file,image);
+ const restored={...form,elements:{homeScore:{value:''},awayScore:{value:''},scoreSide:{value:''}}};h.nodes.modalContent.querySelector=()=>restored;
+ h.api.restoreResultDraft(duel.id,'result');await new Promise(resolve=>setImmediate(resolve));
+ assert.equal(restored.elements.homeScore.value,'2');assert.equal(restored.elements.scoreSide.value,'guest');assert.match(h.nodes.photoSelection.textContent,/Foto recuperada/);
+ await h.click('logout');assert.equal(h.api.savedResult(duel.id),null);
+});
+test('OAuth continuation resumes creation and consumes the short-lived intent without creating a room',async()=>{
+ const {h}=await preparationHarness();h.route('#arena');h.api.flow.save({action:'create',draft:{mode:'Clubes',platform:'xbox',visibility:'private',stake:'0'}});
+ await h.api.continueIntent();assert.equal(h.location.hash,'#criar');assert.equal(h.api.getUI().mode,'Clubes');assert.equal(h.api.getUI().platform,'xbox');assert.equal(h.api.flow.read(),null);
+});
+test('playing again prepares a private free draft and never reserves or creates automatically',async()=>{
+ const {h,duel}=await preparationHarness();duel.host.publicPlayerId='FBA-AAAAAAAAAA';duel.status='completed';await h.click('refresh');const before=h.api.getArena().duels.length;
+ await h.click('rematch',duel.id);assert.equal(h.location.hash,'#criar');assert.equal(h.api.getUI().visibility,'private');assert.equal(h.api.getUI().stake,'0');assert.equal(h.api.getArena().duels.length,before);
+});
+test('discarding a result draft requires confirmation and then removes only that room draft',async()=>{
+ const {h,duel}=await preparationHarness();await h.click('result',duel.id);const form={isConnected:true,dataset:{id:duel.id,form:'result',report:''},elements:{},querySelector:()=>null,querySelectorAll:()=>[]};
+ await h.api.setResultPhoto(form,image).photoPromise;await h.click('discard-result-draft',duel.id);assert.equal(h.nodes.draftDiscardConfirm.hidden,false);assert.ok(h.api.savedResult(duel.id));await h.click('confirm-discard-result',duel.id);assert.equal(h.api.savedResult(duel.id),null);
+});
+test('score fields survive closing before the user chooses a photo',async()=>{
+ const {h,duel}=await preparationHarness();await h.click('result',duel.id);
+ const form={isConnected:true,dataset:{id:duel.id,form:'result',report:'',owner:h.api.getArena().user.id},elements:{homeScore:{value:'3'},awayScore:{value:'2'}},querySelector:()=>null,querySelectorAll:()=>[]};h.nodes.modalContent.querySelector=()=>form;
+ await h.click('close');assert.equal(h.api.savedResult(duel.id)?.fields.homeScore,'3');
+ h.nodes.modal.open=true;form.elements.homeScore.value='';h.api.restoreResultDraft(duel.id,'result');assert.equal(form.elements.homeScore.value,'3');
+});
+test('logging out removes previous private wizard data before a guest continues through OAuth',async()=>{
+ const {h}=await preparationHarness();h.route('#criar');
+ h.listeners.input({target:{id:'duelRules',value:'Acordo privado da conta anterior',closest:()=>null}});h.api.getUI().stake='250';h.api.getUI().rival='FBA-AAAAAAAAAA';h.route('#arena');
+ await h.click('logout');await h.click('create');h.api.saveAuthIntent();const stored=h.api.flow.read();
+ assert.equal(stored.draft.rules,'');assert.equal(stored.draft.rival,'');assert.equal(stored.draft.stake,'0');
+});
+test('direct creation route survives the actual OAuth save and callback restore chain',async()=>{
+ const user={id:'oauth-user',nickname:'Alex',publicPlayerId:'FBA-1234567890',balance:0};const api={detectBackend:async()=>({available:true,authProviders:{google:{available:true}}}),loadSession:async()=>({user:null}),getArena:async()=>({user,duels:[],history:[],stats:{reserved:0}}),socialLoginUrl:()=>'/api/v1/auth/oauth/google'};
+ const h=await harness({api,url:'https://example.test/#criar'});await h.click('login');await h.click('oauth','google');assert.equal(h.location.assigned,'/api/v1/auth/oauth/google');
+ const pending=h.localStorage.getItem('fifago-pending-flow-v1');assert.ok(pending,'Creation intent must be saved before navigating to Google');
+ const returned=await harness({api:{...api,loadSession:async()=>({user})},url:'https://example.test/?auth=success#arena',sessionSeed:{'fifago-pending-flow-v1':pending}});
+ assert.equal(returned.location.hash,'#criar');assert.equal(returned.api.flow.read(),null);
+});
+test('explicit discard cannot recapture scores from the still-open previous form',async()=>{
+ const {h,duel}=await preparationHarness();await h.click('result',duel.id);
+ const form={isConnected:true,dataset:{id:duel.id,form:'result',report:'',owner:h.api.getArena().user.id},elements:{homeScore:{value:'3'},awayScore:{value:'2'}},querySelector:()=>null,querySelectorAll:()=>[]};h.nodes.modalContent.querySelector=()=>form;
+ await h.click('discard-result-draft',duel.id);await h.click('confirm-discard-result',duel.id);assert.equal(h.api.savedResult(duel.id),null);
+});
 async function fundLocal(h){await h.click('deposit');await h.submit('deposit',{amount:'1000',method:'pix',installments:'1'});const deposit=M.current(h.persisted()).depositRequests[0];assert.ok(deposit,JSON.stringify({modal:h.nodes.modalContent?.innerHTML,error:h.nodes.dialogError?.textContent,room:h.nodes.roomError?.textContent,toast:h.nodes.toast?.textContent}));await h.click('deposit-confirm',deposit.id);await h.click('close');h.route('#arena');}
 async function twoPlayers(){
   const h=await harness();await h.click('signup');await h.submit('signup',{nickname:'Alex'});const a=h.api.getState().activeProfileId;
@@ -583,7 +666,7 @@ test('Arena shows public rivals separately from own rooms without the home hero'
 });
 test('Arena personal tab preserves private rooms and their actions while home offers a short directory link',async()=>{
  const {api}=directoryFixture(),h=await harness({api});
- assert.match(h.nodes.screen.innerHTML,/data-action='browse-arena'/);assert.doesNotMatch(h.nodes.screen.innerHTML,/data-action='cancel'|arena-room-grid/);
+ assert.match(h.nodes.screen.innerHTML,/data-action=['"']browse-arena['"']/);assert.doesNotMatch(h.nodes.screen.innerHTML,/data-action='cancel'|arena-room-grid/);
  await h.click('browse-arena');assert.equal(h.location.hash,'#salas');await h.click('arena-tab','mine');
  assert.match(h.nodes.screen.innerHTML,/data-action='room' data-id='own-private'/);assert.match(h.nodes.screen.innerHTML,/data-action='cancel' data-id='own-private'/);assert.doesNotMatch(h.nodes.screen.innerHTML,/data-action='public-room'|arena-room-code/);
  assert.match(h.nodes.screen.innerHTML,/250 <span>Joga aí Coin por jogador/);

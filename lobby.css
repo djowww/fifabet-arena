@@ -481,3 +481,11 @@
   .arena-home-link { align-items: stretch; flex-direction: column; padding: 18px; gap: 16px; }
   .arena-home-link > .btn { width: 100%; min-height: 48px; }
 }
+
+/* Continuation and connection feedback share the current app surfaces. */
+.home-continuation{margin:0 0 24px;padding:20px 24px;background:var(--card,#17241b);border:1px solid var(--line);border-radius:14px}
+.home-continuation h2{font-size:1.35rem;margin:0}.home-continuation ul{list-style:none;padding:0;margin:12px 0 0}.home-continuation li{display:flex;gap:20px;align-items:center;justify-content:space-between;padding:16px 0;border-top:1px solid var(--line)}.home-continuation li>div{min-width:0}.home-continuation strong{display:block;font-size:1rem;overflow-wrap:anywhere}.home-continuation span{display:block;color:var(--muted);font-size:.875rem;margin-top:4px}.home-continuation p{font-size:.9375rem;line-height:1.5;margin:6px 0 0}.home-continuation .btn{flex-shrink:0;min-height:48px}
+.app-sync-banner:not([hidden]){display:flex;gap:16px;align-items:center;justify-content:space-between;padding:12px 28px;border-bottom:1px solid var(--line);background:var(--card,#17241b)}.app-sync-banner p{font-size:.9375rem;margin:0;line-height:1.5}
+.page-footer .footer-links a{display:inline-flex;align-items:center;min-height:44px;padding:8px 4px;font-size:.8125rem;line-height:1.5}.page-footer .footer-links{gap:8px 16px}
+.result-draft-toolbar{display:flex;gap:12px}.match-result-form #resultDraftNote{margin-top:18px}
+@media(max-width:600px){.home-continuation{padding:16px}.home-continuation li{align-items:flex-start;flex-direction:column;gap:12px}.home-continuation li .btn{width:100%}.home-continuation .account-section-head{align-items:flex-start;flex-direction:column;gap:4px}.app-sync-banner:not([hidden]){padding:12px 20px;align-items:flex-start;flex-direction:column;gap:2px}}

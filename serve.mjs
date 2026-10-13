@@ -14,6 +14,7 @@ function setSecurityHeaders(response) {
   response.setHeader("Content-Security-Policy", contentSecurityPolicy);
 }
 const files = new Map([
+  ["/flow-continuity.mjs", ["flow-continuity.mjs", "text/javascript; charset=utf-8"]],
   ["/manifest.webmanifest", ["manifest.webmanifest", "application/manifest+json; charset=utf-8"]],
   ["/sw.js", ["sw.js", "text/javascript; charset=utf-8"]],
   ["/pwa.mjs", ["pwa.mjs", "text/javascript; charset=utf-8"]],

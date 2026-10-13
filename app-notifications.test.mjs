@@ -36,6 +36,42 @@ test('notice contains no private payload and opens only its validated room for t
   h.app.feed(ALICE,[event('unsafe',{duelId:'../secret'}),event('token',{duelId:'token-invite'}),event('html',{duelId:'<script>'})]);assert.equal(h.emitted.length,1);
 });
 
+test('known room events give a concise next action without exposing server payloads',async()=>{
+  const h=fixture({permission:'granted'});await h.app.toggle(ALICE);h.app.feed(ALICE,[]);
+  const expected={
+    invite:'Você recebeu um convite. Abra a partida e confira as regras antes de aceitar.',
+    joined:'Seu rival entrou na sala. Abra a partida para conversar e confirmar o início.',
+    ready:'Seu rival está pronto. Abra a sala e confirme o início da partida.',
+    waiting:'Seu rival está esperando. Abra a sala para continuar a partida.',
+    result_confirmation:'Seu rival enviou o placar. Abra a partida para conferir e enviar sua foto.',
+    review:'O prazo da partida terminou. Abra a sala para enviar o resultado ou pedir ajuda.'
+  };
+  for(const [type,body]of Object.entries(expected)){
+    h.app.feed(ALICE,[event(type,{type,message:'Nome privado venceu R$ 999',nickname:'Nome privado',amount:999,publicMatchId:'FG-1234567890',evidenceUrl:'secret-photo'})]);
+    const notice=h.emitted.at(-1);assert.equal(notice.options.body,body);
+    assert.equal(notice.title,'Fifa GO');assert.equal(notice.options.tag,'fifago-match-update');
+    assert.doesNotMatch(JSON.stringify(notice.options),/Nome privado|999|FG-1234567890|secret-photo/);
+    notice.onclick();assert.equal(h.opened.at(-1),ROOM);
+  }
+  assert.equal(h.emitted.length,Object.keys(expected).length);assert.equal(h.requests,0);
+});
+
+test('expired result confirmation directs users to review instead of requesting a late photo',async()=>{
+  const h=fixture({permission:'granted'});await h.app.toggle(ALICE);h.app.feed(ALICE,[]);
+  h.app.feed(ALICE,[event('expired',{type:'result_confirmation',message:'O prazo de confirmação terminou. A equipe avaliará o resultado.'})]);
+  assert.equal(h.emitted[0].options.body,'O prazo de confirmação terminou. Abra a partida para acompanhar a análise da equipe.');
+  assert.doesNotMatch(h.emitted[0].options.body,/envie|enviar sua foto|cinco minutos/);
+});
+
+test('unknown or inherited event types keep the generic private fallback',async()=>{
+  const h=fixture({permission:'granted'});await h.app.toggle(ALICE);h.app.feed(ALICE,[]);
+  for(const type of ['new_server_type','constructor','__proto__',null,{toString(){throw Error('untrusted type')}}]){
+    h.app.feed(ALICE,[event(`unknown-${h.emitted.length}`,{type,message:'secret'} )]);
+    assert.equal(h.emitted.at(-1).options.body,'Há uma atualização na sua partida. Abra a arena para conferir.');
+  }
+  assert.equal(h.emitted.length,5);
+});
+
 test('account changes and reset prevent previous-account callbacks and preserve separate preferences',async()=>{
   const h=fixture({permission:'granted'});await h.app.toggle(ALICE);h.app.feed(ALICE,[]);h.app.feed(ALICE,[event('alice')]);const old=h.emitted[0];
   assert.equal(h.app.status(BOB).enabled,false);old.onclick();assert.equal(h.opened.length,0);

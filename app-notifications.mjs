@@ -1,6 +1,19 @@
 const UUID=/^[a-f0-9]{8}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{12}$/i;
 const preferenceKey=owner=>`fifago:browser-notifications:v1:${owner}`;
 const validOwner=owner=>typeof owner==='string'&&UUID.test(owner)?owner.toLowerCase():null;
+const noticeBodies=Object.freeze({
+  invite:'Você recebeu um convite. Abra a partida e confira as regras antes de aceitar.',
+  joined:'Seu rival entrou na sala. Abra a partida para conversar e confirmar o início.',
+  ready:'Seu rival está pronto. Abra a sala e confirme o início da partida.',
+  waiting:'Seu rival está esperando. Abra a sala para continuar a partida.',
+  result_confirmation:'Seu rival enviou o placar. Abra a partida para conferir e enviar sua foto.',
+  review:'O prazo da partida terminou. Abra a sala para enviar o resultado ou pedir ajuda.'
+});
+function noticeBody(event){
+  // Browser surfaces may appear on a lock screen: never interpolate private payloads.
+  if(event.type==='result_confirmation'&&event.message==='O prazo de confirmação terminou. A equipe avaliará o resultado.')return 'O prazo de confirmação terminou. Abra a partida para acompanhar a análise da equipe.';
+  return typeof event.type==='string'&&Object.hasOwn(noticeBodies,event.type)?noticeBodies[event.type]:'Há uma atualização na sua partida. Abra a arena para conferir.';
+}
 
 /** Optional page-open notifications. feed() never asks for browser permission. */
 export function createAppNotifications(options={}){
@@ -52,7 +65,7 @@ export function createAppNotifications(options={}){
       let background=false;try{background=hidden()===true;}catch{}if(!background)continue;
       const started=generation,roomId=event.duelId;
       try{
-        const notice=new BrowserNotification('Fifa GO',{body:'Há uma atualização na sua partida. Abra a arena para conferir.',tag:'fifago-match-update'});
+        const notice=new BrowserNotification('Fifa GO',{body:noticeBody(event),tag:'fifago-match-update'});
         notice.onclick=()=>{
           try{notice.close();}catch{}
           if(activeOwner!==owner||generation!==started||!readStatus(owner).enabled)return;
